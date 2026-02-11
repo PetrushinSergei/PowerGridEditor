@@ -30,6 +30,7 @@
         {
             this.panel1 = new System.Windows.Forms.Panel();
             this.buttonImportData = new System.Windows.Forms.Button();
+            this.buttonOpenReport = new System.Windows.Forms.Button();
             this.buttonExportData = new System.Windows.Forms.Button();
             this.buttonClearAll = new System.Windows.Forms.Button();
             this.buttonDelete = new System.Windows.Forms.Button();
@@ -45,6 +46,7 @@
             // 
             this.panel1.BackColor = System.Drawing.SystemColors.ActiveCaption;
             this.panel1.Controls.Add(this.buttonImportData);
+            this.panel1.Controls.Add(this.buttonOpenReport);
             this.panel1.Controls.Add(this.buttonExportData);
             this.panel1.Controls.Add(this.buttonClearAll);
             this.panel1.Controls.Add(this.buttonDelete);
@@ -69,6 +71,18 @@
             this.buttonImportData.Text = "Импорт данных";
             this.buttonImportData.UseVisualStyleBackColor = true;
             this.buttonImportData.Click += new System.EventHandler(this.buttonImportData_Click);
+            // 
+            // buttonOpenReport
+            // 
+            this.buttonOpenReport.FlatAppearance.BorderSize = 2;
+            this.buttonOpenReport.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.buttonOpenReport.Location = new System.Drawing.Point(1180, 12);
+            this.buttonOpenReport.Name = "buttonOpenReport";
+            this.buttonOpenReport.Size = new System.Drawing.Size(140, 30);
+            this.buttonOpenReport.TabIndex = 8;
+            this.buttonOpenReport.Text = "Окно отчёта";
+            this.buttonOpenReport.UseVisualStyleBackColor = true;
+            this.buttonOpenReport.Click += new System.EventHandler(this.buttonOpenReport_Click);
             // 
             // buttonExportData
             // 
@@ -192,6 +206,7 @@
         private System.Windows.Forms.Button buttonAddBaseNode;
         private System.Windows.Forms.Button buttonExportData;
         private System.Windows.Forms.Button buttonImportData;
+        private System.Windows.Forms.Button buttonOpenReport;
     }
 }
 
