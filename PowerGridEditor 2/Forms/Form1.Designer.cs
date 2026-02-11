@@ -39,6 +39,7 @@
             this.panel2 = new System.Windows.Forms.Panel();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.toolStripStatusLabelClock = new System.Windows.Forms.ToolStripStatusLabel();
+            this.labelTopClock = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
             this.statusStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -46,6 +47,7 @@
             // panel1
             // 
             this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(224)))), ((int)(((byte)(241)))));
+            this.panel1.Controls.Add(this.labelTopClock);
             this.panel1.Controls.Add(this.labelGateway);
             this.panel1.Controls.Add(this.labelMask);
             this.panel1.Controls.Add(this.labelIp);
@@ -69,6 +71,18 @@
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(1500, 92);
             this.panel1.TabIndex = 0;
+            // 
+            // labelTopClock
+            // 
+            this.labelTopClock.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.labelTopClock.AutoSize = true;
+            this.labelTopClock.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.labelTopClock.Location = new System.Drawing.Point(1285, 8);
+            this.labelTopClock.Name = "labelTopClock";
+            this.labelTopClock.Size = new System.Drawing.Size(106, 19);
+            this.labelTopClock.TabIndex = 18;
+            this.labelTopClock.Text = "00:00:00";
+            // 
             // 
             // labelGateway
             // 
@@ -337,5 +351,6 @@
         private System.Windows.Forms.Label labelGateway;
         private System.Windows.Forms.StatusStrip statusStrip1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabelClock;
+        private System.Windows.Forms.Label labelTopClock;
     }
 }

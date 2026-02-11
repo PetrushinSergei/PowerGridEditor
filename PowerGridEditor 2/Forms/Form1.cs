@@ -29,6 +29,16 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
+        private sealed class AdapterEntry
+        {
+            public string Name { get; set; }
+            public string Description { get; set; }
+            public override string ToString()
+            {
+                return $"{Name} ({Description})";
+            }
+        }
+
         public Form1()
         {
             InitializeComponent();
@@ -286,6 +296,7 @@ namespace PowerGridEditor
 
         private void Panel2_DoubleClick(object sender, EventArgs e)
         {
+            isDragging = false;
             if (selectedElement != null)
             {
                 EditSelectedElement();
@@ -1590,18 +1601,9 @@ namespace PowerGridEditor
 
         private DialogResult ShowEditorForm(Form form)
         {
-            RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
             form.Location = GetNextChildWindowLocation();
-            form.Show(this);
-
-            while (form.Visible)
-            {
-                Application.DoEvents();
-                System.Threading.Thread.Sleep(15);
-            }
-
-            return form.DialogResult;
+            return form.ShowDialog(this);
         }
 
         private void RegisterOpenedWindow(Form form)
@@ -1652,8 +1654,15 @@ namespace PowerGridEditor
         private void StartClock()
         {
             uiClockTimer = new System.Windows.Forms.Timer { Interval = 1000 };
-            uiClockTimer.Tick += (s, e) => toolStripStatusLabelClock.Text = $"Время: {DateTime.Now:HH:mm:ss}";
-            toolStripStatusLabelClock.Text = $"Время: {DateTime.Now:HH:mm:ss}";
+            uiClockTimer.Tick += (s, e) =>
+            {
+                string time = DateTime.Now.ToString("HH:mm:ss");
+                toolStripStatusLabelClock.Text = $"Время: {time}";
+                labelTopClock.Text = time;
+            };
+            string initialTime = DateTime.Now.ToString("HH:mm:ss");
+            toolStripStatusLabelClock.Text = $"Время: {initialTime}";
+            labelTopClock.Text = initialTime;
             uiClockTimer.Start();
         }
 
@@ -1663,7 +1672,11 @@ namespace PowerGridEditor
             foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
             {
                 if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
-                comboBoxAdapters.Items.Add(adapter.Name);
+                comboBoxAdapters.Items.Add(new AdapterEntry
+                {
+                    Name = adapter.Name,
+                    Description = adapter.Description
+                });
             }
 
             if (comboBoxAdapters.Items.Count > 0)
@@ -1688,7 +1701,14 @@ namespace PowerGridEditor
                 return;
             }
 
-            string adapter = comboBoxAdapters.SelectedItem.ToString();
+            var selectedAdapter = comboBoxAdapters.SelectedItem as AdapterEntry;
+            if (selectedAdapter == null)
+            {
+                MessageBox.Show("Не удалось определить выбранный адаптер", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string adapter = selectedAdapter.Name;
             string args = $"interface ip set address name=\"{adapter}\" static {textBoxStaticIp.Text} {textBoxMask.Text} {textBoxGateway.Text}";
 
             try
