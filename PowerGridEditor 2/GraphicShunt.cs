@@ -58,39 +58,6 @@ namespace PowerGridEditor
             }
         }
 
-        private Point GetNodeCenter(object node)
-        {
-            if (node is GraphicNode graphicNode)
-            {
-                return new Point(
-                    graphicNode.Location.X + GraphicNode.NodeSize.Width / 2,
-                    graphicNode.Location.Y + GraphicNode.NodeSize.Height / 2
-                );
-            }
-            else if (node is GraphicBaseNode graphicBaseNode)
-            {
-                return new Point(
-                    graphicBaseNode.Location.X + GraphicBaseNode.NodeSize.Width / 2,
-                    graphicBaseNode.Location.Y + GraphicBaseNode.NodeSize.Height / 2
-                );
-            }
-
-            return Point.Empty;
-        }
-
-        private void DrawShuntInfo(Graphics g, Point shuntCenter)
-        {
-            string info = $"X={Data.ReactiveResistance}";
-
-            using (Font font = new Font("Arial", 7))
-            using (Brush brush = new SolidBrush(Color.DarkBlue))
-            using (StringFormat format = new StringFormat())
-            {
-                format.Alignment = StringAlignment.Center;
-                // Рисуем надпись над шунтом
-                g.DrawString(info, font, brush, shuntCenter.X, shuntCenter.Y - 20, format);
-            }
-        }
 
         public bool Contains(Point point)
         {
@@ -102,7 +69,7 @@ namespace PowerGridEditor
             // Обновляем позицию относительно центра узла
             if (ConnectedNode != null)
             {
-                Point nodeCenter = GetNodeCenter(ConnectedNode);
+                Point nodeCenter = NodeGraphicsHelper.GetNodeCenter(ConnectedNode);
 
                 // Размещаем шунт справа от узла на фиксированном расстоянии
                 Location = new Point(
@@ -115,11 +82,7 @@ namespace PowerGridEditor
         // Метод для получения номера подключенного узла
         public int GetConnectedNodeNumber()
         {
-            if (ConnectedNode is GraphicNode graphicNode)
-                return graphicNode.Data.Number;
-            else if (ConnectedNode is GraphicBaseNode graphicBaseNode)
-                return graphicBaseNode.Data.Number;
-            return 0;
+            return NodeGraphicsHelper.GetNodeNumber(ConnectedNode);
         }
     }
 }
