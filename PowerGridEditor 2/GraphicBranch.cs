@@ -22,8 +22,8 @@ namespace PowerGridEditor
         {
             if (StartNode == null || EndNode == null) return;
 
-            Point startCenter = GetNodeCenter(StartNode);
-            Point endCenter = GetNodeCenter(EndNode);
+            Point startCenter = NodeGraphicsHelper.GetNodeCenter(StartNode);
+            Point endCenter = NodeGraphicsHelper.GetNodeCenter(EndNode);
 
             // Выбираем цвет в зависимости от выделения
             Pen pen = IsSelected ? new Pen(Color.Red, 3) : new Pen(Color.Black, 2);
@@ -36,25 +36,6 @@ namespace PowerGridEditor
             DrawBranchInfo(g, startCenter, endCenter);
         }
 
-        private Point GetNodeCenter(object node)
-        {
-            if (node is GraphicNode graphicNode)
-            {
-                return new Point(
-                    graphicNode.Location.X + GraphicNode.NodeSize.Width / 2,
-                    graphicNode.Location.Y + GraphicNode.NodeSize.Height / 2
-                );
-            }
-            else if (node is GraphicBaseNode graphicBaseNode)
-            {
-                return new Point(
-                    graphicBaseNode.Location.X + GraphicBaseNode.NodeSize.Width / 2,
-                    graphicBaseNode.Location.Y + GraphicBaseNode.NodeSize.Height / 2
-                );
-            }
-
-            return Point.Empty;
-        }
 
         private void DrawBranchInfo(Graphics g, Point start, Point end)
         {
@@ -79,10 +60,10 @@ namespace PowerGridEditor
         {
             if (StartNode == null || EndNode == null) return false;
 
-            Point start = GetNodeCenter(StartNode);
-            Point end = GetNodeCenter(EndNode);
+            Point start = NodeGraphicsHelper.GetNodeCenter(StartNode);
+            Point end = NodeGraphicsHelper.GetNodeCenter(EndNode);
 
-            return IsPointNearLine(point, start, end, 8); // Увеличил допуск для лучшего выделения
+            return IsPointNearLine(point, start, end, 8);
         }
 
         private bool IsPointNearLine(Point point, Point lineStart, Point lineEnd, double tolerance)
@@ -110,20 +91,12 @@ namespace PowerGridEditor
 
         public int GetStartNodeNumber()
         {
-            if (StartNode is GraphicNode graphicNode)
-                return graphicNode.Data.Number;
-            else if (StartNode is GraphicBaseNode graphicBaseNode)
-                return graphicBaseNode.Data.Number;
-            return 0;
+            return NodeGraphicsHelper.GetNodeNumber(StartNode);
         }
 
         public int GetEndNodeNumber()
         {
-            if (EndNode is GraphicNode graphicNode)
-                return graphicNode.Data.Number;
-            else if (EndNode is GraphicBaseNode graphicBaseNode)
-                return graphicBaseNode.Data.Number;
-            return 0;
+            return NodeGraphicsHelper.GetNodeNumber(EndNode);
         }
     }
 }

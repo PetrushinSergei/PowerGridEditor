@@ -72,6 +72,7 @@
     <Compile Include="GraphicBaseNode.cs" />
     <Compile Include="GraphicBranch.cs" />
     <Compile Include="GraphicNode.cs" />
+    <Compile Include="NodeGraphicsHelper.cs" />
     <Compile Include="GraphicShunt.cs" />
     <Compile Include="Models\Node.cs" />
     <Compile Include="Forms\NodeForm.cs">
