@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -20,6 +23,7 @@ namespace PowerGridEditor
         private bool isDragging = false;
         private ContextMenuStrip contextMenuStrip;
         private readonly Dictionary<Type, List<Form>> openedEditorWindows = new Dictionary<Type, List<Form>>();
+        private System.Windows.Forms.Timer uiClockTimer;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -31,6 +35,7 @@ namespace PowerGridEditor
             SetupCanvas();
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
+            ConfigureToolbarStyle();
         }
 
         private void SetupCanvas()
@@ -1588,7 +1593,15 @@ namespace PowerGridEditor
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
             form.Location = GetNextChildWindowLocation();
-            return form.ShowDialog(this);
+            form.Show(this);
+
+            while (form.Visible)
+            {
+                Application.DoEvents();
+                System.Threading.Thread.Sleep(15);
+            }
+
+            return form.DialogResult;
         }
 
         private void RegisterOpenedWindow(Form form)
@@ -1623,9 +1636,98 @@ namespace PowerGridEditor
             reportForm.Show(this);
         }
 
+        private void ConfigureToolbarStyle()
+        {
+            panel1.Padding = new Padding(8);
+            foreach (Control ctrl in panel1.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    btn.BackColor = Color.FromArgb(233, 242, 252);
+                    btn.ForeColor = Color.FromArgb(24, 50, 82);
+                }
+            }
+        }
+
+        private void StartClock()
+        {
+            uiClockTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+            uiClockTimer.Tick += (s, e) => toolStripStatusLabelClock.Text = $"Время: {DateTime.Now:HH:mm:ss}";
+            toolStripStatusLabelClock.Text = $"Время: {DateTime.Now:HH:mm:ss}";
+            uiClockTimer.Start();
+        }
+
+        private void LoadNetworkAdapters()
+        {
+            comboBoxAdapters.Items.Clear();
+            foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                comboBoxAdapters.Items.Add(adapter.Name);
+            }
+
+            if (comboBoxAdapters.Items.Count > 0)
+            {
+                comboBoxAdapters.SelectedIndex = 0;
+            }
+        }
+
+        private void buttonApplyStaticIp_Click(object sender, EventArgs e)
+        {
+            if (comboBoxAdapters.SelectedItem == null)
+            {
+                MessageBox.Show("Выберите сетевой адаптер", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!IPAddress.TryParse(textBoxStaticIp.Text, out _) ||
+                !IPAddress.TryParse(textBoxMask.Text, out _) ||
+                !IPAddress.TryParse(textBoxGateway.Text, out _))
+            {
+                MessageBox.Show("Проверьте корректность IP/маски/шлюза", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string adapter = comboBoxAdapters.SelectedItem.ToString();
+            string args = $"interface ip set address name=\"{adapter}\" static {textBoxStaticIp.Text} {textBoxMask.Text} {textBoxGateway.Text}";
+
+            try
+            {
+                var process = new Process();
+                process.StartInfo.FileName = "netsh";
+                process.StartInfo.Arguments = args;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.Start();
+                process.WaitForExit();
+
+                if (process.ExitCode == 0)
+                {
+                    MessageBox.Show("Статический IP успешно применён", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    string error = process.StandardError.ReadToEnd();
+                    if (string.IsNullOrWhiteSpace(error))
+                    {
+                        error = process.StandardOutput.ReadToEnd();
+                    }
+
+                    MessageBox.Show("Не удалось применить IP: " + error, "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка конфигурации сети: " + ex.Message, "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
-
+            LoadNetworkAdapters();
+            StartClock();
         }
     }
 }

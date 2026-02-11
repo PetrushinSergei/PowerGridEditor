@@ -14,6 +14,7 @@ namespace PowerGridEditor
         public Node MyNode { get; private set; }
         private Timer liveTimer;
         private string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+        public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
         {
@@ -86,6 +87,16 @@ namespace PowerGridEditor
                                 ushort[] res = await master.ReadHoldingRegistersAsync(slaveId, addr, 1);
                                 paramBoxes[i].Text = res[0].ToString();
                                 paramBoxes[i].ReadOnly = true;
+
+                                double value = res[0];
+                                if (i == 1) MyNode.InitialVoltage = value;
+                                else if (i == 2) MyNode.NominalActivePower = value;
+                                else if (i == 3) MyNode.NominalReactivePower = value;
+                                else if (i == 4) MyNode.ActivePowerGeneration = value;
+                                else if (i == 5) MyNode.ReactivePowerGeneration = value;
+                                else if (i == 6) MyNode.FixedVoltageModule = value;
+                                else if (i == 7) MyNode.MinReactivePower = value;
+                                else if (i == 8) MyNode.MaxReactivePower = value;
                             }
                         }
                         else
@@ -94,6 +105,8 @@ namespace PowerGridEditor
                         }
                     }
                 }
+
+                TelemetryUpdated?.Invoke(this, EventArgs.Empty);
             }
             catch { /* Ошибка связи */ }
         }

@@ -8,13 +8,38 @@ namespace PowerGridEditor
 {
     public partial class ReportForm : Form
     {
+        private List<object> _elements;
+        private List<GraphicBranch> _branches;
+        private List<GraphicShunt> _shunts;
+        private readonly Timer refreshTimer;
+
         public ReportForm()
         {
             InitializeComponent();
+            refreshTimer = new Timer { Interval = 1000 };
+            refreshTimer.Tick += (s, e) => RefreshReport();
+            refreshTimer.Start();
+            FormClosing += (s, e) => refreshTimer.Stop();
         }
 
         public void SetNetworkSummary(List<object> elements, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
+            _elements = elements;
+            _branches = branches;
+            _shunts = shunts;
+            RefreshReport();
+        }
+
+        private void RefreshReport()
+        {
+            if (_elements == null || _branches == null || _shunts == null)
+            {
+                return;
+            }
+
+            var elements = _elements;
+            var branches = _branches;
+            var shunts = _shunts;
             var sbInput = new StringBuilder();
             var sbResults = new StringBuilder();
             var sbLoss = new StringBuilder();
@@ -36,6 +61,7 @@ namespace PowerGridEditor
 
             sbInput.AppendLine($"Число узлов n = {nodes.Count}      Число ветвей m = {branches.Count}");
             sbInput.AppendLine("Входные данные для расчета потокораспределения");
+            sbInput.AppendLine($"Обновлено: {DateTime.Now:HH:mm:ss}");
             sbInput.AppendLine();
             sbInput.AppendLine("Узел   Тип   Unom      P        Q");
             foreach (var n in nodes)
