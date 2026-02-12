@@ -10,6 +10,12 @@ namespace PowerGridEditor
 {
     public class TelemetryEditorForm : Form
     {
+        private sealed class GridRowTag
+        {
+            public string Key { get; set; }
+            public dynamic Data { get; set; }
+        }
+
         private readonly Func<IEnumerable<object>> elementsProvider;
         private readonly Func<IEnumerable<GraphicBranch>> branchesProvider;
         private readonly Func<IEnumerable<GraphicShunt>> shuntsProvider;
@@ -222,7 +228,7 @@ namespace PowerGridEditor
                     data is Node ? data.NodeID : data.DeviceID,
                     "Пинг");
 
-                grid.Rows[index].Tag = Tuple.Create(row.Key, data);
+                grid.Rows[index].Tag = new GridRowTag { Key = row.Key, Data = data };
             }
         }
 
@@ -231,10 +237,10 @@ namespace PowerGridEditor
             if (e.RowIndex < 0) return;
             var row = grid.Rows[e.RowIndex];
             if (row.Tag == null) return;
-            if (!(row.Tag is Tuple<string, object> tag)) return;
+            if (!(row.Tag is GridRowTag tag)) return;
 
-            dynamic data = tag.Item2;
-            string key = tag.Item1;
+            dynamic data = tag.Data;
+            string key = tag.Key;
 
             if (double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double value))
             {

@@ -252,6 +252,15 @@ namespace PowerGridEditor
         {
             if (telemetryEditorForm != null && !telemetryEditorForm.IsDisposed)
             {
+                if (!telemetryEditorForm.Visible)
+                {
+                    telemetryEditorForm.Show(this);
+                }
+                if (telemetryEditorForm.WindowState == FormWindowState.Minimized)
+                {
+                    telemetryEditorForm.WindowState = FormWindowState.Normal;
+                }
+                telemetryEditorForm.BringToFront();
                 telemetryEditorForm.Focus();
                 return;
             }
@@ -264,6 +273,7 @@ namespace PowerGridEditor
             RegisterOpenedWindow(telemetryEditorForm);
             telemetryEditorForm.StartPosition = FormStartPosition.Manual;
             telemetryEditorForm.Location = GetNextChildWindowLocation();
+            telemetryEditorForm.FormClosed += (s, args) => telemetryEditorForm = null;
             telemetryEditorForm.Show(this);
         }
 
@@ -271,6 +281,15 @@ namespace PowerGridEditor
         {
             if (clientSettingsForm != null && !clientSettingsForm.IsDisposed)
             {
+                if (!clientSettingsForm.Visible)
+                {
+                    clientSettingsForm.Show(this);
+                }
+                if (clientSettingsForm.WindowState == FormWindowState.Minimized)
+                {
+                    clientSettingsForm.WindowState = FormWindowState.Normal;
+                }
+                clientSettingsForm.BringToFront();
                 clientSettingsForm.Focus();
                 return;
             }
@@ -279,6 +298,7 @@ namespace PowerGridEditor
             RegisterOpenedWindow(clientSettingsForm);
             clientSettingsForm.StartPosition = FormStartPosition.Manual;
             clientSettingsForm.Location = GetNextChildWindowLocation();
+            clientSettingsForm.FormClosed += (s, args) => clientSettingsForm = null;
             clientSettingsForm.Show(this);
         }
 
