@@ -593,18 +593,33 @@ namespace PowerGridEditor
         {
             foreach (var element in graphicElements)
             {
-                if (element is GraphicNode node && node.Contains(modelPoint)) return node;
-                if (element is GraphicBaseNode baseNode && baseNode.Contains(modelPoint)) return baseNode;
+                var node = element as GraphicNode;
+                if (node != null && node.Contains(modelPoint))
+                {
+                    return node;
+                }
+
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode != null && baseNode.Contains(modelPoint))
+                {
+                    return baseNode;
+                }
             }
 
             foreach (var shunt in graphicShunts)
             {
-                if (shunt.Contains(modelPoint)) return shunt;
+                if (shunt.Contains(modelPoint))
+                {
+                    return shunt;
+                }
             }
 
             foreach (var branch in graphicBranches)
             {
-                if (branch.Contains(modelPoint)) return branch;
+                if (branch.Contains(modelPoint))
+                {
+                    return branch;
+                }
             }
 
             return null;
@@ -727,17 +742,24 @@ namespace PowerGridEditor
 
                 foreach (var target in GetDragTargets(selectedElement))
                 {
-                    if (target is GraphicNode gn)
+                    var gn = target as GraphicNode;
+                    if (gn != null)
                     {
                         gn.Location = new Point(gn.Location.X + dx, gn.Location.Y + dy);
                         UpdateShuntPositions(gn);
+                        continue;
                     }
-                    else if (target is GraphicBaseNode bn)
+
+                    var bn = target as GraphicBaseNode;
+                    if (bn != null)
                     {
                         bn.Location = new Point(bn.Location.X + dx, bn.Location.Y + dy);
                         UpdateShuntPositions(bn);
+                        continue;
                     }
-                    else if (target is GraphicShunt gs)
+
+                    var gs = target as GraphicShunt;
+                    if (gs != null)
                     {
                         gs.Location = new Point(gs.Location.X + dx, gs.Location.Y + dy);
                     }
