@@ -30,6 +30,16 @@ namespace PowerGridEditor
         private Button buttonCalcSettings;
         private System.Windows.Forms.Timer telemetryTimer;
         private bool telemetryPollingInProgress = false;
+        private readonly HashSet<object> selectedElements = new HashSet<object>();
+        private bool isMarqueeSelecting = false;
+        private Point marqueeStartModel;
+        private Point marqueeCurrentModel;
+        private readonly Dictionary<object, int> elementGroups = new Dictionary<object, int>();
+        private int nextGroupId = 1;
+        private TabControl workspaceTabs;
+        private DataGridView elementsGrid;
+        private Point rightMouseDownPoint;
+        private bool rightMouseMoved;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -48,11 +58,157 @@ namespace PowerGridEditor
         public Form1()
         {
             InitializeComponent();
+            SetupWorkspaceTabs();
             SetupCanvas();
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
             ConfigureToolbarStyle();
             AddDynamicControls();
+        }
+
+
+        private void SetupWorkspaceTabs()
+        {
+            workspaceTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Appearance = TabAppearance.Normal
+            };
+
+            var tabEditor = new TabPage("Схема");
+            var tabElements = new TabPage("Элементы и телеметрия");
+            var tabClient = new TabPage("Настройка клиента");
+
+            panel2.Parent = tabEditor;
+            panel2.Dock = DockStyle.Fill;
+
+            elementsGrid = BuildElementsGrid();
+            var buttonRefreshGrid = new Button { Text = "Обновить", Dock = DockStyle.Top, Height = 32 };
+            buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
+            tabElements.Controls.Add(elementsGrid);
+            tabElements.Controls.Add(buttonRefreshGrid);
+
+            MoveClientControlsToTab(tabClient);
+
+            workspaceTabs.TabPages.Add(tabEditor);
+            workspaceTabs.TabPages.Add(tabElements);
+            workspaceTabs.TabPages.Add(tabClient);
+
+            this.Controls.Add(workspaceTabs);
+            workspaceTabs.BringToFront();
+            panel1.BringToFront();
+            statusStrip1.BringToFront();
+        }
+
+        private DataGridView BuildElementsGrid()
+        {
+            var grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AllowUserToAddRows = false,
+                AutoGenerateColumns = false,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
+            };
+
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(228, 236, 246);
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grid.EnableHeadersVisualStyles = false;
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Param", HeaderText = "Параметр", ReadOnly = true, Width = 140 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Value", HeaderText = "Значение", Width = 90 });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Telemetry", HeaderText = "Телеметрия", Width = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Register", HeaderText = "Адрес", Width = 80 });
+            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Protocol", HeaderText = "Протокол", Width = 95, DataSource = new[] { "Modbus TCP", "МЭК-104" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP адрес", Width = 110 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 85 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
+
+            grid.CellEndEdit += ElementsGrid_CellEndEdit;
+            grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            grid.CellValueChanged += ElementsGrid_CellEndEdit;
+            grid.CellContentClick += ElementsGrid_CellContentClick;
+            return grid;
+        }
+
+        private void MoveClientControlsToTab(TabPage tabClient)
+        {
+            var clientPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 130,
+                Padding = new Padding(12),
+                BackColor = Color.FromArgb(214, 227, 242)
+            };
+
+            labelTopClock.Parent = clientPanel;
+            labelTopClock.AutoSize = true;
+            labelTopClock.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            labelTopClock.Location = new Point(520, 10);
+
+            labelAdapter.Parent = clientPanel;
+            labelAdapter.Location = new Point(25, 52);
+            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            comboBoxAdapters.Parent = clientPanel;
+            comboBoxAdapters.Location = new Point(130, 50);
+            comboBoxAdapters.Size = new Size(560, 28);
+            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelIp.Parent = clientPanel;
+            labelIp.Location = new Point(25, 92);
+            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxStaticIp.Parent = clientPanel;
+            textBoxStaticIp.Location = new Point(70, 90);
+            textBoxStaticIp.Size = new Size(230, 29);
+            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelMask.Parent = clientPanel;
+            labelMask.Location = new Point(315, 92);
+            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxMask.Parent = clientPanel;
+            textBoxMask.Location = new Point(375, 90);
+            textBoxMask.Size = new Size(150, 29);
+            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelGateway.Parent = clientPanel;
+            labelGateway.Location = new Point(540, 92);
+            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxGateway.Parent = clientPanel;
+            textBoxGateway.Location = new Point(605, 90);
+            textBoxGateway.Size = new Size(150, 29);
+            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            buttonApplyStaticIp.Parent = clientPanel;
+            buttonApplyStaticIp.Text = "Применить\r\nIP";
+            buttonApplyStaticIp.Location = new Point(770, 45);
+            buttonApplyStaticIp.Size = new Size(140, 75);
+            buttonApplyStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+
+            var hint = new Label
+            {
+                Parent = clientPanel,
+                AutoSize = true,
+                Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
+                Location = new Point(930, 94),
+                Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+                ForeColor = Color.FromArgb(43, 71, 104)
+            };
+
+            tabClient.Controls.Add(clientPanel);
         }
 
         private void AddDynamicControls()
@@ -81,20 +237,172 @@ namespace PowerGridEditor
 
             panel1.Controls.Add(buttonCalcSettings);
 
-            var hintLabel = new Label
+        }
+
+
+        private void GroupSelectedElements()
+        {
+            var movable = selectedElements.Where(IsMovableElement).ToList();
+            if (movable.Count < 2)
             {
-                AutoSize = true,
-                Left = 170,
-                Top = 56,
-                Text = "Адаптеры *10/*11 — это системные имена Windows (несколько интерфейсов)."
-            };
-            panel1.Controls.Add(hintLabel);
+                MessageBox.Show("Выделите минимум два элемента для группировки.");
+                return;
+            }
+
+            int groupId = nextGroupId++;
+            foreach (var element in movable)
+            {
+                elementGroups[element] = groupId;
+            }
+
+            MessageBox.Show($"Создана группа из {movable.Count} элементов.");
+        }
+
+
+        private void UngroupSelectedElements()
+        {
+            var toUngroup = selectedElements.Where(e => elementGroups.ContainsKey(e)).ToList();
+            foreach (var element in toUngroup)
+            {
+                elementGroups.Remove(element);
+            }
+
+            if (toUngroup.Count == 0)
+            {
+                MessageBox.Show("Среди выделенных элементов нет групп.");
+            }
+        }
+
+        private bool IsMovableElement(object element)
+        {
+            return element is GraphicNode || element is GraphicBaseNode || element is GraphicShunt;
+        }
+
+        private IEnumerable<object> GetDragTargets(object primary)
+        {
+            var dragTargets = selectedElements.Where(IsMovableElement).ToList();
+            if (dragTargets.Count > 1)
+            {
+                return dragTargets;
+            }
+
+            if (primary != null && elementGroups.TryGetValue(primary, out int groupId))
+            {
+                return elementGroups.Where(kv => kv.Value == groupId).Select(kv => kv.Key).Where(IsMovableElement).ToList();
+            }
+
+            return primary != null ? new[] { primary } : Enumerable.Empty<object>();
+        }
+
+        private void RefreshElementsGrid()
+        {
+            if (elementsGrid == null) return;
+            elementsGrid.Rows.Clear();
+
+            foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
+
+            foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
+
+            foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
+                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+        }
+
+        private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
+        {
+            foreach (var row in rows)
+            {
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
+                elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
+            }
+        }
+
+        private void ElementsGrid_CellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+            var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag is Tuple<object, string, object> tag)
+            {
+                dynamic data = tag.Item3;
+                string key = tag.Item2;
+                if (double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double val))
+                {
+                    ApplyParamValue(data, key, val);
+                }
+
+                data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
+                data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+                data.Protocol = Convert.ToString(row.Cells["Protocol"].Value) ?? "Modbus TCP";
+                data.IPAddress = Convert.ToString(row.Cells["IP"].Value) ?? "127.0.0.1";
+                data.Port = Convert.ToString(row.Cells["Port"].Value) ?? "502";
+                if (data is Node) data.NodeID = Convert.ToString(row.Cells["DeviceID"].Value) ?? "1";
+                else data.DeviceID = Convert.ToString(row.Cells["DeviceID"].Value) ?? "1";
+                panel2.Invalidate();
+            }
+        }
+
+
+        private async void ElementsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
+
+            var row = elementsGrid.Rows[e.RowIndex];
+            string ip = Convert.ToString(row.Cells["IP"].Value);
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                MessageBox.Show("Введите IP адрес для проверки.");
+                return;
+            }
+
+            bool ok = await PingHostAsync(ip);
+            row.Cells["IP"].Style.BackColor = ok ? Color.LightGreen : Color.LightPink;
+            row.Cells["Ping"].Value = ok ? "ОК" : "Нет";
+        }
+
+        private async Task<bool> PingHostAsync(string ip)
+        {
+            try
+            {
+                using (var ping = new Ping())
+                {
+                    var reply = await ping.SendPingAsync(ip, 1000);
+                    return reply.Status == IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void ApplyParamValue(dynamic data, string key, double value)
+        {
+            if (key == "U") data.InitialVoltage = value;
+            else if (key == "P") data.NominalActivePower = value;
+            else if (key == "Q") data.NominalReactivePower = value;
+            else if (key == "Pg") data.ActivePowerGeneration = value;
+            else if (key == "Qg") data.ReactivePowerGeneration = value;
+            else if (key == "Uf") data.FixedVoltageModule = value;
+            else if (key == "Qmin") data.MinReactivePower = value;
+            else if (key == "Qmax") data.MaxReactivePower = value;
+            else if (key == "R") data.ActiveResistance = value;
+            else if (key == "X") data.ReactiveResistance = value;
+            else if (key == "B") data.ReactiveConductivity = value;
+            else if (key == "Ktr") data.TransformationRatio = value;
+            else if (key == "G") data.ActiveConductivity = value;
         }
 
         private void SetupCanvas()
         {
             panel2.BackColor = Color.White;
             panel2.BorderStyle = BorderStyle.FixedSingle;
+            panel2.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(panel2, true, null);
+            this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
 
             panel2.Paint += Panel2_Paint;
             panel2.MouseDown += Panel2_MouseDown;
@@ -151,6 +459,24 @@ namespace PowerGridEditor
                     graphicBaseNode.Draw(e.Graphics);
                 }
             }
+
+            if (isMarqueeSelecting)
+            {
+                var rect = GetMarqueeRectangle();
+                using (var pen = new Pen(Color.DodgerBlue, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash })
+                {
+                    e.Graphics.DrawRectangle(pen, rect);
+                }
+            }
+        }
+
+        private Rectangle GetMarqueeRectangle()
+        {
+            int x = Math.Min(marqueeStartModel.X, marqueeCurrentModel.X);
+            int y = Math.Min(marqueeStartModel.Y, marqueeCurrentModel.Y);
+            int w = Math.Abs(marqueeCurrentModel.X - marqueeStartModel.X);
+            int h = Math.Abs(marqueeCurrentModel.Y - marqueeStartModel.Y);
+            return new Rectangle(x, y, w, h);
         }
 
         // Метод для отрисовки линии соединения шунта отдельно
@@ -190,134 +516,202 @@ namespace PowerGridEditor
 
         private void Panel2_MouseDown(object sender, MouseEventArgs e)
         {
-            // ПКМ – начало панорамы
             if (e.Button == MouseButtons.Right)
             {
                 panning = true;
+                rightMouseMoved = false;
+                rightMouseDownPoint = e.Location;
                 lastPanPos = e.Location;
-                return; // не показываем контекстное меню
+
+                Point modelPointRight = Point.Round(ScreenToModel(e.Location));
+                object hitRight = FindElementAt(modelPointRight);
+                if (hitRight != null && !selectedElements.Contains(hitRight))
+                {
+                    ClearAllSelection();
+                    SelectElement(hitRight);
+                    panel2.Invalidate();
+                }
+                return;
             }
 
-            if (e.Button == MouseButtons.Left)
+            if (e.Button != MouseButtons.Left) return;
+
+            Point modelPoint = Point.Round(ScreenToModel(e.Location));
+            bool ctrlPressed = (ModifierKeys & Keys.Control) == Keys.Control;
+            object hitElement = FindElementAt(modelPoint);
+
+            if (hitElement != null)
             {
-                PointF modelF = ScreenToModel(e.Location); // NEW
-                Point modelPoint = Point.Round(modelF);    // дальше работаем как раньше
+                if (ctrlPressed)
+                {
+                    ToggleSelection(hitElement);
+                }
+                else
+                {
+                    if (!selectedElements.Contains(hitElement) || selectedElements.Count > 1)
+                    {
+                        ClearAllSelection();
+                        SelectElement(hitElement);
+                    }
+                }
 
-                // дальше ваш старый код проверки попадания
-                foreach (var element in graphicElements)
-                {
-                    if (element is GraphicNode node && node.Contains(modelPoint))
-                    {
-                        ClearAllSelection();
-                        node.IsSelected = true;
-                        selectedElement = node;
-                        isDragging = true;
-                        lastMousePosition = e.Location;
-                        panel2.Invalidate();
-                        return;
-                    }
-                    else if (element is GraphicBaseNode baseNode && baseNode.Contains(modelPoint))
-                    {
-                        ClearAllSelection();
-                        baseNode.IsSelected = true;
-                        selectedElement = baseNode;
-                        isDragging = true;
-                        lastMousePosition = e.Location;
-                        panel2.Invalidate();
-                        return;
-                    }
-                }
-                // шунты, ветви – аналогично на modelPoint
-                foreach (var shunt in graphicShunts)
-                {
-                    if (shunt.Contains(modelPoint))
-                    {
-                        ClearAllSelection();
-                        shunt.IsSelected = true;
-                        selectedElement = shunt;
-                        isDragging = true;
-                        lastMousePosition = e.Location;
-                        panel2.Invalidate();
-                        return;
-                    }
-                }
-                foreach (var branch in graphicBranches)
-                {
-                    if (branch.Contains(modelPoint))
-                    {
-                        ClearAllSelection();
-                        branch.IsSelected = true;
-                        selectedElement = branch;
-                        panel2.Invalidate();
-                        return;
-                    }
-                }
-                ClearAllSelection();
+                selectedElement = hitElement;
+                isDragging = true;
+                lastMousePosition = e.Location;
                 panel2.Invalidate();
+                return;
             }
+
+            if (!ctrlPressed)
+            {
+                ClearAllSelection();
+            }
+
+            isMarqueeSelecting = true;
+            marqueeStartModel = modelPoint;
+            marqueeCurrentModel = modelPoint;
+            panel2.Invalidate();
+        }
+
+        private object FindElementAt(Point modelPoint)
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node && node.Contains(modelPoint)) return node;
+                if (element is GraphicBaseNode baseNode && baseNode.Contains(modelPoint)) return baseNode;
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                if (shunt.Contains(modelPoint)) return shunt;
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                if (branch.Contains(modelPoint)) return branch;
+            }
+
+            return null;
+        }
+
+        private void ToggleSelection(object element)
+        {
+            if (selectedElements.Contains(element))
+            {
+                selectedElements.Remove(element);
+                SetElementSelectedState(element, false);
+            }
+            else
+            {
+                SelectElement(element);
+            }
+        }
+
+        private void SelectElement(object element)
+        {
+            selectedElements.Add(element);
+            selectedElement = element;
+            SetElementSelectedState(element, true);
         }
 
         private void ClearAllSelection()
         {
-            // Снимаем выделение со всех узлов
             foreach (var element in graphicElements)
             {
                 if (element is GraphicNode node) node.IsSelected = false;
                 else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
 
-            // Снимаем выделение со всех ветвей
-            foreach (var branch in graphicBranches)
-            {
-                branch.IsSelected = false;
-            }
+            foreach (var branch in graphicBranches) branch.IsSelected = false;
+            foreach (var shunt in graphicShunts) shunt.IsSelected = false;
 
-            // Снимаем выделение со всех шунтов
-            foreach (var shunt in graphicShunts)
-            {
-                shunt.IsSelected = false;
-            }
-
+            selectedElements.Clear();
             selectedElement = null;
+        }
+
+        private void SetElementSelectedState(object element, bool selected)
+        {
+            if (element is GraphicNode node) node.IsSelected = selected;
+            else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = selected;
+            else if (element is GraphicShunt shunt) shunt.IsSelected = selected;
+            else if (element is GraphicBranch branch) branch.IsSelected = selected;
         }
 
 
         private void Panel2_MouseMove(object sender, MouseEventArgs e)
         {
-            // панорама ПКМ
             if (panning)
             {
                 int dx = e.X - lastPanPos.X;
                 int dy = e.Y - lastPanPos.Y;
+                if (Math.Abs(e.X - rightMouseDownPoint.X) > 3 || Math.Abs(e.Y - rightMouseDownPoint.Y) > 3)
+                {
+                    rightMouseMoved = true;
+                }
+
                 pan = new PointF(pan.X + dx, pan.Y + dy);
                 lastPanPos = e.Location;
                 panel2.Invalidate();
                 return;
             }
 
-            // обычное перетаскивание объектов
+            if (isMarqueeSelecting)
+            {
+                marqueeCurrentModel = Point.Round(ScreenToModel(e.Location));
+                ApplyMarqueeSelection();
+                panel2.Invalidate();
+                return;
+            }
+
             if (isDragging && selectedElement != null)
             {
                 int dx = (int)((e.X - lastMousePosition.X) / scale);
                 int dy = (int)((e.Y - lastMousePosition.Y) / scale);
-                if (selectedElement is GraphicNode gn)
+
+                foreach (var target in GetDragTargets(selectedElement))
                 {
-                    gn.Location = new Point(gn.Location.X + dx, gn.Location.Y + dy);
-                    UpdateShuntPositions(gn);
+                    if (target is GraphicNode gn)
+                    {
+                        gn.Location = new Point(gn.Location.X + dx, gn.Location.Y + dy);
+                        UpdateShuntPositions(gn);
+                    }
+                    else if (target is GraphicBaseNode bn)
+                    {
+                        bn.Location = new Point(bn.Location.X + dx, bn.Location.Y + dy);
+                        UpdateShuntPositions(bn);
+                    }
+                    else if (target is GraphicShunt gs)
+                    {
+                        gs.Location = new Point(gs.Location.X + dx, gs.Location.Y + dy);
+                    }
                 }
-                else if (selectedElement is GraphicBaseNode bn)
-                {
-                    bn.Location = new Point(bn.Location.X + dx, bn.Location.Y + dy);
-                    UpdateShuntPositions(bn);
-                }
-                else if (selectedElement is GraphicShunt gs)
-                {
-                    gs.Location = new Point(gs.Location.X + dx, gs.Location.Y + dy);
-                }
+
                 lastMousePosition = e.Location;
                 panel2.Invalidate();
             }
         }
+
+        private void ApplyMarqueeSelection()
+        {
+            var rect = GetMarqueeRectangle();
+            ClearAllSelection();
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (rect.IntersectsWith(new Rectangle(node.Location, GraphicNode.NodeSize))) SelectElement(node);
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (rect.IntersectsWith(new Rectangle(baseNode.Location, GraphicBaseNode.NodeSize))) SelectElement(baseNode);
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                if (rect.IntersectsWith(new Rectangle(shunt.Location, GraphicShunt.ShuntSize))) SelectElement(shunt);
+            }
+        }
+
         private void UpdateShuntPositions(object movedNode)
         {
             foreach (var shunt in graphicShunts)
@@ -332,7 +726,18 @@ namespace PowerGridEditor
         private void Panel2_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right)
+            {
                 panning = false;
+                if (!rightMouseMoved)
+                {
+                    ShowContextMenu(e.Location);
+                }
+            }
+
+            if (e.Button == MouseButtons.Left)
+            {
+                isMarqueeSelecting = false;
+            }
 
             isDragging = false;
         }
@@ -417,55 +822,73 @@ namespace PowerGridEditor
             }
             return false;
         }
-        private void SelectElement(object element)
-        {
-            foreach (var elem in graphicElements)
-            {
-                if (elem is GraphicNode node) node.IsSelected = false;
-                else if (elem is GraphicBaseNode baseNode) baseNode.IsSelected = false;
-            }
-
-            if (element is GraphicNode graphicNode) graphicNode.IsSelected = true;
-            else if (element is GraphicBaseNode graphicBaseNode) graphicBaseNode.IsSelected = true;
-
-            selectedElement = element;
-            panel2.Invalidate();
-        }
-
         private void ShowContextMenu(Point location)
         {
             contextMenuStrip.Items.Clear();
 
-            if (selectedElement is GraphicNode)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать узел");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicBaseNode)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать базисный узел");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicBranch)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать ветвь");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicShunt)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать шунт");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
+            bool hasSelection = selectedElements.Count > 0;
+            bool singleSelection = selectedElements.Count == 1;
+
+            var editItem = new ToolStripMenuItem("Изменить параметры");
+            editItem.Enabled = singleSelection;
+            editItem.Click += (s, e) => EditSelectedElement();
+            contextMenuStrip.Items.Add(editItem);
+
+            var groupItem = new ToolStripMenuItem("Группировать");
+            groupItem.Enabled = selectedElements.Count >= 2;
+            groupItem.Click += (s, e) => GroupSelectedElements();
+            contextMenuStrip.Items.Add(groupItem);
+
+            var ungroupItem = new ToolStripMenuItem("Разгруппировать");
+            ungroupItem.Enabled = hasSelection && selectedElements.Any(x => elementGroups.ContainsKey(x));
+            ungroupItem.Click += (s, e) => UngroupSelectedElements();
+            contextMenuStrip.Items.Add(ungroupItem);
 
             var deleteItem = new ToolStripMenuItem("Удалить");
-            deleteItem.Click += (s, e) => DeleteSelectedElement();
+            deleteItem.Enabled = hasSelection;
+            deleteItem.Click += (s, e) => DeleteSelectionFromContext();
             contextMenuStrip.Items.Add(deleteItem);
 
             contextMenuStrip.Show(panel2, location);
+        }
+
+        private void DeleteSelectionFromContext()
+        {
+            var toDelete = selectedElements.ToList();
+            if (toDelete.Count == 0)
+            {
+                return;
+            }
+
+            if (toDelete.Count == 1)
+            {
+                selectedElement = toDelete[0];
+                DeleteSelectedElement();
+                RefreshElementsGrid();
+                return;
+            }
+
+            var dr = MessageBox.Show($"Удалить выбранные элементы ({toDelete.Count})?", "Удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (dr != DialogResult.Yes) return;
+
+            foreach (var element in toDelete)
+            {
+                selectedElement = element;
+                if (element is GraphicNode || element is GraphicBaseNode)
+                {
+                    // Полное удаление вместе со связями
+                    DeleteSelectedElement();
+                }
+                else
+                {
+                    DeleteSelectedElement();
+                }
+                elementGroups.Remove(element);
+            }
+
+            ClearAllSelection();
+            RefreshElementsGrid();
+            panel2.Invalidate();
         }
 
         private void EditSelectedElement()
@@ -697,6 +1120,7 @@ namespace PowerGridEditor
                 panel2.Invalidate();
 
                 MessageBox.Show($"Узел №{nodeForm.MyNode.Number} добавлен!");
+                RefreshElementsGrid();
             }
         }
 
@@ -736,6 +1160,7 @@ namespace PowerGridEditor
 
                     panel2.Invalidate();
                     MessageBox.Show($"Базисный узел №{baseNodeForm.MyBaseNode.Number} добавлен!");
+                RefreshElementsGrid();
                 }
             }
         }
@@ -744,6 +1169,7 @@ namespace PowerGridEditor
             if (selectedElement != null)
             {
                 DeleteSelectedElement();
+                RefreshElementsGrid();
             }
             else
             {
@@ -875,6 +1301,7 @@ namespace PowerGridEditor
 
                 string nodeType = (connectedNode is GraphicBaseNode) ? "базисный узел" : "узел";
                 MessageBox.Show($"Шунт добавлен к {nodeType} №{shuntForm.MyShunt.StartNodeNumber}!");
+                RefreshElementsGrid();
             }
         }
 
@@ -942,6 +1369,7 @@ namespace PowerGridEditor
                 string endType = (endNode is GraphicBaseNode) ? "базисный узел" : "узел";
 
                 MessageBox.Show($"Ветвь между {startType} №{branchForm.MyBranch.StartNodeNumber} и {endType} №{branchForm.MyBranch.EndNodeNumber} добавлена!");
+                RefreshElementsGrid();
             }
         }
 
@@ -1762,10 +2190,13 @@ namespace PowerGridEditor
             try
             {
                 var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
-                foreach (var node in nodes)
-                {
-                    await PollSingleNodeAsync(node);
-                }
+                foreach (var node in nodes) await PollSingleNodeAsync(node);
+
+                var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
+                foreach (var baseNode in baseNodes) await PollGenericDataAsync(baseNode);
+
+                foreach (var branch in graphicBranches.Select(b => b.Data).Where(b => !string.IsNullOrWhiteSpace(b.IPAddress))) await PollGenericDataAsync(branch);
+                foreach (var shunt in graphicShunts.Select(s => s.Data).Where(s => !string.IsNullOrWhiteSpace(s.IPAddress))) await PollGenericDataAsync(shunt);
             }
             catch
             {
@@ -1811,6 +2242,36 @@ namespace PowerGridEditor
             }
         }
 
+
+        private async Task PollGenericDataAsync(dynamic data)
+        {
+            try
+            {
+                using (var client = new TcpClient())
+                {
+                    int port = 502;
+                    int.TryParse(Convert.ToString(data.Port), out port);
+                    var connectTask = client.ConnectAsync(Convert.ToString(data.IPAddress), port);
+                    if (await Task.WhenAny(connectTask, Task.Delay(1200)) != connectTask) return;
+
+                    var factory = new ModbusFactory();
+                    var master = factory.CreateMaster(client);
+                    byte slaveId = 1;
+                    byte.TryParse(Convert.ToString(data.DeviceID), out slaveId);
+
+                    foreach (var kv in ((Dictionary<string, bool>)data.ParamAutoModes).ToList())
+                    {
+                        if (!kv.Value) continue;
+                        if (!data.ParamRegisters.ContainsKey(kv.Key)) continue;
+                        if (!ushort.TryParse(Convert.ToString(data.ParamRegisters[kv.Key]), out ushort addr)) continue;
+                        var val = master.ReadHoldingRegisters(slaveId, addr, 1)[0];
+                        ApplyParamValue(data, kv.Key, val);
+                    }
+                }
+            }
+            catch { }
+        }
+
         private void UpdateNodeFieldByKey(Node node, IModbusMaster master, byte slaveId, string key, string propertyName)
         {
             if (!node.ParamAutoModes.ContainsKey(key) || !node.ParamAutoModes[key]) return;
@@ -1834,6 +2295,7 @@ namespace PowerGridEditor
             LoadNetworkAdapters();
             StartClock();
             StartGlobalTelemetryPolling();
+            RefreshElementsGrid();
         }
     }
 }
