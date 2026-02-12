@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Drawing;
+using System.Globalization;
+using System.Net.NetworkInformation;
 using System.Windows.Forms;
 
 namespace PowerGridEditor
@@ -6,83 +9,105 @@ namespace PowerGridEditor
     public partial class BaseNodeForm : Form
     {
         public BaseNode MyBaseNode { get; private set; }
+        private readonly string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
 
-        // Свойства для доступа к TextBox
-        public TextBox NodeNumberTextBox => textBoxNodeNumber;
-        public TextBox InitialVoltageTextBox => textBoxInitialVoltage;
-        public TextBox NominalActivePowerTextBox => textBoxNominalActivePower;
-        public TextBox NominalReactivePowerTextBox => textBoxNominalReactivePower;
-        public TextBox ActivePowerGenerationTextBox => textBoxActivePowerGeneration;
-        public TextBox ReactivePowerGenerationTextBox => textBoxReactivePowerGeneration;
-        public TextBox FixedVoltageModuleTextBox => textBoxFixedVoltageModule;
-        public TextBox MinReactivePowerTextBox => textBoxMinReactivePower;
-        public TextBox MaxReactivePowerTextBox => textBoxMaxReactivePower;
+        public TextBox NodeNumberTextBox => paramBoxes[0];
+        public TextBox InitialVoltageTextBox => paramBoxes[1];
+        public TextBox NominalActivePowerTextBox => paramBoxes[2];
+        public TextBox NominalReactivePowerTextBox => paramBoxes[3];
+        public TextBox ActivePowerGenerationTextBox => paramBoxes[4];
+        public TextBox ReactivePowerGenerationTextBox => paramBoxes[5];
+        public TextBox FixedVoltageModuleTextBox => paramBoxes[6];
+        public TextBox MinReactivePowerTextBox => paramBoxes[7];
+        public TextBox MaxReactivePowerTextBox => paramBoxes[8];
 
         public BaseNodeForm()
         {
             InitializeComponent();
-            MyBaseNode = new BaseNode(0); // Убедись что это есть
-            InitializeFormData();
+            MyBaseNode = new BaseNode(0);
+
+            buttonSave.Click += (s, e) => SaveData();
+            buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+            btnCheckIP.Click += async (s, e) => await RunPing();
+
+            LoadData();
         }
 
-        private void InitializeFormData()
+        private void LoadData()
         {
-            labelCode.Text = "Код: " + MyBaseNode.Code;
-            textBoxNodeNumber.Text = MyBaseNode.Number.ToString();
-            textBoxInitialVoltage.Text = MyBaseNode.InitialVoltage.ToString("F2");
-            textBoxNominalActivePower.Text = MyBaseNode.NominalActivePower.ToString("F2");
-            textBoxNominalReactivePower.Text = MyBaseNode.NominalReactivePower.ToString("F2");
-            textBoxActivePowerGeneration.Text = MyBaseNode.ActivePowerGeneration.ToString("F2");
-            textBoxReactivePowerGeneration.Text = MyBaseNode.ReactivePowerGeneration.ToString("F2");
-            textBoxFixedVoltageModule.Text = MyBaseNode.FixedVoltageModule.ToString("F2");
-            textBoxMinReactivePower.Text = MyBaseNode.MinReactivePower.ToString("F2");
-            textBoxMaxReactivePower.Text = MyBaseNode.MaxReactivePower.ToString("F2");
+            var inv = CultureInfo.InvariantCulture;
+            double[] vals = {
+                MyBaseNode.Number, MyBaseNode.InitialVoltage, MyBaseNode.NominalActivePower,
+                MyBaseNode.NominalReactivePower, MyBaseNode.ActivePowerGeneration, MyBaseNode.ReactivePowerGeneration,
+                MyBaseNode.FixedVoltageModule, MyBaseNode.MinReactivePower, MyBaseNode.MaxReactivePower
+            };
+
+            for (int i = 0; i < vals.Length; i++)
+            {
+                paramBoxes[i].Text = vals[i].ToString(inv);
+                if (i > 0)
+                {
+                    if (MyBaseNode.ParamAutoModes.ContainsKey(keys[i])) paramChecks[i].Checked = MyBaseNode.ParamAutoModes[keys[i]];
+                    if (MyBaseNode.ParamRegisters.ContainsKey(keys[i])) addrBoxes[i].Text = MyBaseNode.ParamRegisters[keys[i]];
+                }
+            }
+
+            textBoxIP.Text = MyBaseNode.IPAddress;
+            textBoxPort.Text = MyBaseNode.Port;
+            textBoxID.Text = MyBaseNode.DeviceID;
+            comboBoxProtocol.SelectedItem = MyBaseNode.Protocol;
+            if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
         }
 
-        private void buttonSave_Click(object sender, EventArgs e)
+        private void SaveData()
         {
             try
             {
-                Console.WriteLine("=== СОХРАНЕНИЕ БАЗИСНОГО УЗЛА ===");
-                Console.WriteLine($"Номер из TextBox: {textBoxNodeNumber.Text}");
+                var inv = CultureInfo.InvariantCulture;
+                MyBaseNode.Number = int.Parse(paramBoxes[0].Text);
+                MyBaseNode.InitialVoltage = double.Parse(paramBoxes[1].Text.Replace(',', '.'), inv);
+                MyBaseNode.NominalActivePower = double.Parse(paramBoxes[2].Text.Replace(',', '.'), inv);
+                MyBaseNode.NominalReactivePower = double.Parse(paramBoxes[3].Text.Replace(',', '.'), inv);
+                MyBaseNode.ActivePowerGeneration = double.Parse(paramBoxes[4].Text.Replace(',', '.'), inv);
+                MyBaseNode.ReactivePowerGeneration = double.Parse(paramBoxes[5].Text.Replace(',', '.'), inv);
+                MyBaseNode.FixedVoltageModule = double.Parse(paramBoxes[6].Text.Replace(',', '.'), inv);
+                MyBaseNode.MinReactivePower = double.Parse(paramBoxes[7].Text.Replace(',', '.'), inv);
+                MyBaseNode.MaxReactivePower = double.Parse(paramBoxes[8].Text.Replace(',', '.'), inv);
 
-                // СОХРАНЯЕМ ВСЕ ДАННЫЕ В MyBaseNode
-                MyBaseNode.Number = int.Parse(textBoxNodeNumber.Text);
-                MyBaseNode.InitialVoltage = double.Parse(textBoxInitialVoltage.Text);
-                MyBaseNode.NominalActivePower = double.Parse(textBoxNominalActivePower.Text);
-                MyBaseNode.NominalReactivePower = double.Parse(textBoxNominalReactivePower.Text);
-                MyBaseNode.ActivePowerGeneration = double.Parse(textBoxActivePowerGeneration.Text);
-                MyBaseNode.ReactivePowerGeneration = double.Parse(textBoxReactivePowerGeneration.Text);
-                MyBaseNode.FixedVoltageModule = double.Parse(textBoxFixedVoltageModule.Text);
-                MyBaseNode.MinReactivePower = double.Parse(textBoxMinReactivePower.Text);
-                MyBaseNode.MaxReactivePower = double.Parse(textBoxMaxReactivePower.Text);
+                for (int i = 1; i < 9; i++)
+                {
+                    MyBaseNode.ParamAutoModes[keys[i]] = paramChecks[i].Checked;
+                    MyBaseNode.ParamRegisters[keys[i]] = addrBoxes[i].Text;
+                }
 
-                Console.WriteLine($"Узел сохранен: №{MyBaseNode.Number}");
+                MyBaseNode.Protocol = comboBoxProtocol.Text;
+                MyBaseNode.IPAddress = textBoxIP.Text;
+                MyBaseNode.Port = textBoxPort.Text;
+                MyBaseNode.DeviceID = textBoxID.Text;
 
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                DialogResult = DialogResult.OK;
+                Close();
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"ОШИБКА: {ex.Message}");
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
+                MessageBox.Show("Ошибка в числовых полях!");
             }
         }
 
-        private void buttonCancel_Click(object sender, EventArgs e)
+        private async System.Threading.Tasks.Task RunPing()
         {
-            this.DialogResult = DialogResult.Cancel;
-            this.Close();
-        }
-
-        private void labelCode_Click(object sender, EventArgs e)
-        {
-            // Пустой обработчик
-        }
-
-        private void buttonSave_Click_1(object sender, EventArgs e)
-        {
-
+            try
+            {
+                using (Ping p = new Ping())
+                {
+                    var reply = await p.SendPingAsync(textBoxIP.Text, 1000);
+                    textBoxIP.BackColor = reply.Status == IPStatus.Success ? Color.LightGreen : Color.LightPink;
+                }
+            }
+            catch
+            {
+                textBoxIP.BackColor = Color.LightPink;
+            }
         }
     }
 }
