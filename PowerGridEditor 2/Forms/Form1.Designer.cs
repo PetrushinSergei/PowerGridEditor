@@ -192,7 +192,7 @@
             this.buttonOpenReport.Name = "buttonOpenReport";
             this.buttonOpenReport.Size = new System.Drawing.Size(90, 30);
             this.buttonOpenReport.TabIndex = 8;
-            this.buttonOpenReport.Text = "Отчёт";
+            this.buttonOpenReport.Text = "Расчёт";
             this.buttonOpenReport.UseVisualStyleBackColor = true;
             this.buttonOpenReport.Click += new System.EventHandler(this.buttonOpenReport_Click);
             // 

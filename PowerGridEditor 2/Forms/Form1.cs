@@ -9,6 +9,9 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.Threading.Tasks;
+using System.Net.Sockets;
+using NModbus;
 
 
 namespace PowerGridEditor
@@ -25,6 +28,8 @@ namespace PowerGridEditor
         private readonly Dictionary<Type, List<Form>> openedEditorWindows = new Dictionary<Type, List<Form>>();
         private System.Windows.Forms.Timer uiClockTimer;
         private Button buttonCalcSettings;
+        private System.Windows.Forms.Timer telemetryTimer;
+        private bool telemetryPollingInProgress = false;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -343,8 +348,6 @@ namespace PowerGridEditor
         private void EditBranch(GraphicBranch graphicBranch)
         {
             BranchForm form = new BranchForm();
-
-            // Загружаем текущие данные ветви в форму
             form.StartNodeTextBox.Text = graphicBranch.GetStartNodeNumber().ToString();
             form.EndNodeTextBox.Text = graphicBranch.GetEndNodeNumber().ToString();
             form.ActiveResistanceTextBox.Text = graphicBranch.Data.ActiveResistance.ToString("F1");
@@ -353,53 +356,37 @@ namespace PowerGridEditor
             form.TransformationRatioTextBox.Text = graphicBranch.Data.TransformationRatio.ToString();
             form.ActiveConductivityTextBox.Text = graphicBranch.Data.ActiveConductivity.ToString();
 
-            if (ShowEditorForm(form) == DialogResult.OK)
+            RegisterOpenedWindow(form);
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            form.FormClosed += (s, e) =>
             {
-                // Проверяем существование новых узлов
+                if (form.DialogResult != DialogResult.OK) return;
+
                 int newStartNode = form.MyBranch.StartNodeNumber;
                 int newEndNode = form.MyBranch.EndNodeNumber;
-
-                // Проверяем, изменились ли номера узлов
-                bool nodesChanged = (newStartNode != graphicBranch.GetStartNodeNumber()) ||
-                                   (newEndNode != graphicBranch.GetEndNodeNumber());
+                bool nodesChanged = (newStartNode != graphicBranch.GetStartNodeNumber()) || (newEndNode != graphicBranch.GetEndNodeNumber());
 
                 if (nodesChanged)
                 {
-                    // Ищем новые узлы (любого типа)
                     object newStartGraphicNode = FindNodeByNumber(newStartNode);
                     object newEndGraphicNode = FindNodeByNumber(newEndNode);
-
-                    if (newStartGraphicNode == null)
+                    if (newStartGraphicNode == null || newEndGraphicNode == null || newStartGraphicNode == newEndGraphicNode)
                     {
-                        MessageBox.Show($"Ошибка: Начальный узел №{newStartNode} не найден на схеме!", "Ошибка");
+                        MessageBox.Show("Ошибка изменения ветви: проверьте узлы.", "Ошибка");
                         return;
                     }
 
-                    if (newEndGraphicNode == null)
-                    {
-                        MessageBox.Show($"Ошибка: Конечный узел №{newEndNode} не найден на схеме!", "Ошибка");
-                        return;
-                    }
-
-                    if (newStartGraphicNode == newEndGraphicNode)
-                    {
-                        MessageBox.Show("Ошибка: Начальный и конечный узлы не могут быть одинаковыми!", "Ошибка");
-                        return;
-                    }
-
-                    // Проверяем, не существует ли уже такая ветвь
                     if (IsBranchAlreadyExists(newStartNode, newEndNode, graphicBranch))
                     {
                         MessageBox.Show("Ошибка: Ветвь между этими узлами уже существует!", "Ошибка");
                         return;
                     }
 
-                    // Обновляем ссылки на узлы
                     graphicBranch.StartNode = newStartGraphicNode;
                     graphicBranch.EndNode = newEndGraphicNode;
                 }
 
-                // Обновляем данные ветви
                 graphicBranch.Data.StartNodeNumber = form.MyBranch.StartNodeNumber;
                 graphicBranch.Data.EndNodeNumber = form.MyBranch.EndNodeNumber;
                 graphicBranch.Data.ActiveResistance = form.MyBranch.ActiveResistance;
@@ -407,15 +394,11 @@ namespace PowerGridEditor
                 graphicBranch.Data.ReactiveConductivity = form.MyBranch.ReactiveConductivity;
                 graphicBranch.Data.TransformationRatio = form.MyBranch.TransformationRatio;
                 graphicBranch.Data.ActiveConductivity = form.MyBranch.ActiveConductivity;
-
                 panel2.Invalidate();
-
-                string startType = (graphicBranch.StartNode is GraphicBaseNode) ? "базисный узел" : "узел";
-                string endType = (graphicBranch.EndNode is GraphicBaseNode) ? "базисный узел" : "узел";
-
-                MessageBox.Show($"Ветвь между {startType} №{graphicBranch.Data.StartNodeNumber} и {endType} №{graphicBranch.Data.EndNodeNumber} обновлена!");
-            }
+            };
+            form.Show(this);
         }
+
         private bool IsBranchAlreadyExists(int startNode, int endNode, GraphicBranch currentBranch)
         {
             foreach (var branch in graphicBranches)
@@ -538,7 +521,6 @@ namespace PowerGridEditor
         private void EditBaseNode(GraphicBaseNode graphicBaseNode)
         {
             BaseNodeForm form = new BaseNodeForm();
-
             form.NodeNumberTextBox.Text = graphicBaseNode.Data.Number.ToString();
             form.InitialVoltageTextBox.Text = graphicBaseNode.Data.InitialVoltage.ToString("F2");
             form.NominalActivePowerTextBox.Text = graphicBaseNode.Data.NominalActivePower.ToString("F2");
@@ -549,15 +531,17 @@ namespace PowerGridEditor
             form.MinReactivePowerTextBox.Text = graphicBaseNode.Data.MinReactivePower.ToString("F2");
             form.MaxReactivePowerTextBox.Text = graphicBaseNode.Data.MaxReactivePower.ToString("F2");
 
-            if (ShowEditorForm(form) == DialogResult.OK)
+            RegisterOpenedWindow(form);
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            form.FormClosed += (s, e) =>
             {
-                // ПРОВЕРКА УНИКАЛЬНОСТИ НОМЕРА (если номер изменился)
+                if (form.DialogResult != DialogResult.OK) return;
                 if (form.MyBaseNode.Number != graphicBaseNode.Data.Number && IsNodeNumberExists(form.MyBaseNode.Number))
                 {
-                    MessageBox.Show($"Ошибка: Узел с номером {form.MyBaseNode.Number} уже существует!\nПожалуйста, выберите другой номер.", "Ошибка");
+                    MessageBox.Show($"Ошибка: Узел с номером {form.MyBaseNode.Number} уже существует!", "Ошибка");
                     return;
                 }
-
                 graphicBaseNode.Data.Number = form.MyBaseNode.Number;
                 graphicBaseNode.Data.InitialVoltage = form.MyBaseNode.InitialVoltage;
                 graphicBaseNode.Data.NominalActivePower = form.MyBaseNode.NominalActivePower;
@@ -567,10 +551,9 @@ namespace PowerGridEditor
                 graphicBaseNode.Data.FixedVoltageModule = form.MyBaseNode.FixedVoltageModule;
                 graphicBaseNode.Data.MinReactivePower = form.MyBaseNode.MinReactivePower;
                 graphicBaseNode.Data.MaxReactivePower = form.MyBaseNode.MaxReactivePower;
-
                 panel2.Invalidate();
-                MessageBox.Show($"Базисный узел №{graphicBaseNode.Data.Number} обновлен!");
-            }
+            };
+            form.Show(this);
         }
 
         private void DeleteSelectedElement()
@@ -965,53 +948,38 @@ namespace PowerGridEditor
         private void EditShunt(GraphicShunt graphicShunt)
         {
             ShuntForm form = new ShuntForm();
-
-            // Загружаем текущие данные шунта в форму
             form.StartNodeTextBox.Text = graphicShunt.Data.StartNodeNumber.ToString();
             form.ActiveResistanceTextBox.Text = graphicShunt.Data.ActiveResistance.ToString("F1");
             form.ReactiveResistanceTextBox.Text = graphicShunt.Data.ReactiveResistance.ToString();
 
-            if (ShowEditorForm(form) == DialogResult.OK)
+            RegisterOpenedWindow(form);
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            form.FormClosed += (s, e) =>
             {
-                // Проверяем существование нового узла (если изменился)
-                int newNodeNumber = form.MyShunt.StartNodeNumber;
+                if (form.DialogResult != DialogResult.OK) return;
 
+                int newNodeNumber = form.MyShunt.StartNodeNumber;
                 if (newNodeNumber != graphicShunt.Data.StartNodeNumber)
                 {
-                    // Ищем новый узел (любого типа)
                     object newConnectedNode = FindNodeByNumber(newNodeNumber);
-
-                    if (newConnectedNode == null)
+                    if (newConnectedNode == null || IsShuntAlreadyExists(newNodeNumber))
                     {
-                        MessageBox.Show($"Ошибка: Узел №{newNodeNumber} не найден на схеме!", "Ошибка");
+                        MessageBox.Show("Ошибка изменения шунта: проверьте узел.", "Ошибка");
                         return;
                     }
-
-                    // Проверяем, нет ли уже шунта на этом узле
-                    if (IsShuntAlreadyExists(newNodeNumber))
-                    {
-                        MessageBox.Show("Ошибка: На этом узле уже есть шунт!", "Ошибка");
-                        return;
-                    }
-
-                    // Обновляем ссылку на узел
                     graphicShunt.ConnectedNode = newConnectedNode;
                 }
 
-                // Обновляем данные шунта
                 graphicShunt.Data.StartNodeNumber = form.MyShunt.StartNodeNumber;
                 graphicShunt.Data.ActiveResistance = form.MyShunt.ActiveResistance;
                 graphicShunt.Data.ReactiveResistance = form.MyShunt.ReactiveResistance;
-
-                // Обновляем позицию
                 graphicShunt.UpdatePosition();
-
                 panel2.Invalidate();
-
-                string nodeType = (graphicShunt.ConnectedNode is GraphicBaseNode) ? "базисный узел" : "узел";
-                MessageBox.Show($"Шунт на {nodeType} №{graphicShunt.Data.StartNodeNumber} обновлен!");
-            }
+            };
+            form.Show(this);
         }
+
         // Метод проверки существования узла с таким номером
         private bool IsNodeNumberExists(int nodeNumber)
         {
@@ -1779,10 +1747,93 @@ namespace PowerGridEditor
             }
         }
 
+        private void StartGlobalTelemetryPolling()
+        {
+            telemetryTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+            telemetryTimer.Tick += async (s, e) => await PollAllNodeTelemetryAsync();
+            telemetryTimer.Start();
+        }
+
+        private async Task PollAllNodeTelemetryAsync()
+        {
+            if (telemetryPollingInProgress) return;
+            telemetryPollingInProgress = true;
+
+            try
+            {
+                var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
+                foreach (var node in nodes)
+                {
+                    await PollSingleNodeAsync(node);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+                telemetryPollingInProgress = false;
+            }
+        }
+
+        private async Task PollSingleNodeAsync(Node node)
+        {
+            try
+            {
+                using (var client = new TcpClient())
+                {
+                    int port = 502;
+                    int.TryParse(node.Port, out port);
+
+                    var connectTask = client.ConnectAsync(node.IPAddress, port);
+                    if (await Task.WhenAny(connectTask, Task.Delay(1200)) != connectTask)
+                    {
+                        return;
+                    }
+
+                    var factory = new ModbusFactory();
+                    var master = factory.CreateMaster(client);
+                    byte slaveId = 1;
+                    byte.TryParse(node.NodeID, out slaveId);
+
+                    UpdateNodeFieldByKey(node, master, slaveId, "U", nameof(Node.InitialVoltage));
+                    UpdateNodeFieldByKey(node, master, slaveId, "P", nameof(Node.NominalActivePower));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Q", nameof(Node.NominalReactivePower));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Pg", nameof(Node.ActivePowerGeneration));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Qg", nameof(Node.ReactivePowerGeneration));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Uf", nameof(Node.FixedVoltageModule));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Qmin", nameof(Node.MinReactivePower));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Qmax", nameof(Node.MaxReactivePower));
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private void UpdateNodeFieldByKey(Node node, IModbusMaster master, byte slaveId, string key, string propertyName)
+        {
+            if (!node.ParamAutoModes.ContainsKey(key) || !node.ParamAutoModes[key]) return;
+            if (!node.ParamRegisters.ContainsKey(key)) return;
+            if (!ushort.TryParse(node.ParamRegisters[key], out ushort addr)) return;
+
+            var response = master.ReadHoldingRegisters(slaveId, addr, 1);
+            double val = response[0];
+            if (propertyName == nameof(Node.InitialVoltage)) node.InitialVoltage = val;
+            else if (propertyName == nameof(Node.NominalActivePower)) node.NominalActivePower = val;
+            else if (propertyName == nameof(Node.NominalReactivePower)) node.NominalReactivePower = val;
+            else if (propertyName == nameof(Node.ActivePowerGeneration)) node.ActivePowerGeneration = val;
+            else if (propertyName == nameof(Node.ReactivePowerGeneration)) node.ReactivePowerGeneration = val;
+            else if (propertyName == nameof(Node.FixedVoltageModule)) node.FixedVoltageModule = val;
+            else if (propertyName == nameof(Node.MinReactivePower)) node.MinReactivePower = val;
+            else if (propertyName == nameof(Node.MaxReactivePower)) node.MaxReactivePower = val;
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
             LoadNetworkAdapters();
             StartClock();
+            StartGlobalTelemetryPolling();
         }
     }
 }
