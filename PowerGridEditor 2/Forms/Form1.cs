@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Diagnostics;
+using System.Net;
+using System.Net.NetworkInformation;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -19,10 +22,23 @@ namespace PowerGridEditor
         private Point lastMousePosition;
         private bool isDragging = false;
         private ContextMenuStrip contextMenuStrip;
+        private readonly Dictionary<Type, List<Form>> openedEditorWindows = new Dictionary<Type, List<Form>>();
+        private System.Windows.Forms.Timer uiClockTimer;
+        private Button buttonCalcSettings;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
+
+        private sealed class AdapterEntry
+        {
+            public string Name { get; set; }
+            public string Description { get; set; }
+            public override string ToString()
+            {
+                return $"{Name} ({Description})";
+            }
+        }
 
         public Form1()
         {
@@ -30,6 +46,44 @@ namespace PowerGridEditor
             SetupCanvas();
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
+            ConfigureToolbarStyle();
+            AddDynamicControls();
+        }
+
+        private void AddDynamicControls()
+        {
+            buttonCalcSettings = new Button
+            {
+                Name = "buttonCalcSettings",
+                Text = "Параметры расчёта",
+                Width = 150,
+                Height = 30,
+                Left = 12,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonCalcSettings.FlatAppearance.BorderSize = 2;
+            buttonCalcSettings.Click += (s, e) =>
+            {
+                var settingsForm = new CalculationSettingsForm();
+                RegisterOpenedWindow(settingsForm);
+                settingsForm.StartPosition = FormStartPosition.Manual;
+                settingsForm.Location = GetNextChildWindowLocation();
+                settingsForm.Show(this);
+            };
+
+            panel1.Controls.Add(buttonCalcSettings);
+
+            var hintLabel = new Label
+            {
+                AutoSize = true,
+                Left = 170,
+                Top = 56,
+                Text = "Адаптеры *10/*11 — это системные имена Windows (несколько интерфейсов)."
+            };
+            panel1.Controls.Add(hintLabel);
         }
 
         private void SetupCanvas()
@@ -280,6 +334,7 @@ namespace PowerGridEditor
 
         private void Panel2_DoubleClick(object sender, EventArgs e)
         {
+            isDragging = false;
             if (selectedElement != null)
             {
                 EditSelectedElement();
@@ -298,7 +353,7 @@ namespace PowerGridEditor
             form.TransformationRatioTextBox.Text = graphicBranch.Data.TransformationRatio.ToString();
             form.ActiveConductivityTextBox.Text = graphicBranch.Data.ActiveConductivity.ToString();
 
-            if (form.ShowDialog() == DialogResult.OK)
+            if (ShowEditorForm(form) == DialogResult.OK)
             {
                 // Проверяем существование новых узлов
                 int newStartNode = form.MyBranch.StartNodeNumber;
@@ -453,14 +508,16 @@ namespace PowerGridEditor
         private void EditNode(GraphicNode graphicNode)
         {
             NodeForm form = new NodeForm(selectedNode.Data);
-
-           
-            if (form.ShowDialog() == DialogResult.OK)
+            RegisterOpenedWindow(form);
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            form.FormClosed += (s, e) =>
             {
-                // ПРОВЕРКА УНИКАЛЬНОСТИ НОМЕРА (если номер изменился)
+                if (form.DialogResult != DialogResult.OK) return;
+
                 if (form.MyNode.Number != graphicNode.Data.Number && IsNodeNumberExists(form.MyNode.Number))
                 {
-                    MessageBox.Show($"Ошибка: Узел с номером {form.MyNode.Number} уже существует!\nПожалуйста, выберите другой номер.", "Ошибка");
+                    MessageBox.Show($"Ошибка: Узел с номером {form.MyNode.Number} уже существует!", "Ошибка");
                     return;
                 }
 
@@ -473,16 +530,9 @@ namespace PowerGridEditor
                 graphicNode.Data.FixedVoltageModule = form.MyNode.FixedVoltageModule;
                 graphicNode.Data.MinReactivePower = form.MyNode.MinReactivePower;
                 graphicNode.Data.MaxReactivePower = form.MyNode.MaxReactivePower;
-
                 panel2.Invalidate();
-
-                string message = $"Узел №{graphicNode.Data.Number} обновлен!\n\n" +
-                               $"Напряжение: {graphicNode.Data.InitialVoltage}\n" +
-                               $"Активная мощность: {graphicNode.Data.NominalActivePower}\n" +
-                               $"Реактивная мощность: {graphicNode.Data.NominalReactivePower}";
-
-                MessageBox.Show(message, "Успех");
-            }
+            };
+            form.Show(this);
         }
 
         private void EditBaseNode(GraphicBaseNode graphicBaseNode)
@@ -499,7 +549,7 @@ namespace PowerGridEditor
             form.MinReactivePowerTextBox.Text = graphicBaseNode.Data.MinReactivePower.ToString("F2");
             form.MaxReactivePowerTextBox.Text = graphicBaseNode.Data.MaxReactivePower.ToString("F2");
 
-            if (form.ShowDialog() == DialogResult.OK)
+            if (ShowEditorForm(form) == DialogResult.OK)
             {
                 // ПРОВЕРКА УНИКАЛЬНОСТИ НОМЕРА (если номер изменился)
                 if (form.MyBaseNode.Number != graphicBaseNode.Data.Number && IsNodeNumberExists(form.MyBaseNode.Number))
@@ -645,7 +695,7 @@ namespace PowerGridEditor
             Node newNodeData = new Node(0);
             NodeForm nodeForm = new NodeForm(newNodeData);
 
-            if (nodeForm.ShowDialog() == DialogResult.OK && nodeForm.MyNode.Number != 0)
+            if (ShowEditorForm(nodeForm) == DialogResult.OK && nodeForm.MyNode.Number != 0)
             {
                 // ПРОВЕРКА УНИКАЛЬНОСТИ НОМЕРА
                 if (IsNodeNumberExists(nodeForm.MyNode.Number))
@@ -674,7 +724,7 @@ namespace PowerGridEditor
             BaseNodeForm baseNodeForm = new BaseNodeForm();
             Console.WriteLine("Форма базисного узла создана");
 
-            DialogResult result = baseNodeForm.ShowDialog();
+            DialogResult result = ShowEditorForm(baseNodeForm);
             Console.WriteLine($"Результат диалога: {result}");
 
             if (result == DialogResult.OK)
@@ -816,7 +866,7 @@ namespace PowerGridEditor
 
             ShuntForm shuntForm = new ShuntForm();
 
-            if (shuntForm.ShowDialog() == DialogResult.OK && shuntForm.MyShunt.StartNodeNumber != 0)
+            if (ShowEditorForm(shuntForm) == DialogResult.OK && shuntForm.MyShunt.StartNodeNumber != 0)
             {
                 // Ищем узел по номеру (любого типа)
                 object connectedNode = FindNodeByNumber(shuntForm.MyShunt.StartNodeNumber);
@@ -866,7 +916,7 @@ namespace PowerGridEditor
 
             BranchForm branchForm = new BranchForm();
 
-            if (branchForm.ShowDialog() == DialogResult.OK &&
+            if (ShowEditorForm(branchForm) == DialogResult.OK &&
                 branchForm.MyBranch.StartNodeNumber != 0 &&
                 branchForm.MyBranch.EndNodeNumber != 0)
             {
@@ -921,7 +971,7 @@ namespace PowerGridEditor
             form.ActiveResistanceTextBox.Text = graphicShunt.Data.ActiveResistance.ToString("F1");
             form.ReactiveResistanceTextBox.Text = graphicShunt.Data.ReactiveResistance.ToString();
 
-            if (form.ShowDialog() == DialogResult.OK)
+            if (ShowEditorForm(form) == DialogResult.OK)
             {
                 // Проверяем существование нового узла (если изменился)
                 int newNodeNumber = form.MyShunt.StartNodeNumber;
@@ -1009,6 +1059,9 @@ namespace PowerGridEditor
 
                     // 3. Все ветви и шунты (0301 0)
                     WriteAllBranchesAndShunts(writer);
+
+                    // 4. Координаты элементов (0901 0)
+                    WriteLayout(writer);
                 }
 
                 MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
@@ -1016,6 +1069,21 @@ namespace PowerGridEditor
             catch (Exception ex)
             {
                 MessageBox.Show($"Ошибка при создании файла: {ex.Message}", "Ошибка");
+            }
+        }
+
+        private void WriteLayout(StreamWriter writer)
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node)
+                {
+                    writer.WriteLine($"0901 0 {node.Data.Number} {node.Location.X} {node.Location.Y}");
+                }
+                else if (element is GraphicBaseNode baseNode)
+                {
+                    writer.WriteLine($"0901 0 {baseNode.Data.Number} {baseNode.Location.X} {baseNode.Location.Y}");
+                }
             }
         }
 
@@ -1329,6 +1397,7 @@ namespace PowerGridEditor
             string[] lines = File.ReadAllLines(filePath);
 
             int nodeIndex = 0;   // счётчик для узлов (спираль)
+            var savedLayout = new Dictionary<int, Point>();
 
             foreach (string rawLine in lines)
             {
@@ -1357,9 +1426,14 @@ namespace PowerGridEditor
                         else                      // ветвь
                             ParseBranchLine(parts); // нет второго аргумента
                         break;
+
+                    case "0901 0":                // координаты узла
+                        ParseLayoutLine(parts, savedLayout);
+                        break;
                 }
             }
 
+            ApplySavedLayout(savedLayout);
             panel2.Invalidate();
         }
         private void ParseNodeLine(string[] parts, bool isBaseNode, int index)
@@ -1438,59 +1512,40 @@ namespace PowerGridEditor
                 Console.WriteLine("Ошибка парсинга шунта: " + ex.Message);
             }
         }
-        private void ParseNodeLine(string[] parts, bool isBaseNode)
+        private void ParseLayoutLine(string[] parts, Dictionary<int, Point> savedLayout)
         {
+            if (parts.Length < 5) return;
+
             try
             {
                 int number = int.Parse(parts[2]);
-                double voltage = ParseDouble(parts[3]);
-                double pLoad = ParseDouble(parts[4]);
-                double qLoad = ParseDouble(parts[5]);
-                double pGen = ParseDouble(parts[6]);
-                double qGen = ParseDouble(parts[7]);
-                double uFixed = ParseDouble(parts[8]);
-                double qMin = ParseDouble(parts[9]);
-                double qMax = ParseDouble(parts[10]);
-
-                Point center = new Point(
-                    panel2.Width / 2 - GraphicNode.NodeSize.Width / 2,
-                    panel2.Height / 2 - GraphicNode.NodeSize.Height / 2
-                );
-
-                if (isBaseNode)
-                {
-                    var baseNode = new BaseNode(number)
-                    {
-                        InitialVoltage = voltage,
-                        NominalActivePower = pLoad,
-                        NominalReactivePower = qLoad,
-                        ActivePowerGeneration = pGen,
-                        ReactivePowerGeneration = qGen,
-                        FixedVoltageModule = uFixed,
-                        MinReactivePower = qMin,
-                        MaxReactivePower = qMax
-                    };
-                    graphicElements.Add(new GraphicBaseNode(baseNode, center));
-                }
-                else
-                {
-                    var node = new Node(number)
-                    {
-                        InitialVoltage = voltage,
-                        NominalActivePower = pLoad,
-                        NominalReactivePower = qLoad,
-                        ActivePowerGeneration = pGen,
-                        ReactivePowerGeneration = qGen,
-                        FixedVoltageModule = uFixed,
-                        MinReactivePower = qMin,
-                        MaxReactivePower = qMax
-                    };
-                    graphicElements.Add(new GraphicNode(node, center));
-                }
+                int x = int.Parse(parts[3]);
+                int y = int.Parse(parts[4]);
+                savedLayout[number] = new Point(x, y);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка парсинга узла: {ex.Message}");
+                Console.WriteLine("Ошибка парсинга координат: " + ex.Message);
+            }
+        }
+
+        private void ApplySavedLayout(Dictionary<int, Point> savedLayout)
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node && savedLayout.TryGetValue(node.Data.Number, out Point nodePoint))
+                {
+                    node.Location = nodePoint;
+                }
+                else if (element is GraphicBaseNode baseNode && savedLayout.TryGetValue(baseNode.Data.Number, out Point basePoint))
+                {
+                    baseNode.Location = basePoint;
+                }
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                shunt.UpdatePosition();
             }
         }
 
@@ -1576,9 +1631,158 @@ namespace PowerGridEditor
                               (screen.Y - pan.Y) / scale);
         }
 
+
+        private DialogResult ShowEditorForm(Form form)
+        {
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            return form.ShowDialog(this);
+        }
+
+        private void RegisterOpenedWindow(Form form)
+        {
+            var type = form.GetType();
+            if (!openedEditorWindows.ContainsKey(type))
+            {
+                openedEditorWindows[type] = new List<Form>();
+            }
+
+            openedEditorWindows[type].Add(form);
+            form.FormClosed += (s, e) => openedEditorWindows[type].Remove(form);
+        }
+
+        private Point GetNextChildWindowLocation()
+        {
+            int total = openedEditorWindows.Values.Sum(list => list.Count);
+            int offset = 30 * (total % 8);
+            Point origin = this.PointToScreen(Point.Empty);
+            int x = Math.Max(origin.X + 80, origin.X + offset + 40);
+            int y = Math.Max(origin.Y + 80, origin.Y + offset + 40);
+            return new Point(x, y);
+        }
+
+        private void buttonOpenReport_Click(object sender, EventArgs e)
+        {
+            var reportForm = new ReportForm();
+            reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
+            RegisterOpenedWindow(reportForm);
+            reportForm.StartPosition = FormStartPosition.Manual;
+            reportForm.Location = GetNextChildWindowLocation();
+            reportForm.Show(this);
+        }
+
+        private void ConfigureToolbarStyle()
+        {
+            panel1.Padding = new Padding(8);
+            foreach (Control ctrl in panel1.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    btn.BackColor = Color.FromArgb(233, 242, 252);
+                    btn.ForeColor = Color.FromArgb(24, 50, 82);
+                }
+            }
+        }
+
+        private void StartClock()
+        {
+            uiClockTimer = new System.Windows.Forms.Timer { Interval = 1000 };
+            uiClockTimer.Tick += (s, e) =>
+            {
+                string time = DateTime.Now.ToString("HH:mm:ss");
+                toolStripStatusLabelClock.Text = $"Время: {time}";
+                labelTopClock.Text = time;
+            };
+            string initialTime = DateTime.Now.ToString("HH:mm:ss");
+            toolStripStatusLabelClock.Text = $"Время: {initialTime}";
+            labelTopClock.Text = initialTime;
+            uiClockTimer.Start();
+        }
+
+        private void LoadNetworkAdapters()
+        {
+            comboBoxAdapters.Items.Clear();
+            foreach (var adapter in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                comboBoxAdapters.Items.Add(new AdapterEntry
+                {
+                    Name = adapter.Name,
+                    Description = adapter.Description
+                });
+            }
+
+            if (comboBoxAdapters.Items.Count > 0)
+            {
+                comboBoxAdapters.SelectedIndex = 0;
+            }
+        }
+
+        private void buttonApplyStaticIp_Click(object sender, EventArgs e)
+        {
+            if (comboBoxAdapters.SelectedItem == null)
+            {
+                MessageBox.Show("Выберите сетевой адаптер", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (!IPAddress.TryParse(textBoxStaticIp.Text, out _) ||
+                !IPAddress.TryParse(textBoxMask.Text, out _) ||
+                !IPAddress.TryParse(textBoxGateway.Text, out _))
+            {
+                MessageBox.Show("Проверьте корректность IP/маски/шлюза", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var selectedAdapter = comboBoxAdapters.SelectedItem as AdapterEntry;
+            if (selectedAdapter == null)
+            {
+                MessageBox.Show("Не удалось определить выбранный адаптер", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string adapter = selectedAdapter.Name;
+            string args = $"interface ip set address name=\"{adapter}\" static {textBoxStaticIp.Text} {textBoxMask.Text} {textBoxGateway.Text}";
+
+            try
+            {
+                var process = new Process();
+                process.StartInfo.FileName = "netsh";
+                process.StartInfo.Arguments = args;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.RedirectStandardError = true;
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.StandardOutputEncoding = Encoding.GetEncoding(866);
+                process.StartInfo.StandardErrorEncoding = Encoding.GetEncoding(866);
+                process.Start();
+                process.WaitForExit();
+
+                if (process.ExitCode == 0)
+                {
+                    MessageBox.Show("Статический IP успешно применён", "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    string error = process.StandardError.ReadToEnd();
+                    if (string.IsNullOrWhiteSpace(error))
+                    {
+                        error = process.StandardOutput.ReadToEnd();
+                    }
+
+                    MessageBox.Show("Не удалось применить IP: " + error, "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Ошибка конфигурации сети: " + ex.Message, "Сеть", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void Form1_Load(object sender, EventArgs e)
         {
-
+            LoadNetworkAdapters();
+            StartClock();
         }
     }
 }
