@@ -71,8 +71,11 @@ namespace PowerGridEditor
         {
             workspaceTabs = new TabControl
             {
-                Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal
+                Dock = DockStyle.None,
+                Appearance = TabAppearance.Normal,
+                Location = new Point(0, panel1.Bottom),
+                Size = new Size(this.ClientSize.Width, this.ClientSize.Height - panel1.Height - statusStrip1.Height),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
 
             var tabEditor = new TabPage("Схема");
@@ -83,10 +86,19 @@ namespace PowerGridEditor
             panel2.Dock = DockStyle.Fill;
 
             elementsGrid = BuildElementsGrid();
+            var labelElementsHint = new Label
+            {
+                Text = "Единая вкладка: узлы → базисный узел → ветви → шунты. Поля можно редактировать прямо в таблице.",
+                Dock = DockStyle.Top,
+                Height = 26,
+                Padding = new Padding(10, 6, 10, 0),
+                ForeColor = Color.FromArgb(43, 71, 104)
+            };
             var buttonRefreshGrid = new Button { Text = "Обновить", Dock = DockStyle.Top, Height = 32 };
             buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
             tabElements.Controls.Add(elementsGrid);
             tabElements.Controls.Add(buttonRefreshGrid);
+            tabElements.Controls.Add(labelElementsHint);
 
             MoveClientControlsToTab(tabClient);
 
@@ -95,7 +107,6 @@ namespace PowerGridEditor
             workspaceTabs.TabPages.Add(tabClient);
 
             this.Controls.Add(workspaceTabs);
-            workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
         }
@@ -299,17 +310,31 @@ namespace PowerGridEditor
             if (elementsGrid == null) return;
             elementsGrid.Rows.Clear();
 
+            AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
 
+            AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
 
+            AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
                 AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
 
+            AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
                 AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+        }
+
+        private void AddSectionRow(string title)
+        {
+            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "");
+            var row = elementsGrid.Rows[index];
+            row.ReadOnly = true;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
+            row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            row.Tag = null;
         }
 
         private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
@@ -325,6 +350,7 @@ namespace PowerGridEditor
         {
             if (e.RowIndex < 0) return;
             var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
             if (row.Tag is Tuple<object, string, object> tag)
             {
                 dynamic data = tag.Item3;
@@ -352,6 +378,7 @@ namespace PowerGridEditor
             if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
 
             var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
             string ip = Convert.ToString(row.Cells["IP"].Value);
             if (string.IsNullOrWhiteSpace(ip))
             {
