@@ -109,19 +109,27 @@ namespace PowerGridEditor
                 AutoGenerateColumns = false,
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                MultiSelect = false
+                MultiSelect = false,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
             };
 
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true });
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(228, 236, 246);
+            grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            grid.EnableHeadersVisualStyles = false;
+
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Param", HeaderText = "Параметр", ReadOnly = true, Width = 140 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Value", HeaderText = "Значение", Width = 90 });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Telemetry", HeaderText = "Телеметрия", Width = 70 });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Telemetry", HeaderText = "Телеметрия", Width = 80 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Register", HeaderText = "Адрес", Width = 80 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Protocol", HeaderText = "Протокол", Width = 90 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP", Width = 100 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 60 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID", Width = 60 });
+            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Protocol", HeaderText = "Протокол", Width = 95, DataSource = new[] { "Modbus TCP", "МЭК-104" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP адрес", Width = 110 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 85 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
 
             grid.CellEndEdit += ElementsGrid_CellEndEdit;
             grid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -129,28 +137,76 @@ namespace PowerGridEditor
                 if (grid.IsCurrentCellDirty) grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
             };
             grid.CellValueChanged += ElementsGrid_CellEndEdit;
+            grid.CellContentClick += ElementsGrid_CellContentClick;
             return grid;
         }
 
         private void MoveClientControlsToTab(TabPage tabClient)
         {
-            var clientPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(12), AutoScroll = true };
-            var controlsToMove = new Control[]
+            var clientPanel = new Panel
             {
-                labelAdapter, comboBoxAdapters, labelIp, textBoxStaticIp, labelMask, textBoxMask,
-                labelGateway, textBoxGateway, buttonApplyStaticIp
+                Dock = DockStyle.Top,
+                Height = 130,
+                Padding = new Padding(12),
+                BackColor = Color.FromArgb(214, 227, 242)
             };
 
-            int y = 10;
-            foreach (var ctrl in controlsToMove)
+            labelTopClock.Parent = clientPanel;
+            labelTopClock.AutoSize = true;
+            labelTopClock.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
+            labelTopClock.Location = new Point(520, 10);
+
+            labelAdapter.Parent = clientPanel;
+            labelAdapter.Location = new Point(25, 52);
+            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            comboBoxAdapters.Parent = clientPanel;
+            comboBoxAdapters.Location = new Point(130, 50);
+            comboBoxAdapters.Size = new Size(560, 28);
+            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelIp.Parent = clientPanel;
+            labelIp.Location = new Point(25, 92);
+            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxStaticIp.Parent = clientPanel;
+            textBoxStaticIp.Location = new Point(70, 90);
+            textBoxStaticIp.Size = new Size(230, 29);
+            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelMask.Parent = clientPanel;
+            labelMask.Location = new Point(315, 92);
+            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxMask.Parent = clientPanel;
+            textBoxMask.Location = new Point(375, 90);
+            textBoxMask.Size = new Size(150, 29);
+            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            labelGateway.Parent = clientPanel;
+            labelGateway.Location = new Point(540, 92);
+            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            textBoxGateway.Parent = clientPanel;
+            textBoxGateway.Location = new Point(605, 90);
+            textBoxGateway.Size = new Size(150, 29);
+            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+
+            buttonApplyStaticIp.Parent = clientPanel;
+            buttonApplyStaticIp.Text = "Применить\r\nIP";
+            buttonApplyStaticIp.Location = new Point(770, 45);
+            buttonApplyStaticIp.Size = new Size(140, 75);
+            buttonApplyStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+
+            var hint = new Label
             {
-                ctrl.Parent = clientPanel;
-                ctrl.Top = y;
-                if (ctrl is Label) ctrl.Left = 10;
-                else ctrl.Left = 150;
-                if (ctrl is TextBox tb) tb.Width = 220;
-                y += 32;
-            }
+                Parent = clientPanel,
+                AutoSize = true,
+                Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
+                Location = new Point(930, 94),
+                Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+                ForeColor = Color.FromArgb(43, 71, 104)
+            };
 
             tabClient.Controls.Add(clientPanel);
         }
@@ -260,18 +316,19 @@ namespace PowerGridEditor
         {
             foreach (var row in rows)
             {
-                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID);
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
                 elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
             }
         }
 
         private void ElementsGrid_CellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
-            if (elementsGrid.CurrentRow?.Tag is Tuple<object, string, object> tag)
+            if (e.RowIndex < 0) return;
+            var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag is Tuple<object, string, object> tag)
             {
                 dynamic data = tag.Item3;
                 string key = tag.Item2;
-                var row = elementsGrid.CurrentRow;
                 if (double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double val))
                 {
                     ApplyParamValue(data, key, val);
@@ -285,6 +342,41 @@ namespace PowerGridEditor
                 if (data is Node) data.NodeID = Convert.ToString(row.Cells["DeviceID"].Value) ?? "1";
                 else data.DeviceID = Convert.ToString(row.Cells["DeviceID"].Value) ?? "1";
                 panel2.Invalidate();
+            }
+        }
+
+
+        private async void ElementsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
+
+            var row = elementsGrid.Rows[e.RowIndex];
+            string ip = Convert.ToString(row.Cells["IP"].Value);
+            if (string.IsNullOrWhiteSpace(ip))
+            {
+                MessageBox.Show("Введите IP адрес для проверки.");
+                return;
+            }
+
+            bool ok = await PingHostAsync(ip);
+            row.Cells["IP"].Style.BackColor = ok ? Color.LightGreen : Color.LightPink;
+            row.Cells["Ping"].Value = ok ? "ОК" : "Нет";
+        }
+
+        private async Task<bool> PingHostAsync(string ip)
+        {
+            try
+            {
+                using (var ping = new Ping())
+                {
+                    var reply = await ping.SendPingAsync(ip, 1000);
+                    return reply.Status == IPStatus.Success;
+                }
+            }
+            catch
+            {
+                return false;
             }
         }
 
@@ -640,11 +732,6 @@ namespace PowerGridEditor
                 {
                     ShowContextMenu(e.Location);
                 }
-            }
-
-            if (e.Button == MouseButtons.Left)
-            {
-                isMarqueeSelecting = false;
             }
 
             if (e.Button == MouseButtons.Left)
