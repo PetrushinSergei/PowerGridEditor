@@ -2,178 +2,142 @@
 {
     partial class ShuntForm
     {
-        /// <summary>
-        /// Required designer variable.
-        /// </summary>
         private System.ComponentModel.IContainer components = null;
+        private System.Windows.Forms.TabControl tabControl;
+        private System.Windows.Forms.TabPage tabParams, tabSettings;
+        private System.Windows.Forms.Button btnCheckIP, buttonSave, buttonCancel;
+        private System.Windows.Forms.ComboBox comboBoxProtocol;
+        private System.Windows.Forms.TextBox textBoxIP, textBoxPort, textBoxID;
 
-        /// <summary>
-        /// Clean up any resources being used.
-        /// </summary>
-        /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
+        private System.Windows.Forms.TextBox[] paramBoxes;
+        private System.Windows.Forms.CheckBox[] paramChecks;
+        private System.Windows.Forms.TextBox[] addrBoxes;
+
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
-            {
-                components.Dispose();
-            }
+            if (disposing && (components != null)) components.Dispose();
             base.Dispose(disposing);
         }
 
-        #region Windows Form Designer generated code
-
-        /// <summary>
-        /// Required method for Designer support - do not modify
-        /// the contents of this method with the code editor.
-        /// </summary>
         private void InitializeComponent()
         {
-            this.buttonCancel = new System.Windows.Forms.Button();
-            this.buttonSave = new System.Windows.Forms.Button();
-            this.textBoxReactiveResistance = new System.Windows.Forms.TextBox();
-            this.textBoxActiveResistance = new System.Windows.Forms.TextBox();
-            this.textBoxEndNode = new System.Windows.Forms.TextBox();
-            this.textBoxStartNode = new System.Windows.Forms.TextBox();
-            this.labelReactiveResistance = new System.Windows.Forms.Label();
-            this.labelActiveResistance = new System.Windows.Forms.Label();
-            this.labelEndNode = new System.Windows.Forms.Label();
-            this.labelStartNode = new System.Windows.Forms.Label();
-            this.labelCode = new System.Windows.Forms.Label();
-            this.SuspendLayout();
-            // 
-            // buttonCancel
-            // 
-            this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.buttonCancel.Location = new System.Drawing.Point(478, 373);
-            this.buttonCancel.Name = "buttonCancel";
-            this.buttonCancel.Size = new System.Drawing.Size(75, 23);
-            this.buttonCancel.TabIndex = 79;
-            this.buttonCancel.Text = "Отмена";
-            this.buttonCancel.UseVisualStyleBackColor = true;
-            this.buttonCancel.Click += new System.EventHandler(this.buttonSave_Click);
-            // 
-            // buttonSave
-            // 
-            this.buttonSave.DialogResult = System.Windows.Forms.DialogResult.OK;
-            this.buttonSave.Location = new System.Drawing.Point(353, 373);
-            this.buttonSave.Name = "buttonSave";
-            this.buttonSave.Size = new System.Drawing.Size(75, 23);
-            this.buttonSave.TabIndex = 78;
-            this.buttonSave.Text = "Сохранить";
-            this.buttonSave.UseVisualStyleBackColor = true;
-            this.buttonSave.Click += new System.EventHandler(this.buttonSave_Click);
-            // 
-            // textBoxReactiveResistance
-            // 
-            this.textBoxReactiveResistance.Location = new System.Drawing.Point(469, 179);
-            this.textBoxReactiveResistance.Name = "textBoxReactiveResistance";
-            this.textBoxReactiveResistance.Size = new System.Drawing.Size(100, 20);
-            this.textBoxReactiveResistance.TabIndex = 74;
-            // 
-            // textBoxActiveResistance
-            // 
-            this.textBoxActiveResistance.Location = new System.Drawing.Point(469, 149);
-            this.textBoxActiveResistance.Name = "textBoxActiveResistance";
-            this.textBoxActiveResistance.Size = new System.Drawing.Size(100, 20);
-            this.textBoxActiveResistance.TabIndex = 73;
-            // 
-            // textBoxEndNode
-            // 
-            this.textBoxEndNode.Location = new System.Drawing.Point(469, 117);
-            this.textBoxEndNode.Name = "textBoxEndNode";
-            this.textBoxEndNode.ReadOnly = true;
-            this.textBoxEndNode.Size = new System.Drawing.Size(100, 20);
-            this.textBoxEndNode.TabIndex = 72;
-            // 
-            // textBoxStartNode
-            // 
-            this.textBoxStartNode.Location = new System.Drawing.Point(469, 78);
-            this.textBoxStartNode.Name = "textBoxStartNode";
-            this.textBoxStartNode.Size = new System.Drawing.Size(100, 20);
-            this.textBoxStartNode.TabIndex = 71;
-            // 
-            // labelReactiveResistance
-            // 
-            this.labelReactiveResistance.AutoSize = true;
-            this.labelReactiveResistance.Location = new System.Drawing.Point(234, 182);
-            this.labelReactiveResistance.Name = "labelReactiveResistance";
-            this.labelReactiveResistance.Size = new System.Drawing.Size(147, 13);
-            this.labelReactiveResistance.TabIndex = 67;
-            this.labelReactiveResistance.Text = "Реактивное сопротивление";
-            // 
-            // labelActiveResistance
-            // 
-            this.labelActiveResistance.AutoSize = true;
-            this.labelActiveResistance.Location = new System.Drawing.Point(234, 149);
-            this.labelActiveResistance.Name = "labelActiveResistance";
-            this.labelActiveResistance.Size = new System.Drawing.Size(135, 13);
-            this.labelActiveResistance.TabIndex = 66;
-            this.labelActiveResistance.Text = "Активное сопротивление";
-            // 
-            // labelEndNode
-            // 
-            this.labelEndNode.AutoSize = true;
-            this.labelEndNode.Location = new System.Drawing.Point(234, 117);
-            this.labelEndNode.Name = "labelEndNode";
-            this.labelEndNode.Size = new System.Drawing.Size(83, 13);
-            this.labelEndNode.TabIndex = 65;
-            this.labelEndNode.Text = "Конечный узел";
-            // 
-            // labelStartNode
-            // 
-            this.labelStartNode.AutoSize = true;
-            this.labelStartNode.Location = new System.Drawing.Point(234, 86);
-            this.labelStartNode.Name = "labelStartNode";
-            this.labelStartNode.Size = new System.Drawing.Size(90, 13);
-            this.labelStartNode.TabIndex = 64;
-            this.labelStartNode.Text = "Начальный узел";
-            // 
-            // labelCode
-            // 
-            this.labelCode.AutoSize = true;
-            this.labelCode.Enabled = false;
-            this.labelCode.Location = new System.Drawing.Point(231, 55);
-            this.labelCode.Name = "labelCode";
-            this.labelCode.Size = new System.Drawing.Size(62, 13);
-            this.labelCode.TabIndex = 63;
-            this.labelCode.Text = "Код 0103 0";
-            this.labelCode.Click += new System.EventHandler(this.labelCode_Click);
-            // 
-            // ShuntForm
-            // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.buttonCancel);
-            this.Controls.Add(this.buttonSave);
-            this.Controls.Add(this.textBoxReactiveResistance);
-            this.Controls.Add(this.textBoxActiveResistance);
-            this.Controls.Add(this.textBoxEndNode);
-            this.Controls.Add(this.textBoxStartNode);
-            this.Controls.Add(this.labelReactiveResistance);
-            this.Controls.Add(this.labelActiveResistance);
-            this.Controls.Add(this.labelEndNode);
-            this.Controls.Add(this.labelStartNode);
-            this.Controls.Add(this.labelCode);
-            this.Name = "ShuntForm";
-            this.Text = "Параметры шунта";
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            this.tabControl = new System.Windows.Forms.TabControl();
+            this.tabParams = new System.Windows.Forms.TabPage { Text = "Параметры шунта" };
+            this.tabSettings = new System.Windows.Forms.TabPage { Text = "Настройки связи" };
 
+            this.paramBoxes = new System.Windows.Forms.TextBox[3];
+            this.paramChecks = new System.Windows.Forms.CheckBox[3];
+            this.addrBoxes = new System.Windows.Forms.TextBox[3];
+
+            this.buttonSave = new System.Windows.Forms.Button { Text = "Сохранить", Size = new System.Drawing.Size(100, 32) };
+            this.buttonCancel = new System.Windows.Forms.Button { Text = "Отмена", Size = new System.Drawing.Size(100, 32) };
+
+            this.SuspendLayout();
+
+            this.tabControl.Location = new System.Drawing.Point(12, 12);
+            this.tabControl.Size = new System.Drawing.Size(620, 240);
+            this.tabControl.Controls.Add(tabParams);
+            this.tabControl.Controls.Add(tabSettings);
+
+            string[] names = {
+                "Начальный узел:",
+                "Активное сопротивление R:",
+                "Реактивное сопротивление X:"
+            };
+
+            int y = 20;
+            for (int i = 0; i < 3; i++)
+            {
+                var lblName = new System.Windows.Forms.Label
+                {
+                    Text = names[i],
+                    Location = new System.Drawing.Point(10, y + 3),
+                    Size = new System.Drawing.Size(190, 20)
+                };
+
+                paramBoxes[i] = new System.Windows.Forms.TextBox
+                {
+                    Location = new System.Drawing.Point(205, y),
+                    Size = new System.Drawing.Size(80, 23)
+                };
+
+                tabParams.Controls.Add(lblName);
+                tabParams.Controls.Add(paramBoxes[i]);
+
+                if (i >= 1)
+                {
+                    paramChecks[i] = new System.Windows.Forms.CheckBox
+                    {
+                        Text = "Телеметрия",
+                        Location = new System.Drawing.Point(295, y + 2),
+                        Size = new System.Drawing.Size(100, 20)
+                    };
+
+                    var lblAddr = new System.Windows.Forms.Label
+                    {
+                        Text = "Адрес:",
+                        Location = new System.Drawing.Point(405, y + 3),
+                        Size = new System.Drawing.Size(50, 20)
+                    };
+
+                    addrBoxes[i] = new System.Windows.Forms.TextBox
+                    {
+                        Location = new System.Drawing.Point(460, y),
+                        Size = new System.Drawing.Size(60, 23)
+                    };
+
+                    tabParams.Controls.Add(paramChecks[i]);
+                    tabParams.Controls.Add(lblAddr);
+                    tabParams.Controls.Add(addrBoxes[i]);
+                }
+
+                y += 35;
+            }
+
+            SetupSettingsTab();
+
+            this.buttonSave.Location = new System.Drawing.Point(390, 265);
+            this.buttonCancel.Location = new System.Drawing.Point(505, 265);
+
+            this.ClientSize = new System.Drawing.Size(644, 315);
+            this.Controls.AddRange(new System.Windows.Forms.Control[] { tabControl, buttonSave, buttonCancel });
+            this.Text = "Редактор параметров шунта";
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
+
+            this.ResumeLayout(false);
         }
 
-        #endregion
+        private void SetupSettingsTab()
+        {
+            int sy = 30;
 
-        private System.Windows.Forms.Button buttonCancel;
-        private System.Windows.Forms.Button buttonSave;
-        private System.Windows.Forms.TextBox textBoxReactiveResistance;
-        private System.Windows.Forms.TextBox textBoxActiveResistance;
-        private System.Windows.Forms.TextBox textBoxEndNode;
-        private System.Windows.Forms.TextBox textBoxStartNode;
-        private System.Windows.Forms.Label labelReactiveResistance;
-        private System.Windows.Forms.Label labelActiveResistance;
-        private System.Windows.Forms.Label labelEndNode;
-        private System.Windows.Forms.Label labelStartNode;
-        private System.Windows.Forms.Label labelCode;
+            var lblProt = new System.Windows.Forms.Label { Text = "Протокол:", Location = new System.Drawing.Point(20, sy + 3) };
+            comboBoxProtocol = new System.Windows.Forms.ComboBox
+            {
+                Location = new System.Drawing.Point(140, sy),
+                Size = new System.Drawing.Size(150, 23),
+                DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+            };
+            comboBoxProtocol.Items.AddRange(new object[] { "Modbus TCP", "МЭК-104" });
+            tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblProt, comboBoxProtocol });
+            sy += 45;
+
+            var lblIp = new System.Windows.Forms.Label { Text = "IP адрес:", Location = new System.Drawing.Point(20, sy + 3) };
+            textBoxIP = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(150, 23) };
+            btnCheckIP = new System.Windows.Forms.Button { Text = "Пинг", Location = new System.Drawing.Point(300, sy - 1), Size = new System.Drawing.Size(80, 25) };
+            tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblIp, textBoxIP, btnCheckIP });
+            sy += 45;
+
+            var lblPort = new System.Windows.Forms.Label { Text = "TCP Порт:", Location = new System.Drawing.Point(20, sy + 3) };
+            textBoxPort = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(80, 23) };
+            tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblPort, textBoxPort });
+            sy += 45;
+
+            var lblId = new System.Windows.Forms.Label { Text = "ID устройства:", Location = new System.Drawing.Point(20, sy + 3) };
+            textBoxID = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(80, 23) };
+            tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblId, textBoxID });
+        }
     }
 }
