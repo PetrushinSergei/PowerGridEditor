@@ -37,16 +37,10 @@ namespace PowerGridEditor
         private readonly Dictionary<object, int> elementGroups = new Dictionary<object, int>();
         private int nextGroupId = 1;
         private DataGridView elementsGrid;
-        private Panel telemetryPanel;
-        private Panel clientPanel;
-        private Button buttonViewScheme;
-        private Button buttonViewTelemetry;
-        private Button buttonViewClient;
-        private TextBox textBoxBulkIp;
-        private TextBox textBoxBulkPort;
-        private TextBox textBoxBulkDeviceId;
-        private ComboBox comboBoxBulkProtocol;
-        private CheckBox checkBoxBulkTelemetry;
+        private Button buttonOpenTelemetryForm;
+        private Button buttonOpenClientSettingsForm;
+        private TelemetryEditorForm telemetryEditorForm;
+        private ClientSettingsForm clientSettingsForm;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
 
@@ -78,64 +72,7 @@ namespace PowerGridEditor
 
         private void SetupWorkspaceTabs()
         {
-            telemetryPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Visible = false
-            };
-
-            clientPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.FromArgb(214, 227, 242),
-                Visible = false
-            };
-
-            this.Controls.Add(telemetryPanel);
-            this.Controls.Add(clientPanel);
-
             elementsGrid = BuildElementsGrid();
-            var labelElementsHint = new Label
-            {
-                Text = "Единая вкладка: узлы → базисный узел → ветви → шунты. Поля можно редактировать прямо в таблице.",
-                Dock = DockStyle.Top,
-                Height = 26,
-                Padding = new Padding(10, 6, 10, 0),
-                ForeColor = Color.FromArgb(43, 71, 104)
-            };
-
-            var telemetryTopBar = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Color.FromArgb(236, 242, 251), Padding = new Padding(8) };
-            var buttonRefreshGrid = new Button { Text = "Обновить", Width = 95, Height = 30, Left = 8, Top = 8 };
-            buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
-            telemetryTopBar.Controls.Add(buttonRefreshGrid);
-
-            textBoxBulkIp = new TextBox { Left = 120, Top = 10, Width = 120, Text = "127.0.0.1" };
-            textBoxBulkPort = new TextBox { Left = 245, Top = 10, Width = 55, Text = "502" };
-            textBoxBulkDeviceId = new TextBox { Left = 305, Top = 10, Width = 65, Text = "1" };
-            comboBoxBulkProtocol = new ComboBox { Left = 375, Top = 10, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
-            comboBoxBulkProtocol.Items.AddRange(new object[] { "Modbus TCP", "МЭК-104" });
-            comboBoxBulkProtocol.SelectedIndex = 0;
-            checkBoxBulkTelemetry = new CheckBox { Left = 500, Top = 12, Width = 130, Text = "Телеметрия для всех" };
-            var buttonApplyBulk = new Button { Left = 635, Top = 8, Width = 200, Height = 30, Text = "Применить ко всем элементам" };
-            buttonApplyBulk.Click += buttonApplyBulk_Click;
-
-            telemetryTopBar.Controls.Add(new Label { Left = 120, Top = 40, Width = 120, Text = "IP" });
-            telemetryTopBar.Controls.Add(new Label { Left = 245, Top = 40, Width = 55, Text = "Порт" });
-            telemetryTopBar.Controls.Add(new Label { Left = 305, Top = 40, Width = 65, Text = "ID" });
-            telemetryTopBar.Controls.Add(new Label { Left = 375, Top = 40, Width = 120, Text = "Протокол" });
-            telemetryTopBar.Controls.Add(textBoxBulkIp);
-            telemetryTopBar.Controls.Add(textBoxBulkPort);
-            telemetryTopBar.Controls.Add(textBoxBulkDeviceId);
-            telemetryTopBar.Controls.Add(comboBoxBulkProtocol);
-            telemetryTopBar.Controls.Add(checkBoxBulkTelemetry);
-            telemetryTopBar.Controls.Add(buttonApplyBulk);
-
-            telemetryPanel.Controls.Add(elementsGrid);
-            telemetryPanel.Controls.Add(telemetryTopBar);
-            telemetryPanel.Controls.Add(labelElementsHint);
-
-            MoveClientControlsToTab(clientPanel);
 
             panel1.BringToFront();
             statusStrip1.BringToFront();
@@ -254,11 +191,11 @@ namespace PowerGridEditor
 
         private void AddDynamicControls()
         {
-            buttonViewScheme = new Button
+            buttonOpenTelemetryForm = new Button
             {
-                Name = "buttonViewScheme",
-                Text = "Схема",
-                Width = 110,
+                Name = "buttonOpenTelemetryForm",
+                Text = "Телеметрия",
+                Width = 120,
                 Height = 30,
                 Left = 170,
                 Top = 48,
@@ -266,38 +203,23 @@ namespace PowerGridEditor
                 BackColor = Color.FromArgb(233, 242, 252),
                 ForeColor = Color.FromArgb(24, 50, 82)
             };
-            buttonViewScheme.FlatAppearance.BorderSize = 2;
-            buttonViewScheme.Click += (s, e) => ShowWorkspaceView("scheme");
+            buttonOpenTelemetryForm.FlatAppearance.BorderSize = 2;
+            buttonOpenTelemetryForm.Click += buttonOpenTelemetryForm_Click;
 
-            buttonViewTelemetry = new Button
+            buttonOpenClientSettingsForm = new Button
             {
-                Name = "buttonViewTelemetry",
-                Text = "Телеметрия",
-                Width = 110,
-                Height = 30,
-                Left = 286,
-                Top = 48,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
-            };
-            buttonViewTelemetry.FlatAppearance.BorderSize = 2;
-            buttonViewTelemetry.Click += (s, e) => ShowWorkspaceView("telemetry");
-
-            buttonViewClient = new Button
-            {
-                Name = "buttonViewClient",
+                Name = "buttonOpenClientSettingsForm",
                 Text = "Настройка клиента",
                 Width = 165,
                 Height = 30,
-                Left = 402,
+                Left = 296,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(233, 242, 252),
                 ForeColor = Color.FromArgb(24, 50, 82)
             };
-            buttonViewClient.FlatAppearance.BorderSize = 2;
-            buttonViewClient.Click += (s, e) => ShowWorkspaceView("client");
+            buttonOpenClientSettingsForm.FlatAppearance.BorderSize = 2;
+            buttonOpenClientSettingsForm.Click += buttonOpenClientSettingsForm_Click;
 
             buttonCalcSettings = new Button
             {
@@ -321,12 +243,43 @@ namespace PowerGridEditor
                 settingsForm.Show(this);
             };
 
-            panel1.Controls.Add(buttonViewScheme);
-            panel1.Controls.Add(buttonViewTelemetry);
-            panel1.Controls.Add(buttonViewClient);
+            panel1.Controls.Add(buttonOpenTelemetryForm);
+            panel1.Controls.Add(buttonOpenClientSettingsForm);
             panel1.Controls.Add(buttonCalcSettings);
-            ShowWorkspaceView("scheme");
+        }
 
+        private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
+        {
+            if (telemetryEditorForm != null && !telemetryEditorForm.IsDisposed)
+            {
+                telemetryEditorForm.Focus();
+                return;
+            }
+
+            telemetryEditorForm = new TelemetryEditorForm(
+                () => graphicElements,
+                () => graphicBranches,
+                () => graphicShunts,
+                () => panel2.Invalidate());
+            RegisterOpenedWindow(telemetryEditorForm);
+            telemetryEditorForm.StartPosition = FormStartPosition.Manual;
+            telemetryEditorForm.Location = GetNextChildWindowLocation();
+            telemetryEditorForm.Show(this);
+        }
+
+        private void buttonOpenClientSettingsForm_Click(object sender, EventArgs e)
+        {
+            if (clientSettingsForm != null && !clientSettingsForm.IsDisposed)
+            {
+                clientSettingsForm.Focus();
+                return;
+            }
+
+            clientSettingsForm = new ClientSettingsForm();
+            RegisterOpenedWindow(clientSettingsForm);
+            clientSettingsForm.StartPosition = FormStartPosition.Manual;
+            clientSettingsForm.Location = GetNextChildWindowLocation();
+            clientSettingsForm.Show(this);
         }
 
         private void ShowWorkspaceView(string viewName)
@@ -2459,10 +2412,24 @@ namespace PowerGridEditor
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            LoadNetworkAdapters();
+            SetLegacyClientControlsVisibility(false);
             StartClock();
             StartGlobalTelemetryPolling();
             RefreshElementsGrid();
+        }
+
+        private void SetLegacyClientControlsVisibility(bool visible)
+        {
+            labelAdapter.Visible = visible;
+            comboBoxAdapters.Visible = visible;
+            labelIp.Visible = visible;
+            textBoxStaticIp.Visible = visible;
+            labelMask.Visible = visible;
+            textBoxMask.Visible = visible;
+            labelGateway.Visible = visible;
+            textBoxGateway.Visible = visible;
+            buttonApplyStaticIp.Visible = visible;
+            labelTopClock.Visible = visible;
         }
     }
 }
