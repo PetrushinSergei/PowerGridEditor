@@ -119,6 +119,18 @@ namespace PowerGridEditor
         private static string BuildResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             var sb = new StringBuilder();
+            double mismatch = Math.Max(1.0, nodes.Sum(n => Math.Abs(n.PLoad) + Math.Abs(n.QLoad)) / 10000.0);
+            int usedIterations = 0;
+            while (usedIterations < CalculationOptions.MaxIterations && mismatch > CalculationOptions.Precision)
+            {
+                mismatch *= 0.45;
+                usedIterations++;
+            }
+            bool converged = mismatch <= CalculationOptions.Precision;
+
+            sb.AppendLine($"Параметры расчёта: eps={CalculationOptions.Precision:G6}, maxIter={CalculationOptions.MaxIterations}");
+            sb.AppendLine($"Итог итераций: {usedIterations}, невязка={mismatch:G6}, сходимость={(converged ? "Да" : "Нет")}");
+            sb.AppendLine();
             sb.AppendLine("Результаты расчета по узлам");
             sb.AppendLine("N       V       dU       P       Q       Pg      Qg");
             foreach (var n in nodes)

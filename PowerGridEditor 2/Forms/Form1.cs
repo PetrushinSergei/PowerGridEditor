@@ -24,6 +24,7 @@ namespace PowerGridEditor
         private ContextMenuStrip contextMenuStrip;
         private readonly Dictionary<Type, List<Form>> openedEditorWindows = new Dictionary<Type, List<Form>>();
         private System.Windows.Forms.Timer uiClockTimer;
+        private Button buttonCalcSettings;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -46,6 +47,43 @@ namespace PowerGridEditor
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
             ConfigureToolbarStyle();
+            AddDynamicControls();
+        }
+
+        private void AddDynamicControls()
+        {
+            buttonCalcSettings = new Button
+            {
+                Name = "buttonCalcSettings",
+                Text = "Параметры расчёта",
+                Width = 150,
+                Height = 30,
+                Left = 12,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonCalcSettings.FlatAppearance.BorderSize = 2;
+            buttonCalcSettings.Click += (s, e) =>
+            {
+                var settingsForm = new CalculationSettingsForm();
+                RegisterOpenedWindow(settingsForm);
+                settingsForm.StartPosition = FormStartPosition.Manual;
+                settingsForm.Location = GetNextChildWindowLocation();
+                settingsForm.Show(this);
+            };
+
+            panel1.Controls.Add(buttonCalcSettings);
+
+            var hintLabel = new Label
+            {
+                AutoSize = true,
+                Left = 170,
+                Top = 56,
+                Text = "Адаптеры *10/*11 — это системные имена Windows (несколько интерфейсов)."
+            };
+            panel1.Controls.Add(hintLabel);
         }
 
         private void SetupCanvas()
@@ -470,14 +508,16 @@ namespace PowerGridEditor
         private void EditNode(GraphicNode graphicNode)
         {
             NodeForm form = new NodeForm(selectedNode.Data);
-
-           
-            if (ShowEditorForm(form) == DialogResult.OK)
+            RegisterOpenedWindow(form);
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GetNextChildWindowLocation();
+            form.FormClosed += (s, e) =>
             {
-                // ПРОВЕРКА УНИКАЛЬНОСТИ НОМЕРА (если номер изменился)
+                if (form.DialogResult != DialogResult.OK) return;
+
                 if (form.MyNode.Number != graphicNode.Data.Number && IsNodeNumberExists(form.MyNode.Number))
                 {
-                    MessageBox.Show($"Ошибка: Узел с номером {form.MyNode.Number} уже существует!\nПожалуйста, выберите другой номер.", "Ошибка");
+                    MessageBox.Show($"Ошибка: Узел с номером {form.MyNode.Number} уже существует!", "Ошибка");
                     return;
                 }
 
@@ -490,16 +530,9 @@ namespace PowerGridEditor
                 graphicNode.Data.FixedVoltageModule = form.MyNode.FixedVoltageModule;
                 graphicNode.Data.MinReactivePower = form.MyNode.MinReactivePower;
                 graphicNode.Data.MaxReactivePower = form.MyNode.MaxReactivePower;
-
                 panel2.Invalidate();
-
-                string message = $"Узел №{graphicNode.Data.Number} обновлен!\n\n" +
-                               $"Напряжение: {graphicNode.Data.InitialVoltage}\n" +
-                               $"Активная мощность: {graphicNode.Data.NominalActivePower}\n" +
-                               $"Реактивная мощность: {graphicNode.Data.NominalReactivePower}";
-
-                MessageBox.Show(message, "Успех");
-            }
+            };
+            form.Show(this);
         }
 
         private void EditBaseNode(GraphicBaseNode graphicBaseNode)
@@ -1720,6 +1753,8 @@ namespace PowerGridEditor
                 process.StartInfo.UseShellExecute = false;
                 process.StartInfo.RedirectStandardError = true;
                 process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.StandardOutputEncoding = Encoding.GetEncoding(866);
+                process.StartInfo.StandardErrorEncoding = Encoding.GetEncoding(866);
                 process.Start();
                 process.WaitForExit();
 
