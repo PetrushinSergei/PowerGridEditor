@@ -706,21 +706,6 @@ namespace PowerGridEditor
             }
             return false;
         }
-        private void SelectElement(object element)
-        {
-            foreach (var elem in graphicElements)
-            {
-                if (elem is GraphicNode node) node.IsSelected = false;
-                else if (elem is GraphicBaseNode baseNode) baseNode.IsSelected = false;
-            }
-
-            if (element is GraphicNode graphicNode) graphicNode.IsSelected = true;
-            else if (element is GraphicBaseNode graphicBaseNode) graphicBaseNode.IsSelected = true;
-
-            selectedElement = element;
-            panel2.Invalidate();
-        }
-
         private void ShowContextMenu(Point location)
         {
             contextMenuStrip.Items.Clear();
