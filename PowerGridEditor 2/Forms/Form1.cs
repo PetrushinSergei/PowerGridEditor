@@ -71,8 +71,11 @@ namespace PowerGridEditor
         {
             workspaceTabs = new TabControl
             {
-                Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal
+                Dock = DockStyle.None,
+                Appearance = TabAppearance.Normal,
+                Location = new Point(0, panel1.Bottom),
+                Size = new Size(this.ClientSize.Width, this.ClientSize.Height - panel1.Height - statusStrip1.Height),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
 
             var tabEditor = new TabPage("Схема");
@@ -104,7 +107,6 @@ namespace PowerGridEditor
             workspaceTabs.TabPages.Add(tabClient);
 
             this.Controls.Add(workspaceTabs);
-            workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
         }
