@@ -40,6 +40,7 @@ namespace PowerGridEditor
         private DataGridView elementsGrid;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
+        private bool workspaceTabsInitialized;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -69,15 +70,29 @@ namespace PowerGridEditor
 
         private void SetupWorkspaceTabs()
         {
+            if (workspaceTabsInitialized && workspaceTabs != null && this.Controls.Contains(workspaceTabs))
+            {
+                workspaceTabs.BringToFront();
+                panel1.BringToFront();
+                statusStrip1.BringToFront();
+                return;
+            }
+
             workspaceTabs = new TabControl
             {
                 Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal
+                Appearance = TabAppearance.Normal,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(240, 30),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
             };
 
             var tabEditor = new TabPage("Схема");
             var tabElements = new TabPage("Элементы и телеметрия");
             var tabClient = new TabPage("Настройка клиента");
+            tabEditor.BackColor = Color.White;
+            tabElements.BackColor = Color.White;
+            tabClient.BackColor = Color.White;
 
             panel2.Parent = tabEditor;
             panel2.Dock = DockStyle.Fill;
@@ -95,6 +110,7 @@ namespace PowerGridEditor
             workspaceTabs.TabPages.Add(tabClient);
 
             this.Controls.Add(workspaceTabs);
+            workspaceTabsInitialized = true;
             workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
@@ -621,6 +637,7 @@ namespace PowerGridEditor
                 if (element is GraphicNode node) node.IsSelected = false;
                 else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
+        }
 
             foreach (var branch in graphicBranches) branch.IsSelected = false;
             foreach (var shunt in graphicShunts) shunt.IsSelected = false;
@@ -2292,6 +2309,7 @@ namespace PowerGridEditor
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            SetupWorkspaceTabs();
             LoadNetworkAdapters();
             StartClock();
             StartGlobalTelemetryPolling();
