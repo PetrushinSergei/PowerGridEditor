@@ -36,8 +36,17 @@ namespace PowerGridEditor
         private Point marqueeCurrentModel;
         private readonly Dictionary<object, int> elementGroups = new Dictionary<object, int>();
         private int nextGroupId = 1;
-        private TabControl workspaceTabs;
         private DataGridView elementsGrid;
+        private Panel telemetryPanel;
+        private Panel clientPanel;
+        private Button buttonViewScheme;
+        private Button buttonViewTelemetry;
+        private Button buttonViewClient;
+        private TextBox textBoxBulkIp;
+        private TextBox textBoxBulkPort;
+        private TextBox textBoxBulkDeviceId;
+        private ComboBox comboBoxBulkProtocol;
+        private CheckBox checkBoxBulkTelemetry;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
 
@@ -69,21 +78,22 @@ namespace PowerGridEditor
 
         private void SetupWorkspaceTabs()
         {
-            workspaceTabs = new TabControl
+            telemetryPanel = new Panel
             {
-                Dock = DockStyle.None,
-                Appearance = TabAppearance.Normal,
-                Location = new Point(0, panel1.Bottom),
-                Size = new Size(this.ClientSize.Width, this.ClientSize.Height - panel1.Height - statusStrip1.Height),
-                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Visible = false
             };
 
-            var tabEditor = new TabPage("Схема");
-            var tabElements = new TabPage("Элементы и телеметрия");
-            var tabClient = new TabPage("Настройка клиента");
+            clientPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(214, 227, 242),
+                Visible = false
+            };
 
-            panel2.Parent = tabEditor;
-            panel2.Dock = DockStyle.Fill;
+            this.Controls.Add(telemetryPanel);
+            this.Controls.Add(clientPanel);
 
             elementsGrid = BuildElementsGrid();
             var labelElementsHint = new Label
@@ -94,19 +104,39 @@ namespace PowerGridEditor
                 Padding = new Padding(10, 6, 10, 0),
                 ForeColor = Color.FromArgb(43, 71, 104)
             };
-            var buttonRefreshGrid = new Button { Text = "Обновить", Dock = DockStyle.Top, Height = 32 };
+
+            var telemetryTopBar = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Color.FromArgb(236, 242, 251), Padding = new Padding(8) };
+            var buttonRefreshGrid = new Button { Text = "Обновить", Width = 95, Height = 30, Left = 8, Top = 8 };
             buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
-            tabElements.Controls.Add(elementsGrid);
-            tabElements.Controls.Add(buttonRefreshGrid);
-            tabElements.Controls.Add(labelElementsHint);
+            telemetryTopBar.Controls.Add(buttonRefreshGrid);
 
-            MoveClientControlsToTab(tabClient);
+            textBoxBulkIp = new TextBox { Left = 120, Top = 10, Width = 120, Text = "127.0.0.1" };
+            textBoxBulkPort = new TextBox { Left = 245, Top = 10, Width = 55, Text = "502" };
+            textBoxBulkDeviceId = new TextBox { Left = 305, Top = 10, Width = 65, Text = "1" };
+            comboBoxBulkProtocol = new ComboBox { Left = 375, Top = 10, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
+            comboBoxBulkProtocol.Items.AddRange(new object[] { "Modbus TCP", "МЭК-104" });
+            comboBoxBulkProtocol.SelectedIndex = 0;
+            checkBoxBulkTelemetry = new CheckBox { Left = 500, Top = 12, Width = 130, Text = "Телеметрия для всех" };
+            var buttonApplyBulk = new Button { Left = 635, Top = 8, Width = 200, Height = 30, Text = "Применить ко всем элементам" };
+            buttonApplyBulk.Click += buttonApplyBulk_Click;
 
-            workspaceTabs.TabPages.Add(tabEditor);
-            workspaceTabs.TabPages.Add(tabElements);
-            workspaceTabs.TabPages.Add(tabClient);
+            telemetryTopBar.Controls.Add(new Label { Left = 120, Top = 40, Width = 120, Text = "IP" });
+            telemetryTopBar.Controls.Add(new Label { Left = 245, Top = 40, Width = 55, Text = "Порт" });
+            telemetryTopBar.Controls.Add(new Label { Left = 305, Top = 40, Width = 65, Text = "ID" });
+            telemetryTopBar.Controls.Add(new Label { Left = 375, Top = 40, Width = 120, Text = "Протокол" });
+            telemetryTopBar.Controls.Add(textBoxBulkIp);
+            telemetryTopBar.Controls.Add(textBoxBulkPort);
+            telemetryTopBar.Controls.Add(textBoxBulkDeviceId);
+            telemetryTopBar.Controls.Add(comboBoxBulkProtocol);
+            telemetryTopBar.Controls.Add(checkBoxBulkTelemetry);
+            telemetryTopBar.Controls.Add(buttonApplyBulk);
 
-            this.Controls.Add(workspaceTabs);
+            telemetryPanel.Controls.Add(elementsGrid);
+            telemetryPanel.Controls.Add(telemetryTopBar);
+            telemetryPanel.Controls.Add(labelElementsHint);
+
+            MoveClientControlsToTab(clientPanel);
+
             panel1.BringToFront();
             statusStrip1.BringToFront();
         }
@@ -152,78 +182,123 @@ namespace PowerGridEditor
             return grid;
         }
 
-        private void MoveClientControlsToTab(TabPage tabClient)
+        private void MoveClientControlsToTab(Panel targetClientPanel)
         {
-            var clientPanel = new Panel
+            var contentPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 130,
+                Height = 140,
                 Padding = new Padding(12),
                 BackColor = Color.FromArgb(214, 227, 242)
             };
 
-            labelTopClock.Parent = clientPanel;
+            labelTopClock.Parent = contentPanel;
             labelTopClock.AutoSize = true;
             labelTopClock.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            labelTopClock.Location = new Point(520, 10);
+            labelTopClock.Location = new Point(22, 8);
 
-            labelAdapter.Parent = clientPanel;
-            labelAdapter.Location = new Point(25, 52);
+            labelAdapter.Parent = contentPanel;
+            labelAdapter.Location = new Point(22, 52);
             labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            comboBoxAdapters.Parent = clientPanel;
+            comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
-            comboBoxAdapters.Size = new Size(560, 28);
+            comboBoxAdapters.Size = new Size(670, 28);
             comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelIp.Parent = clientPanel;
-            labelIp.Location = new Point(25, 92);
+            labelIp.Parent = contentPanel;
+            labelIp.Location = new Point(22, 95);
             labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxStaticIp.Parent = clientPanel;
-            textBoxStaticIp.Location = new Point(70, 90);
+            textBoxStaticIp.Parent = contentPanel;
+            textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
             textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelMask.Parent = clientPanel;
-            labelMask.Location = new Point(315, 92);
+            labelMask.Parent = contentPanel;
+            labelMask.Location = new Point(305, 95);
             labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxMask.Parent = clientPanel;
-            textBoxMask.Location = new Point(375, 90);
+            textBoxMask.Parent = contentPanel;
+            textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
             textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelGateway.Parent = clientPanel;
-            labelGateway.Location = new Point(540, 92);
+            labelGateway.Parent = contentPanel;
+            labelGateway.Location = new Point(530, 95);
             labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxGateway.Parent = clientPanel;
-            textBoxGateway.Location = new Point(605, 90);
+            textBoxGateway.Parent = contentPanel;
+            textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
             textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            buttonApplyStaticIp.Parent = clientPanel;
+            buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
-            buttonApplyStaticIp.Location = new Point(770, 45);
+            buttonApplyStaticIp.Location = new Point(760, 45);
             buttonApplyStaticIp.Size = new Size(140, 75);
             buttonApplyStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             var hint = new Label
             {
-                Parent = clientPanel,
+                Parent = contentPanel,
                 AutoSize = true,
                 Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
-                Location = new Point(930, 94),
+                Location = new Point(920, 100),
                 Font = new Font("Segoe UI", 9F, FontStyle.Italic),
                 ForeColor = Color.FromArgb(43, 71, 104)
             };
 
-            tabClient.Controls.Add(clientPanel);
+            targetClientPanel.Controls.Add(contentPanel);
         }
 
         private void AddDynamicControls()
         {
+            buttonViewScheme = new Button
+            {
+                Name = "buttonViewScheme",
+                Text = "Схема",
+                Width = 110,
+                Height = 30,
+                Left = 170,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonViewScheme.FlatAppearance.BorderSize = 2;
+            buttonViewScheme.Click += (s, e) => ShowWorkspaceView("scheme");
+
+            buttonViewTelemetry = new Button
+            {
+                Name = "buttonViewTelemetry",
+                Text = "Телеметрия",
+                Width = 110,
+                Height = 30,
+                Left = 286,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonViewTelemetry.FlatAppearance.BorderSize = 2;
+            buttonViewTelemetry.Click += (s, e) => ShowWorkspaceView("telemetry");
+
+            buttonViewClient = new Button
+            {
+                Name = "buttonViewClient",
+                Text = "Настройка клиента",
+                Width = 165,
+                Height = 30,
+                Left = 402,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonViewClient.FlatAppearance.BorderSize = 2;
+            buttonViewClient.Click += (s, e) => ShowWorkspaceView("client");
+
             buttonCalcSettings = new Button
             {
                 Name = "buttonCalcSettings",
@@ -246,8 +321,73 @@ namespace PowerGridEditor
                 settingsForm.Show(this);
             };
 
+            panel1.Controls.Add(buttonViewScheme);
+            panel1.Controls.Add(buttonViewTelemetry);
+            panel1.Controls.Add(buttonViewClient);
             panel1.Controls.Add(buttonCalcSettings);
+            ShowWorkspaceView("scheme");
 
+        }
+
+        private void ShowWorkspaceView(string viewName)
+        {
+            panel2.Visible = viewName == "scheme";
+            telemetryPanel.Visible = viewName == "telemetry";
+            clientPanel.Visible = viewName == "client";
+
+            if (panel2.Visible)
+            {
+                panel2.BringToFront();
+            }
+            else if (telemetryPanel.Visible)
+            {
+                telemetryPanel.BringToFront();
+            }
+            else
+            {
+                clientPanel.BringToFront();
+            }
+
+            panel1.BringToFront();
+            statusStrip1.BringToFront();
+        }
+
+        private void buttonApplyBulk_Click(object sender, EventArgs e)
+        {
+            if (!IPAddress.TryParse(textBoxBulkIp.Text, out _))
+            {
+                MessageBox.Show("Введите корректный IP для массового применения.", "Телеметрия", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            var nodes = graphicElements.OfType<GraphicNode>().Select(x => x.Data);
+            var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(x => x.Data);
+            var branches = graphicBranches.Select(x => x.Data);
+            var shunts = graphicShunts.Select(x => x.Data);
+
+            foreach (var data in nodes.Cast<dynamic>().Concat(baseNodes.Cast<dynamic>()).Concat(branches.Cast<dynamic>()).Concat(shunts.Cast<dynamic>()))
+            {
+                data.IPAddress = textBoxBulkIp.Text;
+                data.Port = textBoxBulkPort.Text;
+                data.Protocol = Convert.ToString(comboBoxBulkProtocol.SelectedItem) ?? "Modbus TCP";
+                if (data is Node)
+                {
+                    data.NodeID = textBoxBulkDeviceId.Text;
+                }
+                else
+                {
+                    data.DeviceID = textBoxBulkDeviceId.Text;
+                }
+
+                var keys = new List<string>(data.ParamAutoModes.Keys);
+                foreach (var key in keys)
+                {
+                    data.ParamAutoModes[key] = checkBoxBulkTelemetry.Checked;
+                }
+            }
+
+            RefreshElementsGrid();
+            MessageBox.Show("Параметры телеметрии применены ко всем элементам.", "Телеметрия", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
 
