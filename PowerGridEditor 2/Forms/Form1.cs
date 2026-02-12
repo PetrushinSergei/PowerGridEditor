@@ -647,6 +647,11 @@ namespace PowerGridEditor
                 isMarqueeSelecting = false;
             }
 
+            if (e.Button == MouseButtons.Left)
+            {
+                isMarqueeSelecting = false;
+            }
+
             isDragging = false;
         }
 
