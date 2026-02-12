@@ -40,7 +40,6 @@ namespace PowerGridEditor
         private DataGridView elementsGrid;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
-        private bool workspaceTabsInitialized;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -70,29 +69,15 @@ namespace PowerGridEditor
 
         private void SetupWorkspaceTabs()
         {
-            if (workspaceTabsInitialized && workspaceTabs != null && this.Controls.Contains(workspaceTabs))
-            {
-                workspaceTabs.BringToFront();
-                panel1.BringToFront();
-                statusStrip1.BringToFront();
-                return;
-            }
-
             workspaceTabs = new TabControl
             {
                 Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal,
-                SizeMode = TabSizeMode.Fixed,
-                ItemSize = new Size(240, 30),
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
+                Appearance = TabAppearance.Normal
             };
 
             var tabEditor = new TabPage("Схема");
             var tabElements = new TabPage("Элементы и телеметрия");
             var tabClient = new TabPage("Настройка клиента");
-            tabEditor.BackColor = Color.White;
-            tabElements.BackColor = Color.White;
-            tabClient.BackColor = Color.White;
 
             panel2.Parent = tabEditor;
             panel2.Dock = DockStyle.Fill;
@@ -110,7 +95,6 @@ namespace PowerGridEditor
             workspaceTabs.TabPages.Add(tabClient);
 
             this.Controls.Add(workspaceTabs);
-            workspaceTabsInitialized = true;
             workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
@@ -302,8 +286,7 @@ namespace PowerGridEditor
                 return dragTargets;
             }
 
-            int groupId;
-            if (primary != null && elementGroups.TryGetValue(primary, out groupId))
+            if (primary != null && elementGroups.TryGetValue(primary, out int groupId))
             {
                 return elementGroups.Where(kv => kv.Value == groupId).Select(kv => kv.Key).Where(IsMovableElement).ToList();
             }
@@ -317,64 +300,24 @@ namespace PowerGridEditor
             elementsGrid.Rows.Clear();
 
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, CreateRows(
-                    CreateParamRow("U", "Напряжение", node.Data.InitialVoltage),
-                    CreateParamRow("P", "P нагрузка", node.Data.NominalActivePower),
-                    CreateParamRow("Q", "Q нагрузка", node.Data.NominalReactivePower),
-                    CreateParamRow("Pg", "P генерация", node.Data.ActivePowerGeneration),
-                    CreateParamRow("Qg", "Q генерация", node.Data.ReactivePowerGeneration),
-                    CreateParamRow("Uf", "U фикс.", node.Data.FixedVoltageModule),
-                    CreateParamRow("Qmin", "Q мин", node.Data.MinReactivePower),
-                    CreateParamRow("Qmax", "Q макс", node.Data.MaxReactivePower)));
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, CreateRows(
-                    CreateParamRow("U", "Напряжение", baseNode.Data.InitialVoltage),
-                    CreateParamRow("P", "P нагрузка", baseNode.Data.NominalActivePower),
-                    CreateParamRow("Q", "Q нагрузка", baseNode.Data.NominalReactivePower),
-                    CreateParamRow("Pg", "P генерация", baseNode.Data.ActivePowerGeneration),
-                    CreateParamRow("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration),
-                    CreateParamRow("Uf", "U фикс.", baseNode.Data.FixedVoltageModule),
-                    CreateParamRow("Qmin", "Q мин", baseNode.Data.MinReactivePower),
-                    CreateParamRow("Qmax", "Q макс", baseNode.Data.MaxReactivePower)));
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
 
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, CreateRows(
-                    CreateParamRow("R", "R", branch.Data.ActiveResistance),
-                    CreateParamRow("X", "X", branch.Data.ReactiveResistance),
-                    CreateParamRow("B", "B", branch.Data.ReactiveConductivity),
-                    CreateParamRow("Ktr", "K трансф.", branch.Data.TransformationRatio),
-                    CreateParamRow("G", "G", branch.Data.ActiveConductivity)));
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
 
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
-                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, CreateRows(
-                    CreateParamRow("R", "R", shunt.Data.ActiveResistance),
-                    CreateParamRow("X", "X", shunt.Data.ReactiveResistance)));
+                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
         }
 
-        private sealed class ParamRow
-        {
-            public string Key;
-            public string Label;
-            public double Value;
-        }
-
-        private ParamRow CreateParamRow(string key, string label, double value)
-        {
-            return new ParamRow { Key = key, Label = label, Value = value };
-        }
-
-        private IEnumerable<ParamRow> CreateRows(params ParamRow[] rows)
-        {
-            return rows;
-        }
-
-        private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<ParamRow> rows)
+        private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
         {
             foreach (var row in rows)
             {
                 int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
-                elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, (object)data);
+                elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
             }
         }
 
@@ -382,8 +325,7 @@ namespace PowerGridEditor
         {
             if (e.RowIndex < 0) return;
             var row = elementsGrid.Rows[e.RowIndex];
-            var tag = row.Tag as Tuple<object, string, object>;
-            if (tag != null)
+            if (row.Tag is Tuple<object, string, object> tag)
             {
                 dynamic data = tag.Item3;
                 string key = tag.Item2;
@@ -635,33 +577,18 @@ namespace PowerGridEditor
         {
             foreach (var element in graphicElements)
             {
-                var node = element as GraphicNode;
-                if (node != null && node.Contains(modelPoint))
-                {
-                    return node;
-                }
-
-                var baseNode = element as GraphicBaseNode;
-                if (baseNode != null && baseNode.Contains(modelPoint))
-                {
-                    return baseNode;
-                }
+                if (element is GraphicNode node && node.Contains(modelPoint)) return node;
+                if (element is GraphicBaseNode baseNode && baseNode.Contains(modelPoint)) return baseNode;
             }
 
             foreach (var shunt in graphicShunts)
             {
-                if (shunt.Contains(modelPoint))
-                {
-                    return shunt;
-                }
+                if (shunt.Contains(modelPoint)) return shunt;
             }
 
             foreach (var branch in graphicBranches)
             {
-                if (branch.Contains(modelPoint))
-                {
-                    return branch;
-                }
+                if (branch.Contains(modelPoint)) return branch;
             }
 
             return null;
@@ -687,42 +614,16 @@ namespace PowerGridEditor
             SetElementSelectedState(element, true);
         }
 
-        private void SelectElement(object element)
-        {
-            selectedElements.Add(element);
-            selectedElement = element;
-            SetElementSelectedState(element, true);
-        }
-
-        private object FindElementAt(Point modelPoint)
+        private void ClearAllSelection()
         {
             foreach (var element in graphicElements)
-            {
-                var node = element as GraphicNode;
-                if (node != null)
-                {
-                    node.IsSelected = false;
-                    continue;
-                }
-
-                var baseNode = element as GraphicBaseNode;
-                if (baseNode != null)
-                {
-                    baseNode.IsSelected = false;
-                }
-            }
-
-            foreach (var branch in graphicBranches)
-            {
-                if (branch.Contains(modelPoint)) return branch;
-            }
-
-            foreach (var shunt in graphicShunts)
             {
                 if (element is GraphicNode node) node.IsSelected = false;
                 else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
-        }
+
+            foreach (var branch in graphicBranches) branch.IsSelected = false;
+            foreach (var shunt in graphicShunts) shunt.IsSelected = false;
 
             selectedElements.Clear();
             selectedElement = null;
@@ -730,32 +631,10 @@ namespace PowerGridEditor
 
         private void SetElementSelectedState(object element, bool selected)
         {
-            var node = element as GraphicNode;
-            if (node != null)
-            {
-                node.IsSelected = selected;
-                return;
-            }
-
-            var baseNode = element as GraphicBaseNode;
-            if (baseNode != null)
-            {
-                baseNode.IsSelected = selected;
-                return;
-            }
-
-            var shunt = element as GraphicShunt;
-            if (shunt != null)
-            {
-                shunt.IsSelected = selected;
-                return;
-            }
-
-            var branch = element as GraphicBranch;
-            if (branch != null)
-            {
-                branch.IsSelected = selected;
-            }
+            if (element is GraphicNode node) node.IsSelected = selected;
+            else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = selected;
+            else if (element is GraphicShunt shunt) shunt.IsSelected = selected;
+            else if (element is GraphicBranch branch) branch.IsSelected = selected;
         }
 
 
@@ -791,24 +670,17 @@ namespace PowerGridEditor
 
                 foreach (var target in GetDragTargets(selectedElement))
                 {
-                    var gn = target as GraphicNode;
-                    if (gn != null)
+                    if (target is GraphicNode gn)
                     {
                         gn.Location = new Point(gn.Location.X + dx, gn.Location.Y + dy);
                         UpdateShuntPositions(gn);
-                        continue;
                     }
-
-                    var bn = target as GraphicBaseNode;
-                    if (bn != null)
+                    else if (target is GraphicBaseNode bn)
                     {
                         bn.Location = new Point(bn.Location.X + dx, bn.Location.Y + dy);
                         UpdateShuntPositions(bn);
-                        continue;
                     }
-
-                    var gs = target as GraphicShunt;
-                    if (gs != null)
+                    else if (target is GraphicShunt gs)
                     {
                         gs.Location = new Point(gs.Location.X + dx, gs.Location.Y + dy);
                     }
@@ -2420,7 +2292,6 @@ namespace PowerGridEditor
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            SetupWorkspaceTabs();
             LoadNetworkAdapters();
             StartClock();
             StartGlobalTelemetryPolling();
