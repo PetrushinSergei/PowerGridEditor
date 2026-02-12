@@ -68,6 +68,9 @@
     <Compile Include="Forms\CalculationSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\ClientSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -100,6 +103,9 @@
     </Compile>
     <Compile Include="Forms\ShuntForm.Designer.cs">
       <DependentUpon>ShuntForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\TelemetryEditorForm.cs">
+      <SubType>Form</SubType>
     </Compile>
     <EmbeddedResource Include="Forms\BaseNodeForm.resx">
       <DependentUpon>BaseNodeForm.cs</DependentUpon>
