@@ -687,7 +687,14 @@ namespace PowerGridEditor
             SetElementSelectedState(element, true);
         }
 
-        private void ClearAllSelection()
+        private void SelectElement(object element)
+        {
+            selectedElements.Add(element);
+            selectedElement = element;
+            SetElementSelectedState(element, true);
+        }
+
+        private object FindElementAt(Point modelPoint)
         {
             foreach (var element in graphicElements)
             {
@@ -707,13 +714,15 @@ namespace PowerGridEditor
 
             foreach (var branch in graphicBranches)
             {
-                branch.IsSelected = false;
+                if (branch.Contains(modelPoint)) return branch;
             }
 
             foreach (var shunt in graphicShunts)
             {
-                shunt.IsSelected = false;
+                if (element is GraphicNode node) node.IsSelected = false;
+                else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
+        }
 
             selectedElements.Clear();
             selectedElement = null;
