@@ -38,6 +38,8 @@ namespace PowerGridEditor
         private int nextGroupId = 1;
         private TabControl workspaceTabs;
         private DataGridView elementsGrid;
+        private Point rightMouseDownPoint;
+        private bool rightMouseMoved;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -179,21 +181,6 @@ namespace PowerGridEditor
 
             panel1.Controls.Add(buttonCalcSettings);
 
-            var buttonGroup = new Button
-            {
-                Name = "buttonGroupSelection",
-                Text = "Группировать выделение",
-                Width = 180,
-                Height = 30,
-                Left = 170,
-                Top = 48,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
-            };
-            buttonGroup.FlatAppearance.BorderSize = 2;
-            buttonGroup.Click += (s, e) => GroupSelectedElements();
-            panel1.Controls.Add(buttonGroup);
         }
 
 
@@ -213,6 +200,21 @@ namespace PowerGridEditor
             }
 
             MessageBox.Show($"Создана группа из {movable.Count} элементов.");
+        }
+
+
+        private void UngroupSelectedElements()
+        {
+            var toUngroup = selectedElements.Where(e => elementGroups.ContainsKey(e)).ToList();
+            foreach (var element in toUngroup)
+            {
+                elementGroups.Remove(element);
+            }
+
+            if (toUngroup.Count == 0)
+            {
+                MessageBox.Show("Среди выделенных элементов нет групп.");
+            }
         }
 
         private bool IsMovableElement(object element)
@@ -425,7 +427,18 @@ namespace PowerGridEditor
             if (e.Button == MouseButtons.Right)
             {
                 panning = true;
+                rightMouseMoved = false;
+                rightMouseDownPoint = e.Location;
                 lastPanPos = e.Location;
+
+                Point modelPointRight = Point.Round(ScreenToModel(e.Location));
+                object hitRight = FindElementAt(modelPointRight);
+                if (hitRight != null && !selectedElements.Contains(hitRight))
+                {
+                    ClearAllSelection();
+                    SelectElement(hitRight);
+                    panel2.Invalidate();
+                }
                 return;
             }
 
@@ -539,6 +552,11 @@ namespace PowerGridEditor
             {
                 int dx = e.X - lastPanPos.X;
                 int dy = e.Y - lastPanPos.Y;
+                if (Math.Abs(e.X - rightMouseDownPoint.X) > 3 || Math.Abs(e.Y - rightMouseDownPoint.Y) > 3)
+                {
+                    rightMouseMoved = true;
+                }
+
                 pan = new PointF(pan.X + dx, pan.Y + dy);
                 lastPanPos = e.Location;
                 panel2.Invalidate();
@@ -616,7 +634,18 @@ namespace PowerGridEditor
         private void Panel2_MouseUp(object sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Right)
+            {
                 panning = false;
+                if (!rightMouseMoved)
+                {
+                    ShowContextMenu(e.Location);
+                }
+            }
+
+            if (e.Button == MouseButtons.Left)
+            {
+                isMarqueeSelecting = false;
+            }
 
             if (e.Button == MouseButtons.Left)
             {
@@ -710,36 +739,69 @@ namespace PowerGridEditor
         {
             contextMenuStrip.Items.Clear();
 
-            if (selectedElement is GraphicNode)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать узел");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicBaseNode)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать базисный узел");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicBranch)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать ветвь");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
-            else if (selectedElement is GraphicShunt)
-            {
-                var editItem = new ToolStripMenuItem("Редактировать шунт");
-                editItem.Click += (s, e) => EditSelectedElement();
-                contextMenuStrip.Items.Add(editItem);
-            }
+            bool hasSelection = selectedElements.Count > 0;
+            bool singleSelection = selectedElements.Count == 1;
+
+            var editItem = new ToolStripMenuItem("Изменить параметры");
+            editItem.Enabled = singleSelection;
+            editItem.Click += (s, e) => EditSelectedElement();
+            contextMenuStrip.Items.Add(editItem);
+
+            var groupItem = new ToolStripMenuItem("Группировать");
+            groupItem.Enabled = selectedElements.Count >= 2;
+            groupItem.Click += (s, e) => GroupSelectedElements();
+            contextMenuStrip.Items.Add(groupItem);
+
+            var ungroupItem = new ToolStripMenuItem("Разгруппировать");
+            ungroupItem.Enabled = hasSelection && selectedElements.Any(x => elementGroups.ContainsKey(x));
+            ungroupItem.Click += (s, e) => UngroupSelectedElements();
+            contextMenuStrip.Items.Add(ungroupItem);
 
             var deleteItem = new ToolStripMenuItem("Удалить");
-            deleteItem.Click += (s, e) => DeleteSelectedElement();
+            deleteItem.Enabled = hasSelection;
+            deleteItem.Click += (s, e) => DeleteSelectionFromContext();
             contextMenuStrip.Items.Add(deleteItem);
 
             contextMenuStrip.Show(panel2, location);
+        }
+
+        private void DeleteSelectionFromContext()
+        {
+            var toDelete = selectedElements.ToList();
+            if (toDelete.Count == 0)
+            {
+                return;
+            }
+
+            if (toDelete.Count == 1)
+            {
+                selectedElement = toDelete[0];
+                DeleteSelectedElement();
+                RefreshElementsGrid();
+                return;
+            }
+
+            var dr = MessageBox.Show($"Удалить выбранные элементы ({toDelete.Count})?", "Удаление", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (dr != DialogResult.Yes) return;
+
+            foreach (var element in toDelete)
+            {
+                selectedElement = element;
+                if (element is GraphicNode || element is GraphicBaseNode)
+                {
+                    // Полное удаление вместе со связями
+                    DeleteSelectedElement();
+                }
+                else
+                {
+                    DeleteSelectedElement();
+                }
+                elementGroups.Remove(element);
+            }
+
+            ClearAllSelection();
+            RefreshElementsGrid();
+            panel2.Invalidate();
         }
 
         private void EditSelectedElement()
