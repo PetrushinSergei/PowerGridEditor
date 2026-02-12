@@ -630,17 +630,35 @@ namespace PowerGridEditor
             SetElementSelectedState(element, true);
         }
 
-        private void ClearAllSelection()
+        private object FindElementAt(Point modelPoint)
         {
             foreach (var element in graphicElements)
+            {
+                var node = element as GraphicNode;
+                if (node != null)
+                {
+                    node.IsSelected = false;
+                    continue;
+                }
+
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode != null)
+                {
+                    baseNode.IsSelected = false;
+                }
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                if (branch.Contains(modelPoint)) return branch;
+            }
+
+            foreach (var shunt in graphicShunts)
             {
                 if (element is GraphicNode node) node.IsSelected = false;
                 else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
         }
-
-            foreach (var branch in graphicBranches) branch.IsSelected = false;
-            foreach (var shunt in graphicShunts) shunt.IsSelected = false;
 
             selectedElements.Clear();
             selectedElement = null;
@@ -648,10 +666,32 @@ namespace PowerGridEditor
 
         private void SetElementSelectedState(object element, bool selected)
         {
-            if (element is GraphicNode node) node.IsSelected = selected;
-            else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = selected;
-            else if (element is GraphicShunt shunt) shunt.IsSelected = selected;
-            else if (element is GraphicBranch branch) branch.IsSelected = selected;
+            var node = element as GraphicNode;
+            if (node != null)
+            {
+                node.IsSelected = selected;
+                return;
+            }
+
+            var baseNode = element as GraphicBaseNode;
+            if (baseNode != null)
+            {
+                baseNode.IsSelected = selected;
+                return;
+            }
+
+            var shunt = element as GraphicShunt;
+            if (shunt != null)
+            {
+                shunt.IsSelected = selected;
+                return;
+            }
+
+            var branch = element as GraphicBranch;
+            if (branch != null)
+            {
+                branch.IsSelected = selected;
+            }
         }
 
 
