@@ -637,6 +637,7 @@ namespace PowerGridEditor
                 if (element is GraphicNode node) node.IsSelected = false;
                 else if (element is GraphicBaseNode baseNode) baseNode.IsSelected = false;
             }
+        }
 
             foreach (var branch in graphicBranches) branch.IsSelected = false;
             foreach (var shunt in graphicShunts) shunt.IsSelected = false;
