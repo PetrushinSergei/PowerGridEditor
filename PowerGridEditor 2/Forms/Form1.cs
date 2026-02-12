@@ -36,8 +36,11 @@ namespace PowerGridEditor
         private Point marqueeCurrentModel;
         private readonly Dictionary<object, int> elementGroups = new Dictionary<object, int>();
         private int nextGroupId = 1;
-        private TabControl workspaceTabs;
         private DataGridView elementsGrid;
+        private Button buttonOpenTelemetryForm;
+        private Button buttonOpenClientSettingsForm;
+        private TelemetryEditorForm telemetryEditorForm;
+        private ClientSettingsForm clientSettingsForm;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
 
@@ -69,33 +72,8 @@ namespace PowerGridEditor
 
         private void SetupWorkspaceTabs()
         {
-            workspaceTabs = new TabControl
-            {
-                Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal
-            };
-
-            var tabEditor = new TabPage("Схема");
-            var tabElements = new TabPage("Элементы и телеметрия");
-            var tabClient = new TabPage("Настройка клиента");
-
-            panel2.Parent = tabEditor;
-            panel2.Dock = DockStyle.Fill;
-
             elementsGrid = BuildElementsGrid();
-            var buttonRefreshGrid = new Button { Text = "Обновить", Dock = DockStyle.Top, Height = 32 };
-            buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
-            tabElements.Controls.Add(elementsGrid);
-            tabElements.Controls.Add(buttonRefreshGrid);
 
-            MoveClientControlsToTab(tabClient);
-
-            workspaceTabs.TabPages.Add(tabEditor);
-            workspaceTabs.TabPages.Add(tabElements);
-            workspaceTabs.TabPages.Add(tabClient);
-
-            this.Controls.Add(workspaceTabs);
-            workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
         }
@@ -141,78 +119,108 @@ namespace PowerGridEditor
             return grid;
         }
 
-        private void MoveClientControlsToTab(TabPage tabClient)
+        private void MoveClientControlsToTab(Panel targetClientPanel)
         {
-            var clientPanel = new Panel
+            var contentPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 130,
+                Height = 140,
                 Padding = new Padding(12),
                 BackColor = Color.FromArgb(214, 227, 242)
             };
 
-            labelTopClock.Parent = clientPanel;
+            labelTopClock.Parent = contentPanel;
             labelTopClock.AutoSize = true;
             labelTopClock.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            labelTopClock.Location = new Point(520, 10);
+            labelTopClock.Location = new Point(22, 8);
 
-            labelAdapter.Parent = clientPanel;
-            labelAdapter.Location = new Point(25, 52);
+            labelAdapter.Parent = contentPanel;
+            labelAdapter.Location = new Point(22, 52);
             labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            comboBoxAdapters.Parent = clientPanel;
+            comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
-            comboBoxAdapters.Size = new Size(560, 28);
+            comboBoxAdapters.Size = new Size(670, 28);
             comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelIp.Parent = clientPanel;
-            labelIp.Location = new Point(25, 92);
+            labelIp.Parent = contentPanel;
+            labelIp.Location = new Point(22, 95);
             labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxStaticIp.Parent = clientPanel;
-            textBoxStaticIp.Location = new Point(70, 90);
+            textBoxStaticIp.Parent = contentPanel;
+            textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
             textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelMask.Parent = clientPanel;
-            labelMask.Location = new Point(315, 92);
+            labelMask.Parent = contentPanel;
+            labelMask.Location = new Point(305, 95);
             labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxMask.Parent = clientPanel;
-            textBoxMask.Location = new Point(375, 90);
+            textBoxMask.Parent = contentPanel;
+            textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
             textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelGateway.Parent = clientPanel;
-            labelGateway.Location = new Point(540, 92);
+            labelGateway.Parent = contentPanel;
+            labelGateway.Location = new Point(530, 95);
             labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxGateway.Parent = clientPanel;
-            textBoxGateway.Location = new Point(605, 90);
+            textBoxGateway.Parent = contentPanel;
+            textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
             textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            buttonApplyStaticIp.Parent = clientPanel;
+            buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
-            buttonApplyStaticIp.Location = new Point(770, 45);
+            buttonApplyStaticIp.Location = new Point(760, 45);
             buttonApplyStaticIp.Size = new Size(140, 75);
             buttonApplyStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             var hint = new Label
             {
-                Parent = clientPanel,
+                Parent = contentPanel,
                 AutoSize = true,
                 Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
-                Location = new Point(930, 94),
+                Location = new Point(920, 100),
                 Font = new Font("Segoe UI", 9F, FontStyle.Italic),
                 ForeColor = Color.FromArgb(43, 71, 104)
             };
 
-            tabClient.Controls.Add(clientPanel);
+            targetClientPanel.Controls.Add(contentPanel);
         }
 
         private void AddDynamicControls()
         {
+            buttonOpenTelemetryForm = new Button
+            {
+                Name = "buttonOpenTelemetryForm",
+                Text = "Телеметрия",
+                Width = 120,
+                Height = 30,
+                Left = 170,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonOpenTelemetryForm.FlatAppearance.BorderSize = 2;
+            buttonOpenTelemetryForm.Click += buttonOpenTelemetryForm_Click;
+
+            buttonOpenClientSettingsForm = new Button
+            {
+                Name = "buttonOpenClientSettingsForm",
+                Text = "Настройка клиента",
+                Width = 165,
+                Height = 30,
+                Left = 296,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(233, 242, 252),
+                ForeColor = Color.FromArgb(24, 50, 82)
+            };
+            buttonOpenClientSettingsForm.FlatAppearance.BorderSize = 2;
+            buttonOpenClientSettingsForm.Click += buttonOpenClientSettingsForm_Click;
+
             buttonCalcSettings = new Button
             {
                 Name = "buttonCalcSettings",
@@ -235,8 +243,63 @@ namespace PowerGridEditor
                 settingsForm.Show(this);
             };
 
+            panel1.Controls.Add(buttonOpenTelemetryForm);
+            panel1.Controls.Add(buttonOpenClientSettingsForm);
             panel1.Controls.Add(buttonCalcSettings);
+        }
 
+        private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
+        {
+            if (telemetryEditorForm != null && !telemetryEditorForm.IsDisposed)
+            {
+                if (!telemetryEditorForm.Visible)
+                {
+                    telemetryEditorForm.Show(this);
+                }
+                if (telemetryEditorForm.WindowState == FormWindowState.Minimized)
+                {
+                    telemetryEditorForm.WindowState = FormWindowState.Normal;
+                }
+                telemetryEditorForm.BringToFront();
+                telemetryEditorForm.Focus();
+                return;
+            }
+
+            telemetryEditorForm = new TelemetryEditorForm(
+                () => graphicElements,
+                () => graphicBranches,
+                () => graphicShunts,
+                () => panel2.Invalidate());
+            RegisterOpenedWindow(telemetryEditorForm);
+            telemetryEditorForm.StartPosition = FormStartPosition.Manual;
+            telemetryEditorForm.Location = GetNextChildWindowLocation();
+            telemetryEditorForm.FormClosed += (s, args) => telemetryEditorForm = null;
+            telemetryEditorForm.Show(this);
+        }
+
+        private void buttonOpenClientSettingsForm_Click(object sender, EventArgs e)
+        {
+            if (clientSettingsForm != null && !clientSettingsForm.IsDisposed)
+            {
+                if (!clientSettingsForm.Visible)
+                {
+                    clientSettingsForm.Show(this);
+                }
+                if (clientSettingsForm.WindowState == FormWindowState.Minimized)
+                {
+                    clientSettingsForm.WindowState = FormWindowState.Normal;
+                }
+                clientSettingsForm.BringToFront();
+                clientSettingsForm.Focus();
+                return;
+            }
+
+            clientSettingsForm = new ClientSettingsForm();
+            RegisterOpenedWindow(clientSettingsForm);
+            clientSettingsForm.StartPosition = FormStartPosition.Manual;
+            clientSettingsForm.Location = GetNextChildWindowLocation();
+            clientSettingsForm.FormClosed += (s, args) => clientSettingsForm = null;
+            clientSettingsForm.Show(this);
         }
 
 
@@ -299,17 +362,31 @@ namespace PowerGridEditor
             if (elementsGrid == null) return;
             elementsGrid.Rows.Clear();
 
+            AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
 
+            AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
 
+            AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
                 AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
 
+            AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
                 AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+        }
+
+        private void AddSectionRow(string title)
+        {
+            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "");
+            var row = elementsGrid.Rows[index];
+            row.ReadOnly = true;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
+            row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            row.Tag = null;
         }
 
         private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
@@ -325,6 +402,7 @@ namespace PowerGridEditor
         {
             if (e.RowIndex < 0) return;
             var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
             if (row.Tag is Tuple<object, string, object> tag)
             {
                 dynamic data = tag.Item3;
@@ -352,6 +430,7 @@ namespace PowerGridEditor
             if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
 
             var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
             string ip = Convert.ToString(row.Cells["IP"].Value);
             if (string.IsNullOrWhiteSpace(ip))
             {
@@ -2292,10 +2371,24 @@ namespace PowerGridEditor
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            LoadNetworkAdapters();
+            SetLegacyClientControlsVisibility(false);
             StartClock();
             StartGlobalTelemetryPolling();
             RefreshElementsGrid();
+        }
+
+        private void SetLegacyClientControlsVisibility(bool visible)
+        {
+            labelAdapter.Visible = visible;
+            comboBoxAdapters.Visible = visible;
+            labelIp.Visible = visible;
+            textBoxStaticIp.Visible = visible;
+            labelMask.Visible = visible;
+            textBoxMask.Visible = visible;
+            labelGateway.Visible = visible;
+            textBoxGateway.Visible = visible;
+            buttonApplyStaticIp.Visible = visible;
+            labelTopClock.Visible = visible;
         }
     }
 }
