@@ -278,7 +278,7 @@ namespace PowerGridEditor
             row.Cells["Ping"].Value = ok ? "ОК" : "Нет";
         }
 
-        private async void ButtonApplyBulk_Click(object sender, EventArgs e)
+        private void ButtonApplyBulk_Click(object sender, EventArgs e)
         {
             if (!IPAddress.TryParse(textBoxBulkIp.Text, out _))
             {

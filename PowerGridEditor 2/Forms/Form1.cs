@@ -282,67 +282,6 @@ namespace PowerGridEditor
             clientSettingsForm.Show(this);
         }
 
-        private void ShowWorkspaceView(string viewName)
-        {
-            panel2.Visible = viewName == "scheme";
-            telemetryPanel.Visible = viewName == "telemetry";
-            clientPanel.Visible = viewName == "client";
-
-            if (panel2.Visible)
-            {
-                panel2.BringToFront();
-            }
-            else if (telemetryPanel.Visible)
-            {
-                telemetryPanel.BringToFront();
-            }
-            else
-            {
-                clientPanel.BringToFront();
-            }
-
-            panel1.BringToFront();
-            statusStrip1.BringToFront();
-        }
-
-        private void buttonApplyBulk_Click(object sender, EventArgs e)
-        {
-            if (!IPAddress.TryParse(textBoxBulkIp.Text, out _))
-            {
-                MessageBox.Show("Введите корректный IP для массового применения.", "Телеметрия", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            var nodes = graphicElements.OfType<GraphicNode>().Select(x => x.Data);
-            var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(x => x.Data);
-            var branches = graphicBranches.Select(x => x.Data);
-            var shunts = graphicShunts.Select(x => x.Data);
-
-            foreach (var data in nodes.Cast<dynamic>().Concat(baseNodes.Cast<dynamic>()).Concat(branches.Cast<dynamic>()).Concat(shunts.Cast<dynamic>()))
-            {
-                data.IPAddress = textBoxBulkIp.Text;
-                data.Port = textBoxBulkPort.Text;
-                data.Protocol = Convert.ToString(comboBoxBulkProtocol.SelectedItem) ?? "Modbus TCP";
-                if (data is Node)
-                {
-                    data.NodeID = textBoxBulkDeviceId.Text;
-                }
-                else
-                {
-                    data.DeviceID = textBoxBulkDeviceId.Text;
-                }
-
-                var keys = new List<string>(data.ParamAutoModes.Keys);
-                foreach (var key in keys)
-                {
-                    data.ParamAutoModes[key] = checkBoxBulkTelemetry.Checked;
-                }
-            }
-
-            RefreshElementsGrid();
-            MessageBox.Show("Параметры телеметрии применены ко всем элементам.", "Телеметрия", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
 
         private void GroupSelectedElements()
         {
