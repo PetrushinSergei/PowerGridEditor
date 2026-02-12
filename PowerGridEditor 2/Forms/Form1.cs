@@ -302,7 +302,8 @@ namespace PowerGridEditor
                 return dragTargets;
             }
 
-            if (primary != null && elementGroups.TryGetValue(primary, out int groupId))
+            int groupId;
+            if (primary != null && elementGroups.TryGetValue(primary, out groupId))
             {
                 return elementGroups.Where(kv => kv.Value == groupId).Select(kv => kv.Key).Where(IsMovableElement).ToList();
             }
@@ -316,24 +317,64 @@ namespace PowerGridEditor
             elementsGrid.Rows.Clear();
 
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, CreateRows(
+                    CreateParamRow("U", "Напряжение", node.Data.InitialVoltage),
+                    CreateParamRow("P", "P нагрузка", node.Data.NominalActivePower),
+                    CreateParamRow("Q", "Q нагрузка", node.Data.NominalReactivePower),
+                    CreateParamRow("Pg", "P генерация", node.Data.ActivePowerGeneration),
+                    CreateParamRow("Qg", "Q генерация", node.Data.ReactivePowerGeneration),
+                    CreateParamRow("Uf", "U фикс.", node.Data.FixedVoltageModule),
+                    CreateParamRow("Qmin", "Q мин", node.Data.MinReactivePower),
+                    CreateParamRow("Qmax", "Q макс", node.Data.MaxReactivePower)));
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, CreateRows(
+                    CreateParamRow("U", "Напряжение", baseNode.Data.InitialVoltage),
+                    CreateParamRow("P", "P нагрузка", baseNode.Data.NominalActivePower),
+                    CreateParamRow("Q", "Q нагрузка", baseNode.Data.NominalReactivePower),
+                    CreateParamRow("Pg", "P генерация", baseNode.Data.ActivePowerGeneration),
+                    CreateParamRow("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration),
+                    CreateParamRow("Uf", "U фикс.", baseNode.Data.FixedVoltageModule),
+                    CreateParamRow("Qmin", "Q мин", baseNode.Data.MinReactivePower),
+                    CreateParamRow("Qmax", "Q макс", baseNode.Data.MaxReactivePower)));
 
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, CreateRows(
+                    CreateParamRow("R", "R", branch.Data.ActiveResistance),
+                    CreateParamRow("X", "X", branch.Data.ReactiveResistance),
+                    CreateParamRow("B", "B", branch.Data.ReactiveConductivity),
+                    CreateParamRow("Ktr", "K трансф.", branch.Data.TransformationRatio),
+                    CreateParamRow("G", "G", branch.Data.ActiveConductivity)));
 
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
-                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, CreateRows(
+                    CreateParamRow("R", "R", shunt.Data.ActiveResistance),
+                    CreateParamRow("X", "X", shunt.Data.ReactiveResistance)));
         }
 
-        private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
+        private sealed class ParamRow
+        {
+            public string Key;
+            public string Label;
+            public double Value;
+        }
+
+        private ParamRow CreateParamRow(string key, string label, double value)
+        {
+            return new ParamRow { Key = key, Label = label, Value = value };
+        }
+
+        private IEnumerable<ParamRow> CreateRows(params ParamRow[] rows)
+        {
+            return rows;
+        }
+
+        private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<ParamRow> rows)
         {
             foreach (var row in rows)
             {
                 int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
-                elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
+                elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, (object)data);
             }
         }
 
@@ -341,7 +382,8 @@ namespace PowerGridEditor
         {
             if (e.RowIndex < 0) return;
             var row = elementsGrid.Rows[e.RowIndex];
-            if (row.Tag is Tuple<object, string, object> tag)
+            var tag = row.Tag as Tuple<object, string, object>;
+            if (tag != null)
             {
                 dynamic data = tag.Item3;
                 string key = tag.Item2;
@@ -636,6 +678,13 @@ namespace PowerGridEditor
             {
                 SelectElement(element);
             }
+        }
+
+        private void SelectElement(object element)
+        {
+            selectedElements.Add(element);
+            selectedElement = element;
+            SetElementSelectedState(element, true);
         }
 
         private void SelectElement(object element)
