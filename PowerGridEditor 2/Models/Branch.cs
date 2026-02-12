@@ -1,4 +1,6 @@
-﻿namespace PowerGridEditor
+﻿using System.Collections.Generic;
+
+namespace PowerGridEditor
 {
     public class Branch
     {
@@ -13,10 +15,24 @@
         public int Zero1 { get; set; } = 0;
         public int Zero2 { get; set; } = 0;
 
+        public string IPAddress { get; set; } = "127.0.0.1";
+        public string Port { get; set; } = "502";
+        public string DeviceID { get; set; } = "1";
+        public string Protocol { get; set; } = "Modbus TCP";
+        public Dictionary<string, string> ParamRegisters { get; set; } = new Dictionary<string, string>();
+        public Dictionary<string, bool> ParamAutoModes { get; set; } = new Dictionary<string, bool>();
+
         public Branch(int startNode, int endNode)
         {
             StartNodeNumber = startNode;
             EndNodeNumber = endNode;
+
+            string[] keys = { "R", "X", "B", "Ktr", "G" };
+            foreach (var key in keys)
+            {
+                ParamRegisters[key] = "0";
+                ParamAutoModes[key] = false;
+            }
         }
 
         public string ToFileString()

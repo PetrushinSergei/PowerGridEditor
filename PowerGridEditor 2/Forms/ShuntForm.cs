@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Drawing;
+using System.Globalization;
+using System.Net.NetworkInformation;
 using System.Windows.Forms;
 
 namespace PowerGridEditor
@@ -6,66 +9,87 @@ namespace PowerGridEditor
     public partial class ShuntForm : Form
     {
         public Shunt MyShunt { get; private set; }
+        private readonly string[] keys = { "Start", "R", "X" };
 
-        // Свойства для доступа к элементам
-        public TextBox StartNodeTextBox => textBoxStartNode;
-        public TextBox ActiveResistanceTextBox => textBoxActiveResistance;
-        public TextBox ReactiveResistanceTextBox => textBoxReactiveResistance;
+        public TextBox StartNodeTextBox => paramBoxes[0];
+        public TextBox ActiveResistanceTextBox => paramBoxes[1];
+        public TextBox ReactiveResistanceTextBox => paramBoxes[2];
 
         public ShuntForm()
         {
             InitializeComponent();
             MyShunt = new Shunt(0);
-            InitializeFormData();
+
+            buttonSave.Click += (s, e) => SaveData();
+            buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+            btnCheckIP.Click += async (s, e) => await RunPing();
+
+            LoadData();
         }
 
-        private void InitializeFormData()
+        private void LoadData()
         {
-            labelCode.Text = "Код: " + MyShunt.Code;
-            textBoxStartNode.Text = MyShunt.StartNodeNumber.ToString();
-            textBoxActiveResistance.Text = MyShunt.ActiveResistance.ToString("F1");
-            textBoxReactiveResistance.Text = MyShunt.ReactiveResistance.ToString();
+            var inv = CultureInfo.InvariantCulture;
+            paramBoxes[0].Text = MyShunt.StartNodeNumber.ToString(inv);
+            paramBoxes[1].Text = MyShunt.ActiveResistance.ToString(inv);
+            paramBoxes[2].Text = MyShunt.ReactiveResistance.ToString(inv);
 
-            // Конечный узел всегда 0 и недоступен для редактирования
-            textBoxEndNode.Text = MyShunt.EndNodeNumber.ToString();
-            textBoxEndNode.Enabled = false;
+            for (int i = 1; i < 3; i++)
+            {
+                if (MyShunt.ParamAutoModes.ContainsKey(keys[i])) paramChecks[i].Checked = MyShunt.ParamAutoModes[keys[i]];
+                if (MyShunt.ParamRegisters.ContainsKey(keys[i])) addrBoxes[i].Text = MyShunt.ParamRegisters[keys[i]];
+            }
+
+            textBoxIP.Text = MyShunt.IPAddress;
+            textBoxPort.Text = MyShunt.Port;
+            textBoxID.Text = MyShunt.DeviceID;
+            comboBoxProtocol.SelectedItem = MyShunt.Protocol;
+            if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
         }
 
-        private void buttonSave_Click(object sender, EventArgs e)
+        private void SaveData()
         {
             try
             {
-                Console.WriteLine("=== СОХРАНЕНИЕ ШУНТА ===");
-                Console.WriteLine($"Начальный узел из TextBox: {textBoxStartNode.Text}");
-                Console.WriteLine($"Активное сопротивление: {textBoxActiveResistance.Text}");
-                Console.WriteLine($"Реактивное сопротивление: {textBoxReactiveResistance.Text}");
+                var inv = CultureInfo.InvariantCulture;
+                MyShunt.StartNodeNumber = int.Parse(paramBoxes[0].Text);
+                MyShunt.ActiveResistance = double.Parse(paramBoxes[1].Text.Replace(',', '.'), inv);
+                MyShunt.ReactiveResistance = double.Parse(paramBoxes[2].Text.Replace(',', '.'), inv);
 
-                // Сохраняем параметры шунта
-                MyShunt.StartNodeNumber = int.Parse(textBoxStartNode.Text);
-                MyShunt.ActiveResistance = double.Parse(textBoxActiveResistance.Text);
-                MyShunt.ReactiveResistance = double.Parse(textBoxReactiveResistance.Text);
+                for (int i = 1; i < 3; i++)
+                {
+                    MyShunt.ParamAutoModes[keys[i]] = paramChecks[i].Checked;
+                    MyShunt.ParamRegisters[keys[i]] = addrBoxes[i].Text;
+                }
 
-                Console.WriteLine($"Шунт сохранен: узел №{MyShunt.StartNodeNumber}");
+                MyShunt.Protocol = comboBoxProtocol.Text;
+                MyShunt.IPAddress = textBoxIP.Text;
+                MyShunt.Port = textBoxPort.Text;
+                MyShunt.DeviceID = textBoxID.Text;
 
-                this.DialogResult = DialogResult.OK;
-                this.Close();
+                DialogResult = DialogResult.OK;
+                Close();
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"ОШИБКА: {ex.Message}");
-                MessageBox.Show($"Ошибка: {ex.Message}", "Ошибка");
+                MessageBox.Show("Ошибка в числовых полях!");
             }
         }
 
-        private void buttonCancel_Click(object sender, EventArgs e)
+        private async System.Threading.Tasks.Task RunPing()
         {
-            this.DialogResult = DialogResult.Cancel;
-            this.Close();
-        }
-
-        private void labelCode_Click(object sender, EventArgs e)
-        {
-
+            try
+            {
+                using (Ping p = new Ping())
+                {
+                    var reply = await p.SendPingAsync(textBoxIP.Text, 1000);
+                    textBoxIP.BackColor = reply.Status == IPStatus.Success ? Color.LightGreen : Color.LightPink;
+                }
+            }
+            catch
+            {
+                textBoxIP.BackColor = Color.LightPink;
+            }
         }
     }
 }
