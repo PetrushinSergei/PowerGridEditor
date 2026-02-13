@@ -14,6 +14,9 @@ namespace PowerGridEditor
         public Node MyNode { get; private set; }
         private Timer liveTimer;
         private string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+        private NumericUpDown numericMeasurementInterval;
+        private TextBox[] incrementStepBoxes;
+        private TextBox[] incrementIntervalBoxes;
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -31,7 +34,42 @@ namespace PowerGridEditor
             buttonCancel.Click += (s, e) => this.Close();
             this.FormClosing += (s, e) => liveTimer.Stop();
 
+            SetupExtendedConnectionSettings();
+            SetupParameterIncrementEditors();
+
             LoadData();
+        }
+
+        private void SetupExtendedConnectionSettings()
+        {
+            int sy = 150;
+            tabSettings.Controls.Add(new Label { Text = "Интервал измерения (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericMeasurementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
+            tabSettings.Controls.Add(numericMeasurementInterval);
+        }
+
+        private void SetupParameterIncrementEditors()
+        {
+            incrementStepBoxes = new TextBox[9];
+            incrementIntervalBoxes = new TextBox[9];
+
+            tabParams.Controls.Add(new Label { Text = "Шаг:", Location = new Point(520, 2), Size = new Size(45, 18) });
+            tabParams.Controls.Add(new Label { Text = "Инт.,с:", Location = new Point(585, 2), Size = new Size(55, 18) });
+
+            for (int i = 1; i < 9; i++)
+            {
+                var stepBox = new TextBox { Size = new Size(55, 23), Text = "1" };
+                var intervalBox = new TextBox { Size = new Size(50, 23), Text = "2" };
+                if (addrBoxes[i] != null)
+                {
+                    stepBox.Location = new Point(addrBoxes[i].Right + 10, addrBoxes[i].Top);
+                    intervalBox.Location = new Point(stepBox.Right + 8, addrBoxes[i].Top);
+                }
+                incrementStepBoxes[i] = stepBox;
+                incrementIntervalBoxes[i] = intervalBox;
+                tabParams.Controls.Add(stepBox);
+                tabParams.Controls.Add(intervalBox);
+            }
         }
 
         private void LoadData()
@@ -60,6 +98,13 @@ namespace PowerGridEditor
             textBoxPort.Text = MyNode.Port;
             textBoxID.Text = MyNode.NodeID;
             comboBoxProtocol.SelectedItem = MyNode.Protocol;
+            numericMeasurementInterval.Value = MyNode.MeasurementIntervalSeconds;
+
+            for (int i = 1; i < 9; i++)
+            {
+                if (MyNode.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyNode.ParamIncrementSteps[keys[i]].ToString(inv);
+                if (MyNode.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyNode.ParamIncrementIntervals[keys[i]].ToString(inv);
+            }
         }
 
         private async Task PollModbusTask()
@@ -139,6 +184,15 @@ namespace PowerGridEditor
                 MyNode.Port = textBoxPort.Text;
                 MyNode.NodeID = textBoxID.Text;
                 MyNode.Protocol = comboBoxProtocol.Text;
+                MyNode.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+
+                for (int i = 1; i < 9; i++)
+                {
+                    if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
+                        MyNode.ParamIncrementSteps[keys[i]] = step;
+                    if (int.TryParse(incrementIntervalBoxes[i].Text, out int interval))
+                        MyNode.ParamIncrementIntervals[keys[i]] = Math.Max(1, interval);
+                }
 
                 this.DialogResult = DialogResult.OK;
                 this.Close();
