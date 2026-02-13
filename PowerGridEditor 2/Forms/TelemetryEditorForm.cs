@@ -179,22 +179,18 @@ namespace PowerGridEditor
         {
             if (grid.IsDisposed) return;
 
-            string prevKey = null;
-            string prevParam = null;
+            string topKey = null;
+            string topParam = null;
             int firstRow = 0;
+
             if (!resetScroll && grid.Rows.Count > 0)
             {
                 firstRow = grid.FirstDisplayedScrollingRowIndex >= 0 ? grid.FirstDisplayedScrollingRowIndex : 0;
-                if (grid.CurrentCell != null && grid.CurrentCell.RowIndex >= 0 && grid.CurrentCell.RowIndex < grid.Rows.Count && grid.Rows[grid.CurrentCell.RowIndex].Tag is GridRowTag currentTag)
+
+                if (firstRow < grid.Rows.Count && grid.Rows[firstRow].Tag is GridRowTag topTag)
                 {
-                    prevKey = currentTag.GroupKey;
-                    prevParam = currentTag.Key;
-                }
-                else
-                if (firstRow < grid.Rows.Count && grid.Rows[firstRow].Tag is GridRowTag tag)
-                {
-                    prevKey = tag.GroupKey;
-                    prevParam = tag.Key;
+                    topKey = topTag.GroupKey;
+                    topParam = topTag.Key;
                 }
             }
 
@@ -243,28 +239,28 @@ namespace PowerGridEditor
                     ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance)
                 }, filter, hasFilter);
 
-            if (!resetScroll && prevKey != null)
+            if (!resetScroll && grid.Rows.Count > 0)
             {
-                int target = 0;
-                for (int i = 0; i < grid.Rows.Count; i++)
+                int topTarget = Math.Max(0, Math.Min(firstRow, grid.Rows.Count - 1));
+
+                if (!string.IsNullOrEmpty(topKey))
                 {
-                    if (grid.Rows[i].Tag is GridRowTag tag && tag.GroupKey == prevKey && (prevParam == null || tag.Key == prevParam))
+                    for (int i = 0; i < grid.Rows.Count; i++)
                     {
-                        target = i;
-                        break;
+                        if (grid.Rows[i].Tag is GridRowTag tag && tag.GroupKey == topKey && (topParam == null || tag.Key == topParam))
+                        {
+                            topTarget = i;
+                            break;
+                        }
                     }
                 }
 
-                if (grid.Rows.Count > 0)
+                try
                 {
-                    int rowToShow = Math.Max(0, Math.Min(target, grid.Rows.Count - 1));
-                    try
-                    {
-                        grid.FirstDisplayedScrollingRowIndex = rowToShow;
-                        grid.CurrentCell = grid.Rows[rowToShow].Cells[0];
-                    }
-                    catch { }
+                    grid.FirstDisplayedScrollingRowIndex = topTarget;
                 }
+                catch { }
+
             }
         }
 
