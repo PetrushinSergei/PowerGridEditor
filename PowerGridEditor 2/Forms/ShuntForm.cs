@@ -10,6 +10,9 @@ namespace PowerGridEditor
     {
         public Shunt MyShunt { get; private set; }
         private readonly string[] keys = { "Start", "R", "X" };
+        private NumericUpDown numericMeasurementInterval;
+        private TextBox[] incrementStepBoxes;
+        private TextBox[] incrementIntervalBoxes;
 
         public TextBox StartNodeTextBox => paramBoxes[0];
         public TextBox ActiveResistanceTextBox => paramBoxes[1];
@@ -23,6 +26,8 @@ namespace PowerGridEditor
             buttonSave.Click += (s, e) => SaveData();
             buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             btnCheckIP.Click += async (s, e) => await RunPing();
+
+            SetupParameterIncrementEditors();
 
             LoadData();
         }
@@ -45,6 +50,12 @@ namespace PowerGridEditor
             textBoxID.Text = MyShunt.DeviceID;
             comboBoxProtocol.SelectedItem = MyShunt.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
+            numericMeasurementInterval.Value = MyShunt.MeasurementIntervalSeconds;
+            for (int i = 1; i < 3; i++)
+            {
+                if (MyShunt.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyShunt.ParamIncrementSteps[keys[i]].ToString(inv);
+                if (MyShunt.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyShunt.ParamIncrementIntervals[keys[i]].ToString(inv);
+            }
         }
 
         private void SaveData()
@@ -66,6 +77,14 @@ namespace PowerGridEditor
                 MyShunt.IPAddress = textBoxIP.Text;
                 MyShunt.Port = textBoxPort.Text;
                 MyShunt.DeviceID = textBoxID.Text;
+                MyShunt.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+                for (int i = 1; i < 3; i++)
+                {
+                    if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
+                        MyShunt.ParamIncrementSteps[keys[i]] = step;
+                    if (int.TryParse(incrementIntervalBoxes[i].Text, out int interval))
+                        MyShunt.ParamIncrementIntervals[keys[i]] = Math.Max(1, interval);
+                }
 
                 DialogResult = DialogResult.OK;
                 Close();
