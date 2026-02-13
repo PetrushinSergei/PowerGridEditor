@@ -37,7 +37,6 @@ namespace PowerGridEditor
             buttonCancel.Click += (s, e) => this.Close();
             this.FormClosing += (s, e) => liveTimer.Stop();
 
-            SetupExtendedConnectionSettings();
             SetupParameterIncrementEditors();
             WireTelemetryCheckboxes();
             WireNumericInputGuards();
@@ -120,14 +119,6 @@ namespace PowerGridEditor
             }
         }
 
-        private void SetupExtendedConnectionSettings()
-        {
-            int sy = 150;
-            tabSettings.Controls.Add(new Label { Text = "Интервал измерения (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
-            numericMeasurementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
-            tabSettings.Controls.Add(numericMeasurementInterval);
-        }
-
         private void SetupParameterIncrementEditors()
         {
             incrementStepBoxes = new TextBox[9];
@@ -180,11 +171,6 @@ namespace PowerGridEditor
             finally
             {
                 suppressTelemetryUiEvents = false;
-            }
-
-            for (int i = 1; i < 9; i++)
-            {
-                ApplyTelemetryState(i, preserveFocus: false);
             }
 
             for (int i = 1; i < 9; i++)
