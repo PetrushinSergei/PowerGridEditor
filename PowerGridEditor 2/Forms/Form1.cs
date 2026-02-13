@@ -108,6 +108,7 @@ namespace PowerGridEditor
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 85 });
             grid.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Инкремент", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 90 });
 
             grid.CellEndEdit += ElementsGrid_CellEndEdit;
             grid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -195,7 +196,7 @@ namespace PowerGridEditor
             {
                 Name = "buttonOpenTelemetryForm",
                 Text = "Телеметрия",
-                Width = 120,
+                Width = 150,
                 Height = 30,
                 Left = 170,
                 Top = 48,
@@ -210,9 +211,9 @@ namespace PowerGridEditor
             {
                 Name = "buttonOpenClientSettingsForm",
                 Text = "Настройка клиента",
-                Width = 165,
+                Width = 150,
                 Height = 30,
-                Left = 296,
+                Left = 326,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(233, 242, 252),
@@ -381,7 +382,7 @@ namespace PowerGridEditor
 
         private void AddSectionRow(string title)
         {
-            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "");
+            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
             row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
@@ -393,7 +394,7 @@ namespace PowerGridEditor
         {
             foreach (var row in rows)
             {
-                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
                 elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
             }
         }
@@ -427,10 +428,22 @@ namespace PowerGridEditor
         private async void ElementsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
-            if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
-
             var row = elementsGrid.Rows[e.RowIndex];
             if (row.Tag == null) return;
+
+            if (elementsGrid.Columns[e.ColumnIndex].Name == "Increment")
+            {
+                if (row.Tag is Tuple<object, string, object> incTag)
+                {
+                    dynamic data = incTag.Item3;
+                    string key = incTag.Item2;
+                    ConfigureIncrement(data, key, Convert.ToString(row.Cells["Element"].Value) + "." + Convert.ToString(row.Cells["Param"].Value));
+                }
+                return;
+            }
+
+            if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
+
             string ip = Convert.ToString(row.Cells["IP"].Value);
             if (string.IsNullOrWhiteSpace(ip))
             {
@@ -441,6 +454,42 @@ namespace PowerGridEditor
             bool ok = await PingHostAsync(ip);
             row.Cells["IP"].Style.BackColor = ok ? Color.LightGreen : Color.LightPink;
             row.Cells["Ping"].Value = ok ? "ОК" : "Нет";
+        }
+
+        private void ConfigureIncrement(dynamic data, string key, string title)
+        {
+            string id = ParameterAutoChangeService.BuildId(data, key);
+            ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
+            {
+                if (form.ShowDialog(this) != DialogResult.OK) return;
+                ParameterAutoChangeService.Configure(
+                    id,
+                    form.StepValue,
+                    form.IntervalSeconds,
+                    form.EnabledChange,
+                    () => GetParamValue(data, key),
+                    value => ApplyParamValue(data, key, value),
+                    () => BeginInvoke(new Action(() => { RefreshElementsGrid(); panel2.Invalidate(); })));
+            }
+        }
+
+        private double GetParamValue(dynamic data, string key)
+        {
+            if (key == "U") return data.InitialVoltage;
+            if (key == "P") return data.NominalActivePower;
+            if (key == "Q") return data.NominalReactivePower;
+            if (key == "Pg") return data.ActivePowerGeneration;
+            if (key == "Qg") return data.ReactivePowerGeneration;
+            if (key == "Uf") return data.FixedVoltageModule;
+            if (key == "Qmin") return data.MinReactivePower;
+            if (key == "Qmax") return data.MaxReactivePower;
+            if (key == "R") return data.ActiveResistance;
+            if (key == "X") return data.ReactiveResistance;
+            if (key == "B") return data.ReactiveConductivity;
+            if (key == "Ktr") return data.TransformationRatio;
+            if (key == "G") return data.ActiveConductivity;
+            return 0;
         }
 
         private async Task<bool> PingHostAsync(string ip)
@@ -1521,25 +1570,31 @@ namespace PowerGridEditor
         {
             try
             {
-                string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                string filePath = Path.Combine(desktopPath, "Начальные данные.txt");
-
-                using (StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8))
+                using (var saveFileDialog = new SaveFileDialog())
                 {
-                    // 1. Все узлы (0201 0)
-                    WriteAllNodes(writer);
+                    saveFileDialog.Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*";
+                    saveFileDialog.Title = "Сохранить экспорт данных";
+                    saveFileDialog.FileName = "Начальные данные.txt";
+                    if (saveFileDialog.ShowDialog() != DialogResult.OK) return;
+                    string filePath = saveFileDialog.FileName;
 
-                    // 2. Базисные узлы (0102 0)
-                    WriteBaseNodesOnly(writer);
+                    using (StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8))
+                    {
+                        // 1. Все узлы (0201 0)
+                        WriteAllNodes(writer);
 
-                    // 3. Все ветви и шунты (0301 0)
-                    WriteAllBranchesAndShunts(writer);
+                        // 2. Базисные узлы (0102 0)
+                        WriteBaseNodesOnly(writer);
 
-                    // 4. Координаты элементов (0901 0)
-                    WriteLayout(writer);
+                        // 3. Все ветви и шунты (0301 0)
+                        WriteAllBranchesAndShunts(writer);
+
+                        // 4. Координаты элементов (0901 0)
+                        WriteLayout(writer);
+                    }
+
+                    MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
                 }
-
-                MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
             }
             catch (Exception ex)
             {
@@ -2256,9 +2311,16 @@ namespace PowerGridEditor
 
         private void StartGlobalTelemetryPolling()
         {
-            telemetryTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+            telemetryTimer = new System.Windows.Forms.Timer { Interval = AppRuntimeSettings.UpdateIntervalSeconds * 1000 };
             telemetryTimer.Tick += async (s, e) => await PollAllNodeTelemetryAsync();
             telemetryTimer.Start();
+            AppRuntimeSettings.UpdateIntervalChanged += seconds =>
+            {
+                if (telemetryTimer != null)
+                {
+                    telemetryTimer.Interval = Math.Max(1, seconds) * 1000;
+                }
+            };
         }
 
         private async Task PollAllNodeTelemetryAsync()

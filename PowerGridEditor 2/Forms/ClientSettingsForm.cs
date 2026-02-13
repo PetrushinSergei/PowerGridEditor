@@ -25,12 +25,13 @@ namespace PowerGridEditor
         private readonly TextBox textBoxIp;
         private readonly TextBox textBoxMask;
         private readonly TextBox textBoxGateway;
+        private readonly NumericUpDown numericUpdateInterval;
 
         public ClientSettingsForm()
         {
             Text = "Настройка клиента";
             Width = 980;
-            Height = 210;
+            Height = 250;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
@@ -67,10 +68,14 @@ namespace PowerGridEditor
             };
             buttonApply.Click += ButtonApply_Click;
 
+            var labelInterval = new Label { Left = 18, Top = 122, Width = 260, Text = "Интервал обновления данных (сек):", Font = new Font("Segoe UI", 10F) };
+            numericUpdateInterval = new NumericUpDown { Left = 280, Top = 120, Width = 100, Minimum = 1, Maximum = 3600, Value = AppRuntimeSettings.UpdateIntervalSeconds };
+            numericUpdateInterval.ValueChanged += (s, e) => AppRuntimeSettings.UpdateIntervalSeconds = (int)numericUpdateInterval.Value;
+
             var hint = new Label
             {
                 Left = 18,
-                Top = 122,
+                Top = 156,
                 Width = 900,
                 Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
                 ForeColor = Color.FromArgb(43, 71, 104),
@@ -86,9 +91,12 @@ namespace PowerGridEditor
             root.Controls.Add(labelGateway);
             root.Controls.Add(textBoxGateway);
             root.Controls.Add(buttonApply);
+            root.Controls.Add(labelInterval);
+            root.Controls.Add(numericUpdateInterval);
             root.Controls.Add(hint);
 
             Load += (s, e) => LoadNetworkAdapters();
+            Load += (s, e) => numericUpdateInterval.Value = AppRuntimeSettings.UpdateIntervalSeconds;
         }
 
         private void LoadNetworkAdapters()
