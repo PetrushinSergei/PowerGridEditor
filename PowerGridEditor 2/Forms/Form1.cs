@@ -468,14 +468,14 @@ namespace PowerGridEditor
             bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
             if (!hasConfig)
             {
-                oldStep = Convert.ToDouble(data.IncrementStep);
-                oldInterval = Convert.ToInt32(data.IncrementIntervalSeconds);
+                if (data.ParamIncrementSteps.ContainsKey(key)) oldStep = Convert.ToDouble(data.ParamIncrementSteps[key]);
+                if (data.ParamIncrementIntervals.ContainsKey(key)) oldInterval = Convert.ToInt32(data.ParamIncrementIntervals[key]);
             }
             using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
             {
                 if (form.ShowDialog(this) != DialogResult.OK) return;
-                data.IncrementStep = form.StepValue;
-                data.IncrementIntervalSeconds = form.IntervalSeconds;
+                data.ParamIncrementSteps[key] = form.StepValue;
+                data.ParamIncrementIntervals[key] = form.IntervalSeconds;
                 ParameterAutoChangeService.Configure(
                     id,
                     form.StepValue,
@@ -2232,7 +2232,10 @@ namespace PowerGridEditor
 
         private void ArrangeMainToolbarButtons()
         {
-            var topButtons = panel1.Controls.OfType<Button>().Where(b => b.Top <= 20).OrderBy(b => b.Left).ToList();
+            string[] topOrder = { "buttonAddNode", "buttonAddBaseNode", "buttonAddBranch", "buttonAddShunt", "buttonDelete", "buttonClearAll", "buttonExportData", "buttonImportData", "buttonOpenReport" };
+            string[] bottomOrder = { "buttonCalcSettings", "buttonOpenTelemetryForm", "buttonOpenClientSettingsForm" };
+
+            var topButtons = topOrder.Select(name => panel1.Controls.Find(name, false).FirstOrDefault()).OfType<Button>().ToList();
             int x = 12;
             foreach (var button in topButtons)
             {
@@ -2240,7 +2243,7 @@ namespace PowerGridEditor
                 x += button.Width + 8;
             }
 
-            var lowerButtons = panel1.Controls.OfType<Button>().Where(b => b.Top > 20).OrderBy(b => b.Left).ToList();
+            var lowerButtons = bottomOrder.Select(name => panel1.Controls.Find(name, false).FirstOrDefault()).OfType<Button>().ToList();
             int x2 = 12;
             foreach (var button in lowerButtons)
             {

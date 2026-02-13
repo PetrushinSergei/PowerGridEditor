@@ -11,8 +11,8 @@ namespace PowerGridEditor
         public Shunt MyShunt { get; private set; }
         private readonly string[] keys = { "Start", "R", "X" };
         private NumericUpDown numericMeasurementInterval;
-        private NumericUpDown numericIncrementStep;
-        private NumericUpDown numericIncrementInterval;
+        private TextBox[] incrementStepBoxes;
+        private TextBox[] incrementIntervalBoxes;
 
         public TextBox StartNodeTextBox => paramBoxes[0];
         public TextBox ActiveResistanceTextBox => paramBoxes[1];
@@ -28,6 +28,7 @@ namespace PowerGridEditor
             btnCheckIP.Click += async (s, e) => await RunPing();
 
             SetupExtendedConnectionSettings();
+            SetupParameterIncrementEditors();
 
             LoadData();
         }
@@ -38,16 +39,30 @@ namespace PowerGridEditor
             tabSettings.Controls.Add(new Label { Text = "Интервал измерения (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
             numericMeasurementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
             tabSettings.Controls.Add(numericMeasurementInterval);
+        }
 
-            sy += 30;
-            tabSettings.Controls.Add(new Label { Text = "Шаг изменения:", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
-            numericIncrementStep = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), DecimalPlaces = 2, Minimum = -100000, Maximum = 100000 };
-            tabSettings.Controls.Add(numericIncrementStep);
+        private void SetupParameterIncrementEditors()
+        {
+            incrementStepBoxes = new TextBox[3];
+            incrementIntervalBoxes = new TextBox[3];
 
-            sy += 30;
-            tabSettings.Controls.Add(new Label { Text = "Интервал инкремента (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
-            numericIncrementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
-            tabSettings.Controls.Add(numericIncrementInterval);
+            tabParams.Controls.Add(new Label { Text = "Шаг:", Location = new Point(520, 2), Size = new Size(45, 18) });
+            tabParams.Controls.Add(new Label { Text = "Инт.,с:", Location = new Point(585, 2), Size = new Size(55, 18) });
+
+            for (int i = 1; i < 3; i++)
+            {
+                var stepBox = new TextBox { Size = new Size(55, 23), Text = "1" };
+                var intervalBox = new TextBox { Size = new Size(50, 23), Text = "2" };
+                if (addrBoxes[i] != null)
+                {
+                    stepBox.Location = new Point(addrBoxes[i].Right + 10, addrBoxes[i].Top);
+                    intervalBox.Location = new Point(stepBox.Right + 8, addrBoxes[i].Top);
+                }
+                incrementStepBoxes[i] = stepBox;
+                incrementIntervalBoxes[i] = intervalBox;
+                tabParams.Controls.Add(stepBox);
+                tabParams.Controls.Add(intervalBox);
+            }
         }
 
         private void LoadData()
@@ -69,8 +84,11 @@ namespace PowerGridEditor
             comboBoxProtocol.SelectedItem = MyShunt.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
             numericMeasurementInterval.Value = MyShunt.MeasurementIntervalSeconds;
-            numericIncrementStep.Value = (decimal)MyShunt.IncrementStep;
-            numericIncrementInterval.Value = MyShunt.IncrementIntervalSeconds;
+            for (int i = 1; i < 3; i++)
+            {
+                if (MyShunt.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyShunt.ParamIncrementSteps[keys[i]].ToString(inv);
+                if (MyShunt.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyShunt.ParamIncrementIntervals[keys[i]].ToString(inv);
+            }
         }
 
         private void SaveData()
@@ -93,8 +111,13 @@ namespace PowerGridEditor
                 MyShunt.Port = textBoxPort.Text;
                 MyShunt.DeviceID = textBoxID.Text;
                 MyShunt.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
-                MyShunt.IncrementStep = (double)numericIncrementStep.Value;
-                MyShunt.IncrementIntervalSeconds = (int)numericIncrementInterval.Value;
+                for (int i = 1; i < 3; i++)
+                {
+                    if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
+                        MyShunt.ParamIncrementSteps[keys[i]] = step;
+                    if (int.TryParse(incrementIntervalBoxes[i].Text, out int interval))
+                        MyShunt.ParamIncrementIntervals[keys[i]] = Math.Max(1, interval);
+                }
 
                 DialogResult = DialogResult.OK;
                 Close();

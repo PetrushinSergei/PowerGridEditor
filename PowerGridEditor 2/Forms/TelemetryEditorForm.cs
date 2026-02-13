@@ -184,7 +184,13 @@ namespace PowerGridEditor
             int firstRow = 0;
             if (!resetScroll && grid.Rows.Count > 0)
             {
-                firstRow = Math.Max(0, grid.FirstDisplayedScrollingRowIndex);
+                firstRow = grid.FirstDisplayedScrollingRowIndex >= 0 ? grid.FirstDisplayedScrollingRowIndex : 0;
+                if (grid.CurrentCell != null && grid.CurrentCell.RowIndex >= 0 && grid.CurrentCell.RowIndex < grid.Rows.Count && grid.Rows[grid.CurrentCell.RowIndex].Tag is GridRowTag currentTag)
+                {
+                    prevKey = currentTag.GroupKey;
+                    prevParam = currentTag.Key;
+                }
+                else
                 if (firstRow < grid.Rows.Count && grid.Rows[firstRow].Tag is GridRowTag tag)
                 {
                     prevKey = tag.GroupKey;
@@ -195,10 +201,14 @@ namespace PowerGridEditor
             string filter = (textBoxSearch.Text ?? string.Empty).Trim().ToLowerInvariant();
             bool hasFilter = !string.IsNullOrWhiteSpace(filter);
 
+            var elementsSnapshot = elementsProvider().ToList();
+            var branchesSnapshot = branchesProvider().ToList();
+            var shuntsSnapshot = shuntsProvider().ToList();
+
             grid.Rows.Clear();
 
             AddSectionRow("Узлы");
-            foreach (var node in elementsProvider().OfType<GraphicNode>().OrderBy(n => n.Data.Number))
+            foreach (var node in elementsSnapshot.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                 AddParentWithChildren("Узел", $"N{node.Data.Number}", node.Data, new[]
                 {
                     ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower),
@@ -208,7 +218,7 @@ namespace PowerGridEditor
                 }, filter, hasFilter);
 
             AddSectionRow("Базисный узел");
-            foreach (var baseNode in elementsProvider().OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
+            foreach (var baseNode in elementsSnapshot.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                 AddParentWithChildren("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, new[]
                 {
                     ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower),
@@ -218,7 +228,7 @@ namespace PowerGridEditor
                 }, filter, hasFilter);
 
             AddSectionRow("Ветви");
-            foreach (var branch in branchesProvider().OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
+            foreach (var branch in branchesSnapshot.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
                 AddParentWithChildren("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, new[]
                 {
                     ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance),
@@ -227,7 +237,7 @@ namespace PowerGridEditor
                 }, filter, hasFilter);
 
             AddSectionRow("Шунты");
-            foreach (var shunt in shuntsProvider().OrderBy(s => s.Data.StartNodeNumber))
+            foreach (var shunt in shuntsSnapshot.OrderBy(s => s.Data.StartNodeNumber))
                 AddParentWithChildren("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, new[]
                 {
                     ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance)
@@ -247,7 +257,13 @@ namespace PowerGridEditor
 
                 if (grid.Rows.Count > 0)
                 {
-                    grid.FirstDisplayedScrollingRowIndex = Math.Max(0, Math.Min(target, grid.Rows.Count - 1));
+                    int rowToShow = Math.Max(0, Math.Min(target, grid.Rows.Count - 1));
+                    try
+                    {
+                        grid.FirstDisplayedScrollingRowIndex = rowToShow;
+                        grid.CurrentCell = grid.Rows[rowToShow].Cells[0];
+                    }
+                    catch { }
                 }
             }
         }
@@ -324,14 +340,7 @@ namespace PowerGridEditor
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
             var row = grid.Rows[e.RowIndex];
             if (!(row.Tag is GridRowTag tag)) return;
-
-            if (tag.IsParent)
-            {
-                if (expandedGroups.Contains(tag.GroupKey)) expandedGroups.Remove(tag.GroupKey);
-                else expandedGroups.Add(tag.GroupKey);
-                RefreshGridFromModels(false);
-                return;
-            }
+            if (tag.IsParent) return;
 
             if (grid.Columns[e.ColumnIndex].Name == "Increment")
             {
@@ -370,14 +379,14 @@ namespace PowerGridEditor
             bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
             if (!hasConfig)
             {
-                oldStep = Convert.ToDouble(data.IncrementStep);
-                oldInterval = Convert.ToInt32(data.IncrementIntervalSeconds);
+                if (data.ParamIncrementSteps.ContainsKey(key)) oldStep = Convert.ToDouble(data.ParamIncrementSteps[key]);
+                if (data.ParamIncrementIntervals.ContainsKey(key)) oldInterval = Convert.ToInt32(data.ParamIncrementIntervals[key]);
             }
             using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
             {
                 if (form.ShowDialog(this) != DialogResult.OK) return;
-                data.IncrementStep = form.StepValue;
-                data.IncrementIntervalSeconds = form.IntervalSeconds;
+                data.ParamIncrementSteps[key] = form.StepValue;
+                data.ParamIncrementIntervals[key] = form.IntervalSeconds;
                 ParameterAutoChangeService.Configure(
                     id,
                     form.StepValue,
@@ -401,10 +410,14 @@ namespace PowerGridEditor
                 return;
             }
 
-            var allData = elementsProvider().OfType<GraphicNode>().Select(x => (dynamic)x.Data)
-                .Concat(elementsProvider().OfType<GraphicBaseNode>().Select(x => (dynamic)x.Data))
-                .Concat(branchesProvider().Select(x => (dynamic)x.Data))
-                .Concat(shuntsProvider().Select(x => (dynamic)x.Data)).ToList();
+            var elementsSnapshot = elementsProvider().ToList();
+            var branchesSnapshot = branchesProvider().ToList();
+            var shuntsSnapshot = shuntsProvider().ToList();
+
+            var allData = elementsSnapshot.OfType<GraphicNode>().Select(x => (dynamic)x.Data)
+                .Concat(elementsSnapshot.OfType<GraphicBaseNode>().Select(x => (dynamic)x.Data))
+                .Concat(branchesSnapshot.Select(x => (dynamic)x.Data))
+                .Concat(shuntsSnapshot.Select(x => (dynamic)x.Data)).ToList();
 
             foreach (var data in allData)
             {

@@ -26,6 +26,8 @@ namespace PowerGridEditor
 
         public Dictionary<string, string> ParamRegisters { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, bool> ParamAutoModes { get; set; } = new Dictionary<string, bool>();
+        public Dictionary<string, double> ParamIncrementSteps { get; set; } = new Dictionary<string, double>();
+        public Dictionary<string, int> ParamIncrementIntervals { get; set; } = new Dictionary<string, int>();
 
         // Сюда внешняя логика опроса (из вашего Program.cs) должна записывать результат
         public Dictionary<string, string> LiveValues { get; set; } = new Dictionary<string, string>();
@@ -39,6 +41,11 @@ namespace PowerGridEditor
                 ParamRegisters[key] = "0";
                 ParamAutoModes[key] = false;
                 LiveValues[key] = "---";
+                if (key != "Number")
+                {
+                    ParamIncrementSteps[key] = 1;
+                    ParamIncrementIntervals[key] = 2;
+                }
             }
         }
     }
