@@ -10,6 +10,9 @@ namespace PowerGridEditor
     {
         public BaseNode MyBaseNode { get; private set; }
         private readonly string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+        private NumericUpDown numericMeasurementInterval;
+        private NumericUpDown numericIncrementStep;
+        private NumericUpDown numericIncrementInterval;
 
         public TextBox NodeNumberTextBox => paramBoxes[0];
         public TextBox InitialVoltageTextBox => paramBoxes[1];
@@ -30,7 +33,27 @@ namespace PowerGridEditor
             buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             btnCheckIP.Click += async (s, e) => await RunPing();
 
+            SetupExtendedConnectionSettings();
+
             LoadData();
+        }
+
+        private void SetupExtendedConnectionSettings()
+        {
+            int sy = 150;
+            tabSettings.Controls.Add(new Label { Text = "Интервал измерения (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericMeasurementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
+            tabSettings.Controls.Add(numericMeasurementInterval);
+
+            sy += 30;
+            tabSettings.Controls.Add(new Label { Text = "Шаг изменения:", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericIncrementStep = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), DecimalPlaces = 2, Minimum = -100000, Maximum = 100000 };
+            tabSettings.Controls.Add(numericIncrementStep);
+
+            sy += 30;
+            tabSettings.Controls.Add(new Label { Text = "Интервал инкремента (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericIncrementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
+            tabSettings.Controls.Add(numericIncrementInterval);
         }
 
         private void LoadData()
@@ -57,6 +80,9 @@ namespace PowerGridEditor
             textBoxID.Text = MyBaseNode.DeviceID;
             comboBoxProtocol.SelectedItem = MyBaseNode.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
+            numericMeasurementInterval.Value = MyBaseNode.MeasurementIntervalSeconds;
+            numericIncrementStep.Value = (decimal)MyBaseNode.IncrementStep;
+            numericIncrementInterval.Value = MyBaseNode.IncrementIntervalSeconds;
         }
 
         private void SaveData()
@@ -84,6 +110,9 @@ namespace PowerGridEditor
                 MyBaseNode.IPAddress = textBoxIP.Text;
                 MyBaseNode.Port = textBoxPort.Text;
                 MyBaseNode.DeviceID = textBoxID.Text;
+                MyBaseNode.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+                MyBaseNode.IncrementStep = (double)numericIncrementStep.Value;
+                MyBaseNode.IncrementIntervalSeconds = (int)numericIncrementInterval.Value;
 
                 DialogResult = DialogResult.OK;
                 Close();
