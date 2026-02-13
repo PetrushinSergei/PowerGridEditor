@@ -19,7 +19,7 @@ namespace PowerGridEditor
         private NumericUpDown numericMeasurementInterval;
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
-        private readonly List<Control> paramOrderSnapshot = new List<Control>();
+        private bool suppressTelemetryUiEvents;
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -41,7 +41,6 @@ namespace PowerGridEditor
             SetupParameterIncrementEditors();
             WireTelemetryCheckboxes();
             WireNumericInputGuards();
-            CaptureParamControlOrder();
 
             LoadData();
         }
@@ -53,7 +52,11 @@ namespace PowerGridEditor
                 int idx = i;
                 if (paramChecks[idx] != null)
                 {
-                    paramChecks[idx].CheckedChanged += (s, e) => ApplyTelemetryState(idx, preserveFocus: true);
+                    paramChecks[idx].CheckedChanged += (s, e) =>
+                    {
+                        if (suppressTelemetryUiEvents) return;
+                        ApplyTelemetryState(idx, preserveFocus: true);
+                    };
                 }
             }
         }
@@ -88,32 +91,6 @@ namespace PowerGridEditor
             textBoxID.KeyPress += intGuard;
         }
 
-        private void CaptureParamControlOrder()
-        {
-            paramOrderSnapshot.Clear();
-            foreach (Control ctrl in tabParams.Controls)
-            {
-                paramOrderSnapshot.Add(ctrl);
-            }
-            EnsureStableParamOrder();
-        }
-
-        private void EnsureStableParamOrder()
-        {
-            if (paramOrderSnapshot.Count == 0) return;
-            var ordered = paramOrderSnapshot
-                .OrderBy(c => c.Top)
-                .ThenBy(c => c.Left)
-                .ToList();
-
-            tabParams.SuspendLayout();
-            for (int i = ordered.Count - 1; i >= 0; i--)
-            {
-                tabParams.Controls.SetChildIndex(ordered[i], 0);
-            }
-            tabParams.ResumeLayout(false);
-        }
-
         private void ApplyTelemetryState(int index, bool preserveFocus)
         {
             if (index <= 0 || index >= paramBoxes.Length || paramChecks[index] == null) return;
@@ -125,19 +102,21 @@ namespace PowerGridEditor
             tabParams.SuspendLayout();
             targetBox.ReadOnly = telemetryOn;
             targetBox.BackColor = telemetryOn ? SystemColors.Control : SystemColors.Window;
-            EnsureStableParamOrder();
             tabParams.ResumeLayout(false);
 
             if (preserveFocus)
             {
-                if (activeBefore != null && activeBefore.CanFocus)
+                BeginInvoke(new Action(() =>
                 {
-                    activeBefore.Focus();
-                }
-                else if (targetBox.CanFocus)
-                {
-                    targetBox.Focus();
-                }
+                    if (activeBefore != null && activeBefore.CanFocus)
+                    {
+                        activeBefore.Focus();
+                    }
+                    else if (targetBox.CanFocus)
+                    {
+                        targetBox.Focus();
+                    }
+                }));
             }
         }
 
@@ -182,17 +161,30 @@ namespace PowerGridEditor
                 MyNode.FixedVoltageModule, MyNode.MinReactivePower, MyNode.MaxReactivePower
             };
 
-            for (int i = 0; i < 9; i++)
+            suppressTelemetryUiEvents = true;
+            try
             {
-                paramBoxes[i].Text = vals[i].ToString(inv);
-                // Проверяем на null, так как для i=0 чекбокс и адрес не создавались
-                if (i > 0 && paramChecks[i] != null)
+                for (int i = 0; i < 9; i++)
                 {
-                    if (MyNode.ParamAutoModes.ContainsKey(keys[i]))
-                        paramChecks[i].Checked = MyNode.ParamAutoModes[keys[i]];
-                    if (MyNode.ParamRegisters.ContainsKey(keys[i]))
-                        addrBoxes[i].Text = MyNode.ParamRegisters[keys[i]];
+                    paramBoxes[i].Text = vals[i].ToString(inv);
+                    // Проверяем на null, так как для i=0 чекбокс и адрес не создавались
+                    if (i > 0 && paramChecks[i] != null)
+                    {
+                        if (MyNode.ParamAutoModes.ContainsKey(keys[i]))
+                            paramChecks[i].Checked = MyNode.ParamAutoModes[keys[i]];
+                        if (MyNode.ParamRegisters.ContainsKey(keys[i]))
+                            addrBoxes[i].Text = MyNode.ParamRegisters[keys[i]];
+                    }
                 }
+            }
+            finally
+            {
+                suppressTelemetryUiEvents = false;
+            }
+
+            for (int i = 1; i < 9; i++)
+            {
+                ApplyTelemetryState(i, preserveFocus: false);
             }
 
             for (int i = 1; i < 9; i++)
