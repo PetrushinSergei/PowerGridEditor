@@ -31,7 +31,6 @@ namespace PowerGridEditor
             buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             btnCheckIP.Click += async (s, e) => await RunPing();
 
-            SetupExtendedConnectionSettings();
             SetupParameterIncrementEditors();
 
             LoadData();

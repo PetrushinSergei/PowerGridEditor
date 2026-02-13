@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Net.NetworkInformation;
 using System.Windows.Forms;
@@ -20,6 +21,7 @@ namespace PowerGridEditor
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
         private bool suppressTelemetryUiEvents;
+        private readonly List<Control> stableTabParamsOrder = new List<Control>();
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -38,6 +40,7 @@ namespace PowerGridEditor
             this.FormClosing += (s, e) => liveTimer.Stop();
 
             SetupParameterIncrementEditors();
+            CaptureStableParamOrder();
             WireTelemetryCheckboxes();
             WireNumericInputGuards();
 
@@ -54,7 +57,7 @@ namespace PowerGridEditor
                     paramChecks[idx].CheckedChanged += (s, e) =>
                     {
                         if (suppressTelemetryUiEvents) return;
-                        ApplyTelemetryState(idx, preserveFocus: true);
+                        ApplyTelemetryState(idx, paramChecks[idx]);
                     };
                 }
             }
@@ -90,33 +93,56 @@ namespace PowerGridEditor
             textBoxID.KeyPress += intGuard;
         }
 
-        private void ApplyTelemetryState(int index, bool preserveFocus)
+        private void ApplyTelemetryState(int index, Control focusTarget)
         {
             if (index <= 0 || index >= paramBoxes.Length || paramChecks[index] == null) return;
 
-            Control activeBefore = preserveFocus ? ActiveControl : null;
             TextBox targetBox = paramBoxes[index];
             bool telemetryOn = paramChecks[index].Checked;
 
-            tabParams.SuspendLayout();
             targetBox.ReadOnly = telemetryOn;
             targetBox.BackColor = telemetryOn ? SystemColors.Control : SystemColors.Window;
-            tabParams.ResumeLayout(false);
+            EnsureStableParamOrder();
 
-            if (preserveFocus)
+            if (focusTarget == null) return;
+
+            var target = focusTarget;
+            BeginInvoke(new Action(() =>
             {
-                BeginInvoke(new Action(() =>
+                if (target != null && target.CanFocus)
                 {
-                    if (activeBefore != null && activeBefore.CanFocus)
-                    {
-                        activeBefore.Focus();
-                    }
-                    else if (targetBox.CanFocus)
-                    {
-                        targetBox.Focus();
-                    }
-                }));
+                    target.Focus();
+                }
+                else if (targetBox.CanFocus)
+                {
+                    targetBox.Focus();
+                }
+            }));
+        }
+
+        private void CaptureStableParamOrder()
+        {
+            stableTabParamsOrder.Clear();
+            foreach (Control control in tabParams.Controls)
+            {
+                stableTabParamsOrder.Add(control);
             }
+        }
+
+        private void EnsureStableParamOrder()
+        {
+            if (stableTabParamsOrder.Count == 0) return;
+
+            tabParams.SuspendLayout();
+            for (int i = 0; i < stableTabParamsOrder.Count; i++)
+            {
+                var control = stableTabParamsOrder[i];
+                if (control != null && !control.IsDisposed)
+                {
+                    tabParams.Controls.SetChildIndex(control, i);
+                }
+            }
+            tabParams.ResumeLayout(false);
         }
 
         private void SetupParameterIncrementEditors()
@@ -175,7 +201,7 @@ namespace PowerGridEditor
 
             for (int i = 1; i < 9; i++)
             {
-                ApplyTelemetryState(i, preserveFocus: false);
+                ApplyTelemetryState(i, null);
             }
 
             textBoxIP.Text = MyNode.IPAddress;
