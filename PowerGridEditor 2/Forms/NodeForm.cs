@@ -21,7 +21,7 @@ namespace PowerGridEditor
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
         private bool suppressTelemetryUiEvents;
-        private readonly List<Control> stableTabParamsOrder = new List<Control>();
+        private readonly Dictionary<Control, Point> fixedParamLocations = new Dictionary<Control, Point>();
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -40,7 +40,7 @@ namespace PowerGridEditor
             this.FormClosing += (s, e) => liveTimer.Stop();
 
             SetupParameterIncrementEditors();
-            CaptureStableParamOrder();
+            CaptureFixedParamLayout();
             WireTelemetryCheckboxes();
             WireNumericInputGuards();
 
@@ -102,7 +102,7 @@ namespace PowerGridEditor
 
             targetBox.ReadOnly = telemetryOn;
             targetBox.BackColor = telemetryOn ? SystemColors.Control : SystemColors.Window;
-            EnsureStableParamOrder();
+            EnsureFixedParamLayout();
 
             if (focusTarget == null) return;
 
@@ -120,26 +120,26 @@ namespace PowerGridEditor
             }));
         }
 
-        private void CaptureStableParamOrder()
+        private void CaptureFixedParamLayout()
         {
-            stableTabParamsOrder.Clear();
+            fixedParamLocations.Clear();
             foreach (Control control in tabParams.Controls)
             {
-                stableTabParamsOrder.Add(control);
+                fixedParamLocations[control] = control.Location;
             }
         }
 
-        private void EnsureStableParamOrder()
+        private void EnsureFixedParamLayout()
         {
-            if (stableTabParamsOrder.Count == 0) return;
+            if (fixedParamLocations.Count == 0) return;
 
             tabParams.SuspendLayout();
-            for (int i = 0; i < stableTabParamsOrder.Count; i++)
+            foreach (var pair in fixedParamLocations)
             {
-                var control = stableTabParamsOrder[i];
+                var control = pair.Key;
                 if (control != null && !control.IsDisposed)
                 {
-                    tabParams.Controls.SetChildIndex(control, i);
+                    control.Location = pair.Value;
                 }
             }
             tabParams.ResumeLayout(false);
