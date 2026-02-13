@@ -5,6 +5,8 @@ using System.Windows.Forms;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Net.Sockets;
+using System.Collections.Generic;
+using System.Linq;
 using NModbus;
 
 namespace PowerGridEditor
@@ -17,6 +19,7 @@ namespace PowerGridEditor
         private NumericUpDown numericMeasurementInterval;
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
+        private readonly List<Control> paramOrderSnapshot = new List<Control>();
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -36,8 +39,106 @@ namespace PowerGridEditor
 
             SetupExtendedConnectionSettings();
             SetupParameterIncrementEditors();
+            WireTelemetryCheckboxes();
+            WireNumericInputGuards();
+            CaptureParamControlOrder();
 
             LoadData();
+        }
+
+        private void WireTelemetryCheckboxes()
+        {
+            for (int i = 1; i < paramChecks.Length; i++)
+            {
+                int idx = i;
+                if (paramChecks[idx] != null)
+                {
+                    paramChecks[idx].CheckedChanged += (s, e) => ApplyTelemetryState(idx, preserveFocus: true);
+                }
+            }
+        }
+
+        private void WireNumericInputGuards()
+        {
+            KeyPressEventHandler decimalGuard = (s, e) =>
+            {
+                char c = e.KeyChar;
+                if (char.IsControl(c)) return;
+                if (char.IsDigit(c)) return;
+                if (c == '-' || c == ',' || c == '.') return;
+                e.Handled = true;
+            };
+
+            KeyPressEventHandler intGuard = (s, e) =>
+            {
+                char c = e.KeyChar;
+                if (char.IsControl(c) || char.IsDigit(c)) return;
+                e.Handled = true;
+            };
+
+            for (int i = 0; i < paramBoxes.Length; i++)
+            {
+                if (paramBoxes[i] != null) paramBoxes[i].KeyPress += decimalGuard;
+                if (i > 0 && addrBoxes[i] != null) addrBoxes[i].KeyPress += intGuard;
+                if (i > 0 && incrementIntervalBoxes != null && incrementIntervalBoxes[i] != null) incrementIntervalBoxes[i].KeyPress += intGuard;
+                if (i > 0 && incrementStepBoxes != null && incrementStepBoxes[i] != null) incrementStepBoxes[i].KeyPress += decimalGuard;
+            }
+
+            textBoxPort.KeyPress += intGuard;
+            textBoxID.KeyPress += intGuard;
+        }
+
+        private void CaptureParamControlOrder()
+        {
+            paramOrderSnapshot.Clear();
+            foreach (Control ctrl in tabParams.Controls)
+            {
+                paramOrderSnapshot.Add(ctrl);
+            }
+            EnsureStableParamOrder();
+        }
+
+        private void EnsureStableParamOrder()
+        {
+            if (paramOrderSnapshot.Count == 0) return;
+            var ordered = paramOrderSnapshot
+                .OrderBy(c => c.Top)
+                .ThenBy(c => c.Left)
+                .ToList();
+
+            tabParams.SuspendLayout();
+            for (int i = ordered.Count - 1; i >= 0; i--)
+            {
+                tabParams.Controls.SetChildIndex(ordered[i], 0);
+            }
+            tabParams.ResumeLayout(false);
+        }
+
+        private void ApplyTelemetryState(int index, bool preserveFocus)
+        {
+            if (index <= 0 || index >= paramBoxes.Length || paramChecks[index] == null) return;
+
+            Control activeBefore = preserveFocus ? ActiveControl : null;
+            TextBox targetBox = paramBoxes[index];
+            bool telemetryOn = paramChecks[index].Checked;
+
+            tabParams.SuspendLayout();
+            targetBox.ReadOnly = telemetryOn;
+            targetBox.BackColor = telemetryOn ? SystemColors.Control : SystemColors.Window;
+            EnsureStableParamOrder();
+            tabParams.ResumeLayout(false);
+
+            if (preserveFocus)
+            {
+                if (activeBefore != null && activeBefore.CanFocus)
+                {
+                    activeBefore.Focus();
+                }
+                else if (targetBox.CanFocus)
+                {
+                    targetBox.Focus();
+                }
+            }
         }
 
         private void SetupExtendedConnectionSettings()
@@ -94,6 +195,11 @@ namespace PowerGridEditor
                 }
             }
 
+            for (int i = 1; i < 9; i++)
+            {
+                ApplyTelemetryState(i, preserveFocus: false);
+            }
+
             textBoxIP.Text = MyNode.IPAddress;
             textBoxPort.Text = MyNode.Port;
             textBoxID.Text = MyNode.NodeID;
@@ -147,6 +253,7 @@ namespace PowerGridEditor
                         else
                         {
                             paramBoxes[i].ReadOnly = false;
+                            paramBoxes[i].BackColor = SystemColors.Window;
                         }
                     }
                 }
