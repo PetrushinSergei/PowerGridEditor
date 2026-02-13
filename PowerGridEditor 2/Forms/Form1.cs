@@ -30,6 +30,7 @@ namespace PowerGridEditor
         private Button buttonCalcSettings;
         private System.Windows.Forms.Timer telemetryTimer;
         private bool telemetryPollingInProgress = false;
+        private readonly Dictionary<object, DateTime> lastTelemetryReadAt = new Dictionary<object, DateTime>();
         private readonly HashSet<object> selectedElements = new HashSet<object>();
         private bool isMarqueeSelecting = false;
         private Point marqueeStartModel;
@@ -103,6 +104,7 @@ namespace PowerGridEditor
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Value", HeaderText = "Значение", Width = 90 });
             grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Telemetry", HeaderText = "Телеметрия", Width = 80 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Register", HeaderText = "Адрес", Width = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MeasureInterval", HeaderText = "Интервал изм., c", Width = 90 });
             grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Protocol", HeaderText = "Протокол", Width = 95, DataSource = new[] { "Modbus TCP", "МЭК-104" } });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP адрес", Width = 110 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
@@ -382,7 +384,7 @@ namespace PowerGridEditor
 
         private void AddSectionRow(string title)
         {
-            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "");
+            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
             row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
@@ -394,7 +396,7 @@ namespace PowerGridEditor
         {
             foreach (var row in rows)
             {
-                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.MeasurementIntervalSeconds, data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
                 elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
             }
         }
@@ -415,6 +417,10 @@ namespace PowerGridEditor
 
                 data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
                 data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+                if (int.TryParse(Convert.ToString(row.Cells["MeasureInterval"].Value), out int measureInterval))
+                {
+                    data.MeasurementIntervalSeconds = Math.Max(1, measureInterval);
+                }
                 data.Protocol = Convert.ToString(row.Cells["Protocol"].Value) ?? "Modbus TCP";
                 data.IPAddress = Convert.ToString(row.Cells["IP"].Value) ?? "127.0.0.1";
                 data.Port = Convert.ToString(row.Cells["Port"].Value) ?? "502";
@@ -459,10 +465,17 @@ namespace PowerGridEditor
         private void ConfigureIncrement(dynamic data, string key, string title)
         {
             string id = ParameterAutoChangeService.BuildId(data, key);
-            ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            if (!hasConfig)
+            {
+                oldStep = Convert.ToDouble(data.IncrementStep);
+                oldInterval = Convert.ToInt32(data.IncrementIntervalSeconds);
+            }
             using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
             {
                 if (form.ShowDialog(this) != DialogResult.OK) return;
+                data.IncrementStep = form.StepValue;
+                data.IncrementIntervalSeconds = form.IntervalSeconds;
                 ParameterAutoChangeService.Configure(
                     id,
                     form.StepValue,
@@ -2210,7 +2223,29 @@ namespace PowerGridEditor
                 {
                     btn.BackColor = Color.FromArgb(233, 242, 252);
                     btn.ForeColor = Color.FromArgb(24, 50, 82);
+                    btn.Size = new Size(120, 32);
                 }
+            }
+
+            ArrangeMainToolbarButtons();
+        }
+
+        private void ArrangeMainToolbarButtons()
+        {
+            var topButtons = panel1.Controls.OfType<Button>().Where(b => b.Top <= 20).OrderBy(b => b.Left).ToList();
+            int x = 12;
+            foreach (var button in topButtons)
+            {
+                button.Location = new Point(x, 12);
+                x += button.Width + 8;
+            }
+
+            var lowerButtons = panel1.Controls.OfType<Button>().Where(b => b.Top > 20).OrderBy(b => b.Left).ToList();
+            int x2 = 12;
+            foreach (var button in lowerButtons)
+            {
+                button.Location = new Point(x2, 52);
+                x2 += button.Width + 8;
             }
         }
 
@@ -2330,14 +2365,14 @@ namespace PowerGridEditor
 
             try
             {
-                var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
+                var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).Where(ShouldPoll).ToList();
                 foreach (var node in nodes) await PollSingleNodeAsync(node);
 
-                var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
+                var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).Where(ShouldPoll).ToList();
                 foreach (var baseNode in baseNodes) await PollGenericDataAsync(baseNode);
 
-                foreach (var branch in graphicBranches.Select(b => b.Data).Where(b => !string.IsNullOrWhiteSpace(b.IPAddress))) await PollGenericDataAsync(branch);
-                foreach (var shunt in graphicShunts.Select(s => s.Data).Where(s => !string.IsNullOrWhiteSpace(s.IPAddress))) await PollGenericDataAsync(shunt);
+                foreach (var branch in graphicBranches.Select(b => b.Data).Where(b => !string.IsNullOrWhiteSpace(b.IPAddress)).Where(ShouldPoll)) await PollGenericDataAsync(branch);
+                foreach (var shunt in graphicShunts.Select(s => s.Data).Where(s => !string.IsNullOrWhiteSpace(s.IPAddress)).Where(ShouldPoll)) await PollGenericDataAsync(shunt);
             }
             catch
             {
@@ -2346,6 +2381,26 @@ namespace PowerGridEditor
             {
                 telemetryPollingInProgress = false;
             }
+        }
+
+        private bool ShouldPoll(dynamic data)
+        {
+            object key = (object)data;
+            int interval = 2;
+            try
+            {
+                interval = Math.Max(1, Convert.ToInt32(data.MeasurementIntervalSeconds));
+            }
+            catch { }
+
+            DateTime now = DateTime.UtcNow;
+            if (lastTelemetryReadAt.TryGetValue(key, out DateTime last) && (now - last).TotalSeconds < interval)
+            {
+                return false;
+            }
+
+            lastTelemetryReadAt[key] = now;
+            return true;
         }
 
         private async Task PollSingleNodeAsync(Node node)

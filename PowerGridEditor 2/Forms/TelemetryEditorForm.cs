@@ -31,6 +31,7 @@ namespace PowerGridEditor
         private readonly TextBox textBoxBulkDeviceId;
         private readonly ComboBox comboBoxBulkProtocol;
         private readonly CheckBox checkBoxBulkTelemetry;
+        private readonly NumericUpDown numericGlobalInterval;
         private readonly Timer refreshTimer;
         private readonly TextBox textBoxSearch;
 
@@ -74,6 +75,8 @@ namespace PowerGridEditor
             comboBoxBulkProtocol.Items.AddRange(new object[] { "Modbus TCP", "МЭК-104" });
             comboBoxBulkProtocol.SelectedIndex = 0;
             checkBoxBulkTelemetry = new CheckBox { Left = 774, Top = 12, Width = 145, Text = "Телеметрия для всех" };
+            numericGlobalInterval = new NumericUpDown { Left = 1138, Top = 10, Width = 85, Minimum = 1, Maximum = 3600, Value = AppRuntimeSettings.UpdateIntervalSeconds };
+            numericGlobalInterval.ValueChanged += (s, e) => AppRuntimeSettings.UpdateIntervalSeconds = (int)numericGlobalInterval.Value;
 
             var buttonApplyBulk = new Button { Left = 925, Top = 8, Width = 205, Height = 30, Text = "Применить ко всем" };
             buttonApplyBulk.Click += ButtonApplyBulk_Click;
@@ -86,11 +89,13 @@ namespace PowerGridEditor
             topBar.Controls.Add(textBoxBulkDeviceId);
             topBar.Controls.Add(comboBoxBulkProtocol);
             topBar.Controls.Add(checkBoxBulkTelemetry);
+            topBar.Controls.Add(numericGlobalInterval);
             topBar.Controls.Add(buttonApplyBulk);
             topBar.Controls.Add(new Label { Left = 370, Top = 42, Width = 130, Text = "IP" });
             topBar.Controls.Add(new Label { Left = 506, Top = 42, Width = 60, Text = "Порт" });
             topBar.Controls.Add(new Label { Left = 572, Top = 42, Width = 70, Text = "ID" });
             topBar.Controls.Add(new Label { Left = 648, Top = 42, Width = 120, Text = "Протокол" });
+            topBar.Controls.Add(new Label { Left = 1138, Top = 42, Width = 150, Text = "Общий интервал (сек)" });
 
             grid = BuildGrid();
 
@@ -151,7 +156,7 @@ namespace PowerGridEditor
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP адрес", Width = 110 });
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 95 });
-            table.Columns.Add(new DataGridViewTextBoxColumn { Name = "UpdateInterval", HeaderText = "Интервал, c", ReadOnly = true, Width = 85 });
+            table.Columns.Add(new DataGridViewTextBoxColumn { Name = "UpdateInterval", HeaderText = "Интервал, c", Width = 85 });
             table.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
             table.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Инкремент", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 95 });
 
@@ -258,7 +263,7 @@ namespace PowerGridEditor
 
             if (hasFilter && !matchesParent && filteredChildren.Count == 0) return;
 
-            int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, AppRuntimeSettings.UpdateIntervalSeconds, "", "");
+            int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "", "");
             var parentRow = grid.Rows[parentIndex];
             parentRow.ReadOnly = true;
             parentRow.DefaultCellStyle.BackColor = Color.FromArgb(244, 247, 252);
@@ -270,7 +275,7 @@ namespace PowerGridEditor
 
             foreach (var row in filteredChildren)
             {
-                int index = grid.Rows.Add(type, "   " + elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, AppRuntimeSettings.UpdateIntervalSeconds, "Пинг", "Настроить");
+                int index = grid.Rows.Add(type, "   " + elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "Пинг", "Настроить");
                 grid.Rows[index].Tag = new GridRowTag { GroupKey = groupKey, Key = row.Key, Data = data, IsParent = false, ParentText = elementName, ParamText = row.Label };
             }
         }
@@ -301,6 +306,10 @@ namespace PowerGridEditor
 
             data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
             data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+            if (int.TryParse(Convert.ToString(row.Cells["UpdateInterval"].Value), out int updateInterval))
+            {
+                data.MeasurementIntervalSeconds = Math.Max(1, updateInterval);
+            }
             data.Protocol = Convert.ToString(row.Cells["Protocol"].Value) ?? "Modbus TCP";
             data.IPAddress = Convert.ToString(row.Cells["IP"].Value) ?? "127.0.0.1";
             data.Port = Convert.ToString(row.Cells["Port"].Value) ?? "502";
@@ -358,10 +367,17 @@ namespace PowerGridEditor
         private void ConfigureIncrement(dynamic data, string key, string title)
         {
             string id = ParameterAutoChangeService.BuildId(data, key);
-            ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            if (!hasConfig)
+            {
+                oldStep = Convert.ToDouble(data.IncrementStep);
+                oldInterval = Convert.ToInt32(data.IncrementIntervalSeconds);
+            }
             using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
             {
                 if (form.ShowDialog(this) != DialogResult.OK) return;
+                data.IncrementStep = form.StepValue;
+                data.IncrementIntervalSeconds = form.IntervalSeconds;
                 ParameterAutoChangeService.Configure(
                     id,
                     form.StepValue,
@@ -395,6 +411,7 @@ namespace PowerGridEditor
                 data.IPAddress = textBoxBulkIp.Text;
                 data.Port = textBoxBulkPort.Text;
                 data.Protocol = Convert.ToString(comboBoxBulkProtocol.SelectedItem) ?? "Modbus TCP";
+                data.MeasurementIntervalSeconds = AppRuntimeSettings.UpdateIntervalSeconds;
                 if (data is Node) data.NodeID = textBoxBulkDeviceId.Text;
                 else data.DeviceID = textBoxBulkDeviceId.Text;
 

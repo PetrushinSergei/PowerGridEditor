@@ -19,6 +19,9 @@ namespace PowerGridEditor
         public string Port { get; set; } = "502";
         public string DeviceID { get; set; } = "1";
         public string Protocol { get; set; } = "Modbus TCP";
+        public int MeasurementIntervalSeconds { get; set; } = 2;
+        public double IncrementStep { get; set; } = 1;
+        public int IncrementIntervalSeconds { get; set; } = 2;
         public Dictionary<string, string> ParamRegisters { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, bool> ParamAutoModes { get; set; } = new Dictionary<string, bool>();
 

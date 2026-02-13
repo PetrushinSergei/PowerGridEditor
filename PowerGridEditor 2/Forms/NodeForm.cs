@@ -14,6 +14,9 @@ namespace PowerGridEditor
         public Node MyNode { get; private set; }
         private Timer liveTimer;
         private string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+        private NumericUpDown numericMeasurementInterval;
+        private NumericUpDown numericIncrementStep;
+        private NumericUpDown numericIncrementInterval;
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)
@@ -31,7 +34,27 @@ namespace PowerGridEditor
             buttonCancel.Click += (s, e) => this.Close();
             this.FormClosing += (s, e) => liveTimer.Stop();
 
+            SetupExtendedConnectionSettings();
+
             LoadData();
+        }
+
+        private void SetupExtendedConnectionSettings()
+        {
+            int sy = 150;
+            tabSettings.Controls.Add(new Label { Text = "Интервал измерения (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericMeasurementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
+            tabSettings.Controls.Add(numericMeasurementInterval);
+
+            sy += 30;
+            tabSettings.Controls.Add(new Label { Text = "Шаг изменения:", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericIncrementStep = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), DecimalPlaces = 2, Minimum = -100000, Maximum = 100000 };
+            tabSettings.Controls.Add(numericIncrementStep);
+
+            sy += 30;
+            tabSettings.Controls.Add(new Label { Text = "Интервал инкремента (сек):", Location = new Point(15, sy + 3), Size = new Size(170, 20) });
+            numericIncrementInterval = new NumericUpDown { Location = new Point(190, sy), Size = new Size(80, 23), Minimum = 1, Maximum = 3600 };
+            tabSettings.Controls.Add(numericIncrementInterval);
         }
 
         private void LoadData()
@@ -60,6 +83,9 @@ namespace PowerGridEditor
             textBoxPort.Text = MyNode.Port;
             textBoxID.Text = MyNode.NodeID;
             comboBoxProtocol.SelectedItem = MyNode.Protocol;
+            numericMeasurementInterval.Value = MyNode.MeasurementIntervalSeconds;
+            numericIncrementStep.Value = (decimal)MyNode.IncrementStep;
+            numericIncrementInterval.Value = MyNode.IncrementIntervalSeconds;
         }
 
         private async Task PollModbusTask()
@@ -139,6 +165,9 @@ namespace PowerGridEditor
                 MyNode.Port = textBoxPort.Text;
                 MyNode.NodeID = textBoxID.Text;
                 MyNode.Protocol = comboBoxProtocol.Text;
+                MyNode.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+                MyNode.IncrementStep = (double)numericIncrementStep.Value;
+                MyNode.IncrementIntervalSeconds = (int)numericIncrementInterval.Value;
 
                 this.DialogResult = DialogResult.OK;
                 this.Close();
