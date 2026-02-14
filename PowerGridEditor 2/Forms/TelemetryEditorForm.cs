@@ -190,9 +190,9 @@ namespace PowerGridEditor
         {
             if (grid.Rows.Count == 0) return false;
 
+            grid.SuspendLayout();
             try
             {
-                grid.SuspendLayout();
                 foreach (DataGridViewRow row in grid.Rows)
                 {
                     var tag = row.Tag as GridRowTag;
@@ -202,17 +202,17 @@ namespace PowerGridEditor
                     }
 
                     dynamic data = tag.Data;
-                    row.Cells["Protocol"].Value = data.Protocol;
-                    row.Cells["IP"].Value = data.IPAddress;
-                    row.Cells["Port"].Value = data.Port;
-                    row.Cells["DeviceID"].Value = data is Node ? data.NodeID : data.DeviceID;
+                    row.Cells["Protocol"].Value = data.Protocol ?? "Modbus TCP";
+                    row.Cells["IP"].Value = data.IPAddress ?? "127.0.0.1";
+                    row.Cells["Port"].Value = data.Port ?? "502";
+                    row.Cells["DeviceID"].Value = data is Node ? (data.NodeID ?? "1") : (data.DeviceID ?? "1");
                     row.Cells["UpdateInterval"].Value = data.MeasurementIntervalSeconds;
 
                     if (!tag.IsParent)
                     {
                         if (!data.ParamAutoModes.ContainsKey(tag.Key) || !data.ParamRegisters.ContainsKey(tag.Key))
                         {
-                            return false;
+                            continue;
                         }
 
                         row.Cells["Value"].Value = GetParamValue(data, tag.Key);
@@ -223,10 +223,6 @@ namespace PowerGridEditor
 
                 grid.Invalidate();
                 return true;
-            }
-            catch
-            {
-                return false;
             }
             finally
             {
@@ -240,6 +236,9 @@ namespace PowerGridEditor
 
             string topKey = null;
             string topParam = null;
+            string currentKey = null;
+            string currentParam = null;
+            int currentColIndex = 0;
             int firstRow = 0;
 
             if (!resetScroll && grid.Rows.Count > 0)
@@ -250,6 +249,16 @@ namespace PowerGridEditor
                 {
                     topKey = topTag.GroupKey;
                     topParam = topTag.Key;
+                }
+
+                if (grid.CurrentCell != null &&
+                    grid.CurrentCell.RowIndex >= 0 &&
+                    grid.CurrentCell.RowIndex < grid.Rows.Count &&
+                    grid.Rows[grid.CurrentCell.RowIndex].Tag is GridRowTag currentTag)
+                {
+                    currentKey = currentTag.GroupKey;
+                    currentParam = currentTag.Key;
+                    currentColIndex = grid.CurrentCell.ColumnIndex;
                 }
             }
 
@@ -320,6 +329,22 @@ namespace PowerGridEditor
                 }
                 catch { }
 
+                if (!string.IsNullOrEmpty(currentKey))
+                {
+                    for (int i = 0; i < grid.Rows.Count; i++)
+                    {
+                        if (grid.Rows[i].Tag is GridRowTag tag && tag.GroupKey == currentKey && (currentParam == null || tag.Key == currentParam))
+                        {
+                            int col = Math.Max(0, Math.Min(currentColIndex, grid.Columns.Count - 1));
+                            try
+                            {
+                                grid.CurrentCell = grid.Rows[i].Cells[col];
+                            }
+                            catch { }
+                            break;
+                        }
+                    }
+                }
             }
         }
 
