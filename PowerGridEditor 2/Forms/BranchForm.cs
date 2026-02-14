@@ -10,6 +10,9 @@ namespace PowerGridEditor
     {
         public Branch MyBranch { get; private set; }
         private readonly string[] keys = { "Start", "End", "R", "X", "B", "Ktr", "G" };
+        private NumericUpDown numericMeasurementInterval;
+        private TextBox[] incrementStepBoxes;
+        private TextBox[] incrementIntervalBoxes;
 
         public TextBox StartNodeTextBox => paramBoxes[0];
         public TextBox EndNodeTextBox => paramBoxes[1];
@@ -27,6 +30,8 @@ namespace PowerGridEditor
             buttonSave.Click += (s, e) => SaveData();
             buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             btnCheckIP.Click += async (s, e) => await RunPing();
+
+            SetupParameterIncrementEditors();
 
             LoadData();
         }
@@ -53,6 +58,12 @@ namespace PowerGridEditor
             textBoxID.Text = MyBranch.DeviceID;
             comboBoxProtocol.SelectedItem = MyBranch.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
+            numericMeasurementInterval.Value = MyBranch.MeasurementIntervalSeconds;
+            for (int i = 2; i < 7; i++)
+            {
+                if (MyBranch.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyBranch.ParamIncrementSteps[keys[i]].ToString(inv);
+                if (MyBranch.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyBranch.ParamIncrementIntervals[keys[i]].ToString(inv);
+            }
         }
 
         private void SaveData()
@@ -78,6 +89,14 @@ namespace PowerGridEditor
                 MyBranch.IPAddress = textBoxIP.Text;
                 MyBranch.Port = textBoxPort.Text;
                 MyBranch.DeviceID = textBoxID.Text;
+                MyBranch.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+                for (int i = 2; i < 7; i++)
+                {
+                    if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
+                        MyBranch.ParamIncrementSteps[keys[i]] = step;
+                    if (int.TryParse(incrementIntervalBoxes[i].Text, out int interval))
+                        MyBranch.ParamIncrementIntervals[keys[i]] = Math.Max(1, interval);
+                }
 
                 DialogResult = DialogResult.OK;
                 Close();
