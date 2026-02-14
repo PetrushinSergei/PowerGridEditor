@@ -19,8 +19,13 @@ namespace PowerGridEditor
         public string Port { get; set; } = "502";
         public string DeviceID { get; set; } = "1";
         public string Protocol { get; set; } = "Modbus TCP";
+        public int MeasurementIntervalSeconds { get; set; } = 2;
+        public double IncrementStep { get; set; } = 1;
+        public int IncrementIntervalSeconds { get; set; } = 2;
         public Dictionary<string, string> ParamRegisters { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, bool> ParamAutoModes { get; set; } = new Dictionary<string, bool>();
+        public Dictionary<string, double> ParamIncrementSteps { get; set; } = new Dictionary<string, double>();
+        public Dictionary<string, int> ParamIncrementIntervals { get; set; } = new Dictionary<string, int>();
 
         public Branch(int startNode, int endNode)
         {
@@ -32,6 +37,8 @@ namespace PowerGridEditor
             {
                 ParamRegisters[key] = "0";
                 ParamAutoModes[key] = false;
+                ParamIncrementSteps[key] = 1;
+                ParamIncrementIntervals[key] = 2;
             }
         }
 
