@@ -39,6 +39,12 @@ namespace PowerGridEditor
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
         private bool suppressGridEvents;
 
+        private static readonly Color ThemeBgDark = Color.FromArgb(16, 20, 24);
+        private static readonly Color ThemePanelDark = Color.FromArgb(55, 14, 34);
+        private static readonly Color ThemeAccentPink = Color.FromArgb(248, 41, 94);
+        private static readonly Color ThemeAccentGreen = Color.FromArgb(18, 190, 120);
+        private static readonly Color ThemeTextLight = Color.FromArgb(238, 243, 247);
+
         public TelemetryEditorForm(
             Func<IEnumerable<object>> elementsProvider,
             Func<IEnumerable<GraphicBranch>> branchesProvider,
@@ -53,6 +59,8 @@ namespace PowerGridEditor
             Text = "Телеметрия";
             Width = 1500;
             Height = 800;
+            BackColor = ThemeBgDark;
+            ForeColor = ThemeTextLight;
 
             var topHint = new Label
             {
@@ -60,11 +68,11 @@ namespace PowerGridEditor
                 Height = 28,
                 Padding = new Padding(10, 7, 10, 0),
                 Text = "Единая таблица: узлы → базисный узел → ветви → шунты.",
-                ForeColor = Color.FromArgb(43, 71, 104)
+                ForeColor = ThemeAccentGreen
             };
 
-            var topBar = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = Color.FromArgb(236, 242, 251), Padding = new Padding(8) };
-            var buttonRefresh = new Button { Left = 8, Top = 8, Width = 130, Height = 30, Text = "Обновить" };
+            var topBar = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = ThemePanelDark, Padding = new Padding(8) };
+            var buttonRefresh = new Button { Left = 8, Top = 8, Width = 130, Height = 30, Text = "Обновить", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
             buttonRefresh.Click += (s, e) => RefreshGridFromModels(true);
 
             textBoxSearch = new TextBox { Left = 145, Top = 10, Width = 220 };
@@ -80,7 +88,7 @@ namespace PowerGridEditor
             numericGlobalInterval = new NumericUpDown { Left = 1138, Top = 10, Width = 85, Minimum = 1, Maximum = 3600, Value = AppRuntimeSettings.UpdateIntervalSeconds };
             numericGlobalInterval.ValueChanged += (s, e) => AppRuntimeSettings.UpdateIntervalSeconds = (int)numericGlobalInterval.Value;
 
-            var buttonApplyBulk = new Button { Left = 925, Top = 8, Width = 205, Height = 30, Text = "Применить ко всем" };
+            var buttonApplyBulk = new Button { Left = 925, Top = 8, Width = 205, Height = 30, Text = "Применить ко всем", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
             buttonApplyBulk.Click += ButtonApplyBulk_Click;
 
             topBar.Controls.Add(buttonRefresh);
@@ -98,6 +106,14 @@ namespace PowerGridEditor
             topBar.Controls.Add(new Label { Left = 572, Top = 42, Width = 70, Text = "ID" });
             topBar.Controls.Add(new Label { Left = 648, Top = 42, Width = 120, Text = "Протокол" });
             topBar.Controls.Add(new Label { Left = 1138, Top = 42, Width = 150, Text = "Общий интервал (сек)" });
+
+            foreach (Control control in topBar.Controls)
+            {
+                if (control is Label label)
+                {
+                    label.ForeColor = ThemeTextLight;
+                }
+            }
 
             grid = BuildGrid();
 
@@ -141,12 +157,18 @@ namespace PowerGridEditor
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                BackgroundColor = Color.White,
+                BackgroundColor = ThemeBgDark,
                 BorderStyle = BorderStyle.None,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
             };
 
-            table.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(228, 236, 246);
+            table.ColumnHeadersDefaultCellStyle.BackColor = ThemePanelDark;
+            table.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextLight;
+            table.DefaultCellStyle.BackColor = Color.FromArgb(22, 28, 34);
+            table.DefaultCellStyle.ForeColor = ThemeTextLight;
+            table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(248, 41, 94);
+            table.DefaultCellStyle.SelectionForeColor = ThemeTextLight;
+            table.GridColor = Color.FromArgb(20, 92, 63);
             table.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             table.EnableHeadersVisualStyles = false;
 
@@ -404,7 +426,8 @@ namespace PowerGridEditor
             int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "", "");
             var parentRow = grid.Rows[parentIndex];
             parentRow.ReadOnly = true;
-            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(244, 247, 252);
+            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(20, 92, 63);
+            parentRow.DefaultCellStyle.ForeColor = ThemeTextLight;
             parentRow.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             parentRow.Tag = new GridRowTag { GroupKey = groupKey, Data = data, IsParent = true, ParentText = elementName };
 
@@ -425,7 +448,8 @@ namespace PowerGridEditor
             int index = grid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = grid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
+            row.DefaultCellStyle.BackColor = ThemePanelDark;
+            row.DefaultCellStyle.ForeColor = ThemeTextLight;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
         }

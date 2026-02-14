@@ -49,6 +49,12 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
+        private static readonly Color ThemeBgDark = Color.FromArgb(16, 20, 24);
+        private static readonly Color ThemePanelDark = Color.FromArgb(55, 14, 34);
+        private static readonly Color ThemeAccentPink = Color.FromArgb(248, 41, 94);
+        private static readonly Color ThemeAccentGreen = Color.FromArgb(18, 190, 120);
+        private static readonly Color ThemeTextLight = Color.FromArgb(238, 243, 247);
+
         private sealed class AdapterEntry
         {
             public string Name { get; set; }
@@ -89,12 +95,13 @@ namespace PowerGridEditor
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                BackgroundColor = Color.White,
+                BackgroundColor = ThemeBgDark,
                 BorderStyle = BorderStyle.None,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
             };
 
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(228, 236, 246);
+            grid.ColumnHeadersDefaultCellStyle.BackColor = ThemePanelDark;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextLight;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grid.EnableHeadersVisualStyles = false;
 
@@ -129,7 +136,7 @@ namespace PowerGridEditor
                 Dock = DockStyle.Top,
                 Height = 140,
                 Padding = new Padding(12),
-                BackColor = Color.FromArgb(214, 227, 242)
+                BackColor = Color.FromArgb(20, 92, 63)
             };
 
             labelTopClock.Parent = contentPanel;
@@ -186,7 +193,7 @@ namespace PowerGridEditor
                 Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
                 Location = new Point(920, 100),
                 Font = new Font("Segoe UI", 9F, FontStyle.Italic),
-                ForeColor = Color.FromArgb(43, 71, 104)
+                ForeColor = ThemeTextLight
             };
 
             targetClientPanel.Controls.Add(contentPanel);
@@ -203,8 +210,8 @@ namespace PowerGridEditor
                 Left = 170,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
             };
             buttonOpenTelemetryForm.FlatAppearance.BorderSize = 2;
             buttonOpenTelemetryForm.Click += buttonOpenTelemetryForm_Click;
@@ -218,8 +225,8 @@ namespace PowerGridEditor
                 Left = 326,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
             };
             buttonOpenClientSettingsForm.FlatAppearance.BorderSize = 2;
             buttonOpenClientSettingsForm.Click += buttonOpenClientSettingsForm_Click;
@@ -233,8 +240,8 @@ namespace PowerGridEditor
                 Left = 12,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
             };
             buttonCalcSettings.FlatAppearance.BorderSize = 2;
             buttonCalcSettings.Click += (s, e) =>
@@ -387,7 +394,8 @@ namespace PowerGridEditor
             int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(236, 242, 251);
+            row.DefaultCellStyle.BackColor = Color.FromArgb(28, 74, 58);
+            row.DefaultCellStyle.ForeColor = ThemeTextLight;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
         }
@@ -540,7 +548,7 @@ namespace PowerGridEditor
 
         private void SetupCanvas()
         {
-            panel2.BackColor = Color.White;
+            panel2.BackColor = ThemeBgDark;
             panel2.BorderStyle = BorderStyle.FixedSingle;
             panel2.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(panel2, true, null);
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
@@ -2217,12 +2225,16 @@ namespace PowerGridEditor
         private void ConfigureToolbarStyle()
         {
             panel1.Padding = new Padding(8);
+            panel1.BackColor = ThemePanelDark;
             foreach (Control ctrl in panel1.Controls)
             {
                 if (ctrl is Button btn)
                 {
-                    btn.BackColor = Color.FromArgb(233, 242, 252);
-                    btn.ForeColor = Color.FromArgb(24, 50, 82);
+                    btn.BackColor = ThemeAccentPink;
+                    btn.ForeColor = ThemeTextLight;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = ThemeAccentGreen;
+                    btn.FlatAppearance.BorderSize = 1;
                     btn.Size = new Size(120, 32);
                 }
             }
