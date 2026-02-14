@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Net.NetworkInformation;
 using System.Windows.Forms;
 using System.Globalization;
 using System.Threading.Tasks;
 using System.Net.Sockets;
+using System.Collections.Generic;
+using System.Linq;
 using NModbus;
 
 namespace PowerGridEditor
