@@ -51,6 +51,7 @@
     <Compile Include="Models\BaseNode.cs" />
     <Compile Include="Models\CalculationOptions.cs" />
     <Compile Include="Models\AppRuntimeSettings.cs" />
+    <Compile Include="Models\AppThemeSettings.cs" />
     <Compile Include="Models\ParameterAutoChangeService.cs" />
     <Compile Include="Forms\BaseNodeForm.cs">
       <SubType>Form</SubType>

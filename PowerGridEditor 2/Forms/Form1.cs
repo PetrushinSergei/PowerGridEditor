@@ -40,6 +40,7 @@ namespace PowerGridEditor
         private DataGridView elementsGrid;
         private Button buttonOpenTelemetryForm;
         private Button buttonOpenClientSettingsForm;
+        private Button buttonThemeToggle;
         private TelemetryEditorForm telemetryEditorForm;
         private ClientSettingsForm clientSettingsForm;
         private Point rightMouseDownPoint;
@@ -49,11 +50,11 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
-        private static readonly Color ThemeBgDark = Color.FromArgb(16, 20, 24);
-        private static readonly Color ThemePanelDark = Color.FromArgb(55, 14, 34);
-        private static readonly Color ThemeAccentPink = Color.FromArgb(248, 41, 94);
-        private static readonly Color ThemeAccentGreen = Color.FromArgb(18, 190, 120);
-        private static readonly Color ThemeTextLight = Color.FromArgb(238, 243, 247);
+        private static readonly Color ThemeBgDark = Color.FromArgb(22, 26, 34);
+        private static readonly Color ThemePanelDark = Color.FromArgb(30, 35, 46);
+        private static readonly Color ThemeAccentPink = Color.FromArgb(99, 102, 241);
+        private static readonly Color ThemeAccentGreen = Color.FromArgb(16, 185, 129);
+        private static readonly Color ThemeTextLight = Color.FromArgb(226, 232, 240);
 
         private sealed class AdapterEntry
         {
@@ -72,8 +73,14 @@ namespace PowerGridEditor
             SetupCanvas();
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
+            BackColor = ThemeBgDark;
+            ForeColor = ThemeTextLight;
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             ConfigureToolbarStyle();
             AddDynamicControls();
+            AppThemeSettings.ThemeChanged += ApplyTheme;
+            ApplyTheme(AppThemeSettings.IsDarkTheme);
+            FormClosed += (s, e) => AppThemeSettings.ThemeChanged -= ApplyTheme;
         }
 
 
@@ -104,6 +111,12 @@ namespace PowerGridEditor
             grid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextLight;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grid.EnableHeadersVisualStyles = false;
+            grid.DefaultCellStyle.BackColor = Color.FromArgb(28, 33, 43);
+            grid.DefaultCellStyle.ForeColor = ThemeTextLight;
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(24, 29, 38);
+            grid.GridColor = Color.FromArgb(51, 65, 85);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
@@ -136,7 +149,7 @@ namespace PowerGridEditor
                 Dock = DockStyle.Top,
                 Height = 140,
                 Padding = new Padding(12),
-                BackColor = Color.FromArgb(20, 92, 63)
+                BackColor = Color.FromArgb(36, 42, 54)
             };
 
             labelTopClock.Parent = contentPanel;
@@ -253,9 +266,25 @@ namespace PowerGridEditor
                 settingsForm.Show(this);
             };
 
+            buttonThemeToggle = new Button
+            {
+                Name = "buttonThemeToggle",
+                Text = "Тема: тёмная",
+                Width = 150,
+                Height = 30,
+                Left = 482,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
+            };
+            buttonThemeToggle.FlatAppearance.BorderSize = 2;
+            buttonThemeToggle.Click += (s, e) => AppThemeSettings.IsDarkTheme = !AppThemeSettings.IsDarkTheme;
+
             panel1.Controls.Add(buttonOpenTelemetryForm);
             panel1.Controls.Add(buttonOpenClientSettingsForm);
             panel1.Controls.Add(buttonCalcSettings);
+            panel1.Controls.Add(buttonThemeToggle);
         }
 
         private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
@@ -394,7 +423,7 @@ namespace PowerGridEditor
             int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(28, 74, 58);
+            row.DefaultCellStyle.BackColor = Color.FromArgb(45, 55, 72);
             row.DefaultCellStyle.ForeColor = ThemeTextLight;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
@@ -2222,6 +2251,56 @@ namespace PowerGridEditor
             reportForm.Show(this);
         }
 
+        private void ApplyTheme(bool isDark)
+        {
+            var bg = isDark ? Color.FromArgb(22, 26, 34) : Color.FromArgb(245, 247, 251);
+            var panel = isDark ? Color.FromArgb(30, 35, 46) : Color.FromArgb(226, 232, 240);
+            var accent = isDark ? Color.FromArgb(99, 102, 241) : Color.FromArgb(37, 99, 235);
+            var border = isDark ? Color.FromArgb(16, 185, 129) : Color.FromArgb(14, 116, 144);
+            var text = isDark ? Color.FromArgb(226, 232, 240) : Color.FromArgb(30, 41, 59);
+
+            this.BackColor = bg;
+            this.ForeColor = text;
+            panel1.BackColor = panel;
+            panel2.BackColor = bg;
+
+            foreach (Control ctrl in panel1.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    btn.BackColor = accent;
+                    btn.ForeColor = Color.White;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = border;
+                    btn.FlatAppearance.BorderSize = 1;
+                    btn.FlatAppearance.MouseOverBackColor = isDark ? Color.FromArgb(79, 70, 229) : Color.FromArgb(59, 130, 246);
+                    btn.FlatAppearance.MouseDownBackColor = isDark ? Color.FromArgb(67, 56, 202) : Color.FromArgb(37, 99, 235);
+                }
+            }
+
+            if (buttonThemeToggle != null)
+            {
+                buttonThemeToggle.Text = isDark ? "Тема: тёмная" : "Тема: светлая";
+            }
+
+            if (elementsGrid != null)
+            {
+                elementsGrid.BackgroundColor = bg;
+                elementsGrid.ColumnHeadersDefaultCellStyle.BackColor = panel;
+                elementsGrid.ColumnHeadersDefaultCellStyle.ForeColor = text;
+                elementsGrid.DefaultCellStyle.BackColor = isDark ? Color.FromArgb(28, 33, 43) : Color.White;
+                elementsGrid.DefaultCellStyle.ForeColor = text;
+                elementsGrid.DefaultCellStyle.SelectionBackColor = accent;
+                elementsGrid.DefaultCellStyle.SelectionForeColor = Color.White;
+                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = isDark ? Color.FromArgb(24, 29, 38) : Color.FromArgb(241, 245, 249);
+                elementsGrid.GridColor = isDark ? Color.FromArgb(51, 65, 85) : Color.FromArgb(203, 213, 225);
+            }
+
+            telemetryEditorForm?.ApplyTheme(isDark);
+            RefreshElementsGrid();
+            panel2.Invalidate();
+        }
+
         private void ConfigureToolbarStyle()
         {
             panel1.Padding = new Padding(8);
@@ -2235,7 +2314,10 @@ namespace PowerGridEditor
                     btn.FlatStyle = FlatStyle.Flat;
                     btn.FlatAppearance.BorderColor = ThemeAccentGreen;
                     btn.FlatAppearance.BorderSize = 1;
-                    btn.Size = new Size(120, 32);
+                    btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(79, 70, 229);
+                    btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(67, 56, 202);
+                    btn.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+                    btn.Size = new Size(124, 34);
                 }
             }
 
@@ -2245,7 +2327,7 @@ namespace PowerGridEditor
         private void ArrangeMainToolbarButtons()
         {
             string[] topOrder = { "buttonAddNode", "buttonAddBaseNode", "buttonAddBranch", "buttonAddShunt", "buttonDelete", "buttonClearAll", "buttonExportData", "buttonImportData", "buttonOpenReport" };
-            string[] bottomOrder = { "buttonCalcSettings", "buttonOpenTelemetryForm", "buttonOpenClientSettingsForm" };
+            string[] bottomOrder = { "buttonCalcSettings", "buttonOpenTelemetryForm", "buttonOpenClientSettingsForm", "buttonThemeToggle" };
 
             var topButtons = topOrder.Select(name => panel1.Controls.Find(name, false).FirstOrDefault()).OfType<Button>().ToList();
             int x = 12;

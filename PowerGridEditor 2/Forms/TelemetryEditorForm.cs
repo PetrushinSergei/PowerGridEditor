@@ -35,15 +35,19 @@ namespace PowerGridEditor
         private readonly NumericUpDown numericGlobalInterval;
         private readonly Timer refreshTimer;
         private readonly TextBox textBoxSearch;
+        private readonly Panel topBar;
+        private readonly Label topHint;
+        private readonly Button buttonRefresh;
+        private readonly Button buttonApplyBulk;
 
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
         private bool suppressGridEvents;
 
-        private static readonly Color ThemeBgDark = Color.FromArgb(16, 20, 24);
-        private static readonly Color ThemePanelDark = Color.FromArgb(55, 14, 34);
-        private static readonly Color ThemeAccentPink = Color.FromArgb(248, 41, 94);
-        private static readonly Color ThemeAccentGreen = Color.FromArgb(18, 190, 120);
-        private static readonly Color ThemeTextLight = Color.FromArgb(238, 243, 247);
+        private static readonly Color ThemeBgDark = Color.FromArgb(22, 26, 34);
+        private static readonly Color ThemePanelDark = Color.FromArgb(30, 35, 46);
+        private static readonly Color ThemeAccentPink = Color.FromArgb(99, 102, 241);
+        private static readonly Color ThemeAccentGreen = Color.FromArgb(16, 185, 129);
+        private static readonly Color ThemeTextLight = Color.FromArgb(226, 232, 240);
 
         public TelemetryEditorForm(
             Func<IEnumerable<object>> elementsProvider,
@@ -62,17 +66,17 @@ namespace PowerGridEditor
             BackColor = ThemeBgDark;
             ForeColor = ThemeTextLight;
 
-            var topHint = new Label
+            topHint = new Label
             {
                 Dock = DockStyle.Top,
                 Height = 28,
                 Padding = new Padding(10, 7, 10, 0),
                 Text = "Единая таблица: узлы → базисный узел → ветви → шунты.",
-                ForeColor = ThemeAccentGreen
+                ForeColor = ThemeTextLight
             };
 
-            var topBar = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = ThemePanelDark, Padding = new Padding(8) };
-            var buttonRefresh = new Button { Left = 8, Top = 8, Width = 130, Height = 30, Text = "Обновить", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
+            topBar = new Panel { Dock = DockStyle.Top, Height = 70, BackColor = ThemePanelDark, Padding = new Padding(8) };
+            buttonRefresh = new Button { Left = 8, Top = 8, Width = 130, Height = 32, Text = "Обновить", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
             buttonRefresh.Click += (s, e) => RefreshGridFromModels(true);
 
             textBoxSearch = new TextBox { Left = 145, Top = 10, Width = 220 };
@@ -88,7 +92,7 @@ namespace PowerGridEditor
             numericGlobalInterval = new NumericUpDown { Left = 1138, Top = 10, Width = 85, Minimum = 1, Maximum = 3600, Value = AppRuntimeSettings.UpdateIntervalSeconds };
             numericGlobalInterval.ValueChanged += (s, e) => AppRuntimeSettings.UpdateIntervalSeconds = (int)numericGlobalInterval.Value;
 
-            var buttonApplyBulk = new Button { Left = 925, Top = 8, Width = 205, Height = 30, Text = "Применить ко всем", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
+            buttonApplyBulk = new Button { Left = 925, Top = 8, Width = 205, Height = 32, Text = "Применить ко всем", BackColor = ThemeAccentPink, ForeColor = ThemeTextLight, FlatStyle = FlatStyle.Flat };
             buttonApplyBulk.Click += ButtonApplyBulk_Click;
 
             topBar.Controls.Add(buttonRefresh);
@@ -141,10 +145,78 @@ namespace PowerGridEditor
 
             Load += (s, e) =>
             {
+                ApplyTheme(AppThemeSettings.IsDarkTheme);
                 RefreshGridFromModels(true);
                 refreshTimer.Start();
             };
-            FormClosed += (s, e) => refreshTimer.Stop();
+            AppThemeSettings.ThemeChanged += ApplyTheme;
+            FormClosed += (s, e) =>
+            {
+                refreshTimer.Stop();
+                AppThemeSettings.ThemeChanged -= ApplyTheme;
+            };
+        }
+
+        public void ApplyTheme(bool isDark)
+        {
+            var bg = isDark ? Color.FromArgb(22, 26, 34) : Color.FromArgb(245, 247, 251);
+            var panel = isDark ? Color.FromArgb(30, 35, 46) : Color.FromArgb(226, 232, 240);
+            var accent = isDark ? Color.FromArgb(99, 102, 241) : Color.FromArgb(37, 99, 235);
+            var border = isDark ? Color.FromArgb(16, 185, 129) : Color.FromArgb(14, 116, 144);
+            var text = isDark ? Color.FromArgb(226, 232, 240) : Color.FromArgb(30, 41, 59);
+
+            BackColor = bg;
+            ForeColor = text;
+            topBar.BackColor = panel;
+            topHint.ForeColor = text;
+
+            foreach (Control control in topBar.Controls)
+            {
+                if (control is Label label)
+                {
+                    label.ForeColor = text;
+                }
+                else if (control is Button btn)
+                {
+                    btn.BackColor = accent;
+                    btn.ForeColor = Color.White;
+                    btn.FlatAppearance.BorderColor = border;
+                    btn.FlatAppearance.BorderSize = 1;
+                    btn.FlatAppearance.MouseOverBackColor = isDark ? Color.FromArgb(79, 70, 229) : Color.FromArgb(59, 130, 246);
+                    btn.FlatAppearance.MouseDownBackColor = isDark ? Color.FromArgb(67, 56, 202) : Color.FromArgb(37, 99, 235);
+                }
+                else if (control is TextBox textBox)
+                {
+                    textBox.BackColor = isDark ? Color.FromArgb(15, 23, 42) : Color.White;
+                    textBox.ForeColor = text;
+                }
+                else if (control is ComboBox combo)
+                {
+                    combo.BackColor = isDark ? Color.FromArgb(15, 23, 42) : Color.White;
+                    combo.ForeColor = text;
+                }
+                else if (control is NumericUpDown numeric)
+                {
+                    numeric.BackColor = isDark ? Color.FromArgb(15, 23, 42) : Color.White;
+                    numeric.ForeColor = text;
+                }
+                else if (control is CheckBox check)
+                {
+                    check.ForeColor = text;
+                }
+            }
+
+            grid.BackgroundColor = bg;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = panel;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = text;
+            grid.DefaultCellStyle.BackColor = isDark ? Color.FromArgb(28, 33, 43) : Color.White;
+            grid.DefaultCellStyle.ForeColor = text;
+            grid.DefaultCellStyle.SelectionBackColor = accent;
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = isDark ? Color.FromArgb(24, 29, 38) : Color.FromArgb(241, 245, 249);
+            grid.GridColor = isDark ? Color.FromArgb(51, 65, 85) : Color.FromArgb(203, 213, 225);
+
+            RefreshGridFromModels(false);
         }
 
         private DataGridView BuildGrid()
@@ -164,11 +236,12 @@ namespace PowerGridEditor
 
             table.ColumnHeadersDefaultCellStyle.BackColor = ThemePanelDark;
             table.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextLight;
-            table.DefaultCellStyle.BackColor = Color.FromArgb(22, 28, 34);
+            table.DefaultCellStyle.BackColor = Color.FromArgb(28, 33, 43);
             table.DefaultCellStyle.ForeColor = ThemeTextLight;
-            table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(248, 41, 94);
+            table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
             table.DefaultCellStyle.SelectionForeColor = ThemeTextLight;
-            table.GridColor = Color.FromArgb(20, 92, 63);
+            table.GridColor = Color.FromArgb(51, 65, 85);
+            table.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(24, 29, 38);
             table.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             table.EnableHeadersVisualStyles = false;
 
@@ -396,9 +469,9 @@ namespace PowerGridEditor
             var cell = row.Cells["Increment"];
             if (running)
             {
-                cell.Style.BackColor = Color.FromArgb(43, 116, 214);
+                cell.Style.BackColor = ThemeAccentPink;
                 cell.Style.ForeColor = Color.White;
-                cell.Style.SelectionBackColor = Color.FromArgb(27, 94, 190);
+                cell.Style.SelectionBackColor = Color.FromArgb(67, 56, 202);
                 cell.Style.SelectionForeColor = Color.White;
                 cell.Value = "Запущено";
             }
@@ -426,7 +499,7 @@ namespace PowerGridEditor
             int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "", "");
             var parentRow = grid.Rows[parentIndex];
             parentRow.ReadOnly = true;
-            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(20, 92, 63);
+            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(36, 42, 54);
             parentRow.DefaultCellStyle.ForeColor = ThemeTextLight;
             parentRow.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             parentRow.Tag = new GridRowTag { GroupKey = groupKey, Data = data, IsParent = true, ParentText = elementName };
@@ -448,7 +521,7 @@ namespace PowerGridEditor
             int index = grid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = grid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = ThemePanelDark;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(45, 55, 72);
             row.DefaultCellStyle.ForeColor = ThemeTextLight;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
