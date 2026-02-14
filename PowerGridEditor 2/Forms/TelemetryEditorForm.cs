@@ -162,7 +162,7 @@ namespace PowerGridEditor
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 95 });
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "UpdateInterval", HeaderText = "Интервал, c", Width = 85 });
             table.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
-            table.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Инкремент", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 95 });
+            table.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Авто изменение", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 95 });
 
             table.CellEndEdit += Grid_CellChanged;
             table.CellValueChanged += Grid_CellChanged;
@@ -220,6 +220,7 @@ namespace PowerGridEditor
                         row.Cells["Value"].Value = GetParamValue(data, tag.Key);
                         row.Cells["Telemetry"].Value = data.ParamAutoModes[tag.Key];
                         row.Cells["Register"].Value = data.ParamRegisters[tag.Key];
+                        UpdateIncrementButtonState(row, data, tag.Key);
                     }
                 }
 
@@ -243,6 +244,7 @@ namespace PowerGridEditor
             string currentParam = null;
             int currentColIndex = 0;
             int firstRow = 0;
+            bool currentWasVisible = false;
 
             if (!resetScroll && grid.Rows.Count > 0)
             {
@@ -262,6 +264,9 @@ namespace PowerGridEditor
                     currentKey = currentTag.GroupKey;
                     currentParam = currentTag.Key;
                     currentColIndex = grid.CurrentCell.ColumnIndex;
+
+                    int visibleRows = Math.Max(1, grid.DisplayedRowCount(false));
+                    currentWasVisible = grid.CurrentCell.RowIndex >= firstRow && grid.CurrentCell.RowIndex < (firstRow + visibleRows);
                 }
             }
 
@@ -342,7 +347,7 @@ namespace PowerGridEditor
                 }
                 catch { }
 
-                if (!string.IsNullOrEmpty(currentKey))
+                if (currentWasVisible && !string.IsNullOrEmpty(currentKey))
                 {
                     for (int i = 0; i < grid.Rows.Count; i++)
                     {
@@ -358,6 +363,30 @@ namespace PowerGridEditor
                         }
                     }
                 }
+            }
+        }
+
+        private void UpdateIncrementButtonState(DataGridViewRow row, dynamic data, string key)
+        {
+            string id = ParameterAutoChangeService.BuildId(data, key);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+
+            var cell = row.Cells["Increment"];
+            if (running)
+            {
+                cell.Style.BackColor = Color.FromArgb(43, 116, 214);
+                cell.Style.ForeColor = Color.White;
+                cell.Style.SelectionBackColor = Color.FromArgb(27, 94, 190);
+                cell.Style.SelectionForeColor = Color.White;
+                cell.Value = "Запущено";
+            }
+            else
+            {
+                cell.Style.BackColor = Color.Empty;
+                cell.Style.ForeColor = Color.Empty;
+                cell.Style.SelectionBackColor = Color.Empty;
+                cell.Style.SelectionForeColor = Color.Empty;
+                cell.Value = "Настроить";
             }
         }
 
@@ -385,7 +414,9 @@ namespace PowerGridEditor
             foreach (var row in filteredChildren)
             {
                 int index = grid.Rows.Add(type, "   " + elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "Пинг", "Настроить");
-                grid.Rows[index].Tag = new GridRowTag { GroupKey = groupKey, Key = row.Key, Data = data, IsParent = false, ParentText = elementName, ParamText = row.Label };
+                var childRow = grid.Rows[index];
+                childRow.Tag = new GridRowTag { GroupKey = groupKey, Key = row.Key, Data = data, IsParent = false, ParentText = elementName, ParamText = row.Label };
+                UpdateIncrementButtonState(childRow, data, row.Key);
             }
         }
 
@@ -493,6 +524,8 @@ namespace PowerGridEditor
                         RefreshGridFromModels(false);
                         invalidateCanvas();
                     })));
+
+                RefreshGridFromModels(false);
             }
         }
 
