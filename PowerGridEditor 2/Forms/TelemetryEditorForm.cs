@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace PowerGridEditor
@@ -107,7 +108,9 @@ namespace PowerGridEditor
             refreshTimer.Interval = AppRuntimeSettings.UpdateIntervalSeconds * 1000;
             refreshTimer.Tick += (s, e) =>
             {
-                if (!grid.IsCurrentCellInEditMode)
+                if (grid.IsCurrentCellInEditMode) return;
+
+                if (!TryUpdateGridRowsInPlace())
                 {
                     RefreshGridFromModels(false);
                 }
@@ -172,7 +175,62 @@ namespace PowerGridEditor
             table.CellContentClick += Grid_CellContentClick;
             table.CellClick += Grid_CellClick;
 
+            EnableDoubleBuffering(table);
             return table;
+        }
+
+        private void EnableDoubleBuffering(DataGridView table)
+        {
+            typeof(DataGridView)
+                .GetProperty("DoubleBuffered", BindingFlags.Instance | BindingFlags.NonPublic)?
+                .SetValue(table, true, null);
+        }
+
+        private bool TryUpdateGridRowsInPlace()
+        {
+            if (grid.Rows.Count == 0) return false;
+
+            try
+            {
+                grid.SuspendLayout();
+                foreach (DataGridViewRow row in grid.Rows)
+                {
+                    if (!(row.Tag is GridRowTag tag) || tag.Data == null)
+                    {
+                        continue;
+                    }
+
+                    dynamic data = tag.Data;
+                    row.Cells["Protocol"].Value = data.Protocol;
+                    row.Cells["IP"].Value = data.IPAddress;
+                    row.Cells["Port"].Value = data.Port;
+                    row.Cells["DeviceID"].Value = data is Node ? data.NodeID : data.DeviceID;
+                    row.Cells["UpdateInterval"].Value = data.MeasurementIntervalSeconds;
+
+                    if (!tag.IsParent)
+                    {
+                        if (!data.ParamAutoModes.ContainsKey(tag.Key) || !data.ParamRegisters.ContainsKey(tag.Key))
+                        {
+                            return false;
+                        }
+
+                        row.Cells["Value"].Value = GetParamValue(data, tag.Key);
+                        row.Cells["Telemetry"].Value = data.ParamAutoModes[tag.Key];
+                        row.Cells["Register"].Value = data.ParamRegisters[tag.Key];
+                    }
+                }
+
+                grid.Invalidate();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+                grid.ResumeLayout(false);
+            }
         }
 
         private void RefreshGridFromModels(bool resetScroll)
