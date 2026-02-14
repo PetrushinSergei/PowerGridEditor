@@ -21,7 +21,7 @@ namespace PowerGridEditor
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
         private bool suppressTelemetryUiEvents;
-        private readonly Dictionary<Control, Point> fixedParamLocations = new Dictionary<Control, Point>();
+        private readonly System.Collections.Generic.Dictionary<Control, Point> fixedParamLocations = new System.Collections.Generic.Dictionary<Control, Point>();
         public event EventHandler TelemetryUpdated;
 
         public NodeForm(Node node)

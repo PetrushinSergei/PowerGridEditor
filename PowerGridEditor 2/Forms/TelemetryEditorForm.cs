@@ -195,7 +195,8 @@ namespace PowerGridEditor
                 grid.SuspendLayout();
                 foreach (DataGridViewRow row in grid.Rows)
                 {
-                    if (!(row.Tag is GridRowTag tag) || tag.Data == null)
+                    var tag = row.Tag as GridRowTag;
+                    if (tag == null || tag.Data == null)
                     {
                         continue;
                     }
