@@ -30,20 +30,31 @@ namespace PowerGridEditor
         private Button buttonCalcSettings;
         private System.Windows.Forms.Timer telemetryTimer;
         private bool telemetryPollingInProgress = false;
+        private readonly Dictionary<object, DateTime> lastTelemetryReadAt = new Dictionary<object, DateTime>();
         private readonly HashSet<object> selectedElements = new HashSet<object>();
         private bool isMarqueeSelecting = false;
         private Point marqueeStartModel;
         private Point marqueeCurrentModel;
         private readonly Dictionary<object, int> elementGroups = new Dictionary<object, int>();
         private int nextGroupId = 1;
-        private TabControl workspaceTabs;
         private DataGridView elementsGrid;
+        private Button buttonOpenTelemetryForm;
+        private Button buttonOpenClientSettingsForm;
+        private Button buttonThemeToggle;
+        private TelemetryEditorForm telemetryEditorForm;
+        private ClientSettingsForm clientSettingsForm;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
+
+        private static readonly Color ThemeBgDark = Color.FromArgb(22, 26, 34);
+        private static readonly Color ThemePanelDark = Color.FromArgb(30, 35, 46);
+        private static readonly Color ThemeAccentPink = Color.FromArgb(99, 102, 241);
+        private static readonly Color ThemeAccentGreen = Color.FromArgb(16, 185, 129);
+        private static readonly Color ThemeTextLight = Color.FromArgb(226, 232, 240);
 
         private sealed class AdapterEntry
         {
@@ -62,40 +73,21 @@ namespace PowerGridEditor
             SetupCanvas();
             SetupContextMenu();
             this.MouseWheel += Form1_MouseWheel; // зум колесом
+            BackColor = ThemeBgDark;
+            ForeColor = ThemeTextLight;
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             ConfigureToolbarStyle();
             AddDynamicControls();
+            AppThemeSettings.ThemeChanged += ApplyTheme;
+            ApplyTheme(AppThemeSettings.IsDarkTheme);
+            FormClosed += (s, e) => AppThemeSettings.ThemeChanged -= ApplyTheme;
         }
 
 
         private void SetupWorkspaceTabs()
         {
-            workspaceTabs = new TabControl
-            {
-                Dock = DockStyle.Fill,
-                Appearance = TabAppearance.Normal
-            };
-
-            var tabEditor = new TabPage("Схема");
-            var tabElements = new TabPage("Элементы и телеметрия");
-            var tabClient = new TabPage("Настройка клиента");
-
-            panel2.Parent = tabEditor;
-            panel2.Dock = DockStyle.Fill;
-
             elementsGrid = BuildElementsGrid();
-            var buttonRefreshGrid = new Button { Text = "Обновить", Dock = DockStyle.Top, Height = 32 };
-            buttonRefreshGrid.Click += (s, e) => RefreshElementsGrid();
-            tabElements.Controls.Add(elementsGrid);
-            tabElements.Controls.Add(buttonRefreshGrid);
 
-            MoveClientControlsToTab(tabClient);
-
-            workspaceTabs.TabPages.Add(tabEditor);
-            workspaceTabs.TabPages.Add(tabElements);
-            workspaceTabs.TabPages.Add(tabClient);
-
-            this.Controls.Add(workspaceTabs);
-            workspaceTabs.BringToFront();
             panel1.BringToFront();
             statusStrip1.BringToFront();
         }
@@ -110,14 +102,21 @@ namespace PowerGridEditor
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
                 MultiSelect = false,
-                BackgroundColor = Color.White,
+                BackgroundColor = ThemeBgDark,
                 BorderStyle = BorderStyle.None,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells
             };
 
-            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(228, 236, 246);
+            grid.ColumnHeadersDefaultCellStyle.BackColor = ThemePanelDark;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextLight;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             grid.EnableHeadersVisualStyles = false;
+            grid.DefaultCellStyle.BackColor = Color.FromArgb(28, 33, 43);
+            grid.DefaultCellStyle.ForeColor = ThemeTextLight;
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(79, 70, 229);
+            grid.DefaultCellStyle.SelectionForeColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(24, 29, 38);
+            grid.GridColor = Color.FromArgb(51, 65, 85);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
@@ -125,11 +124,13 @@ namespace PowerGridEditor
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Value", HeaderText = "Значение", Width = 90 });
             grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Telemetry", HeaderText = "Телеметрия", Width = 80 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Register", HeaderText = "Адрес", Width = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MeasureInterval", HeaderText = "Интервал изм., c", Width = 90 });
             grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Protocol", HeaderText = "Протокол", Width = 95, DataSource = new[] { "Modbus TCP", "МЭК-104" } });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IP", HeaderText = "IP адрес", Width = 110 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Port", HeaderText = "Порт", Width = 65 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 85 });
             grid.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Инкремент", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 90 });
 
             grid.CellEndEdit += ElementsGrid_CellEndEdit;
             grid.CurrentCellDirtyStateChanged += (s, e) =>
@@ -141,78 +142,108 @@ namespace PowerGridEditor
             return grid;
         }
 
-        private void MoveClientControlsToTab(TabPage tabClient)
+        private void MoveClientControlsToTab(Panel targetClientPanel)
         {
-            var clientPanel = new Panel
+            var contentPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 130,
+                Height = 140,
                 Padding = new Padding(12),
-                BackColor = Color.FromArgb(214, 227, 242)
+                BackColor = Color.FromArgb(36, 42, 54)
             };
 
-            labelTopClock.Parent = clientPanel;
+            labelTopClock.Parent = contentPanel;
             labelTopClock.AutoSize = true;
             labelTopClock.Font = new Font("Segoe UI", 16F, FontStyle.Bold);
-            labelTopClock.Location = new Point(520, 10);
+            labelTopClock.Location = new Point(22, 8);
 
-            labelAdapter.Parent = clientPanel;
-            labelAdapter.Location = new Point(25, 52);
+            labelAdapter.Parent = contentPanel;
+            labelAdapter.Location = new Point(22, 52);
             labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            comboBoxAdapters.Parent = clientPanel;
+            comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
-            comboBoxAdapters.Size = new Size(560, 28);
+            comboBoxAdapters.Size = new Size(670, 28);
             comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelIp.Parent = clientPanel;
-            labelIp.Location = new Point(25, 92);
+            labelIp.Parent = contentPanel;
+            labelIp.Location = new Point(22, 95);
             labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxStaticIp.Parent = clientPanel;
-            textBoxStaticIp.Location = new Point(70, 90);
+            textBoxStaticIp.Parent = contentPanel;
+            textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
             textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelMask.Parent = clientPanel;
-            labelMask.Location = new Point(315, 92);
+            labelMask.Parent = contentPanel;
+            labelMask.Location = new Point(305, 95);
             labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxMask.Parent = clientPanel;
-            textBoxMask.Location = new Point(375, 90);
+            textBoxMask.Parent = contentPanel;
+            textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
             textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            labelGateway.Parent = clientPanel;
-            labelGateway.Location = new Point(540, 92);
+            labelGateway.Parent = contentPanel;
+            labelGateway.Location = new Point(530, 95);
             labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            textBoxGateway.Parent = clientPanel;
-            textBoxGateway.Location = new Point(605, 90);
+            textBoxGateway.Parent = contentPanel;
+            textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
             textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
 
-            buttonApplyStaticIp.Parent = clientPanel;
+            buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
-            buttonApplyStaticIp.Location = new Point(770, 45);
+            buttonApplyStaticIp.Location = new Point(760, 45);
             buttonApplyStaticIp.Size = new Size(140, 75);
             buttonApplyStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             var hint = new Label
             {
-                Parent = clientPanel,
+                Parent = contentPanel,
                 AutoSize = true,
                 Text = "Настройка адаптера: выберите интерфейс и задайте статический IP.",
-                Location = new Point(930, 94),
+                Location = new Point(920, 100),
                 Font = new Font("Segoe UI", 9F, FontStyle.Italic),
-                ForeColor = Color.FromArgb(43, 71, 104)
+                ForeColor = ThemeTextLight
             };
 
-            tabClient.Controls.Add(clientPanel);
+            targetClientPanel.Controls.Add(contentPanel);
         }
 
         private void AddDynamicControls()
         {
+            buttonOpenTelemetryForm = new Button
+            {
+                Name = "buttonOpenTelemetryForm",
+                Text = "Телеметрия",
+                Width = 150,
+                Height = 30,
+                Left = 170,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
+            };
+            buttonOpenTelemetryForm.FlatAppearance.BorderSize = 2;
+            buttonOpenTelemetryForm.Click += buttonOpenTelemetryForm_Click;
+
+            buttonOpenClientSettingsForm = new Button
+            {
+                Name = "buttonOpenClientSettingsForm",
+                Text = "Настройка клиента",
+                Width = 150,
+                Height = 30,
+                Left = 326,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
+            };
+            buttonOpenClientSettingsForm.FlatAppearance.BorderSize = 2;
+            buttonOpenClientSettingsForm.Click += buttonOpenClientSettingsForm_Click;
+
             buttonCalcSettings = new Button
             {
                 Name = "buttonCalcSettings",
@@ -222,8 +253,8 @@ namespace PowerGridEditor
                 Left = 12,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.FromArgb(233, 242, 252),
-                ForeColor = Color.FromArgb(24, 50, 82)
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
             };
             buttonCalcSettings.FlatAppearance.BorderSize = 2;
             buttonCalcSettings.Click += (s, e) =>
@@ -235,8 +266,79 @@ namespace PowerGridEditor
                 settingsForm.Show(this);
             };
 
-            panel1.Controls.Add(buttonCalcSettings);
+            buttonThemeToggle = new Button
+            {
+                Name = "buttonThemeToggle",
+                Text = "Тема: тёмная",
+                Width = 150,
+                Height = 30,
+                Left = 482,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentPink,
+                ForeColor = ThemeTextLight
+            };
+            buttonThemeToggle.FlatAppearance.BorderSize = 2;
+            buttonThemeToggle.Click += (s, e) => AppThemeSettings.IsDarkTheme = !AppThemeSettings.IsDarkTheme;
 
+            panel1.Controls.Add(buttonOpenTelemetryForm);
+            panel1.Controls.Add(buttonOpenClientSettingsForm);
+            panel1.Controls.Add(buttonCalcSettings);
+            panel1.Controls.Add(buttonThemeToggle);
+        }
+
+        private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
+        {
+            if (telemetryEditorForm != null && !telemetryEditorForm.IsDisposed)
+            {
+                if (!telemetryEditorForm.Visible)
+                {
+                    telemetryEditorForm.Show(this);
+                }
+                if (telemetryEditorForm.WindowState == FormWindowState.Minimized)
+                {
+                    telemetryEditorForm.WindowState = FormWindowState.Normal;
+                }
+                telemetryEditorForm.BringToFront();
+                telemetryEditorForm.Focus();
+                return;
+            }
+
+            telemetryEditorForm = new TelemetryEditorForm(
+                () => graphicElements,
+                () => graphicBranches,
+                () => graphicShunts,
+                () => panel2.Invalidate());
+            RegisterOpenedWindow(telemetryEditorForm);
+            telemetryEditorForm.StartPosition = FormStartPosition.Manual;
+            telemetryEditorForm.Location = GetNextChildWindowLocation();
+            telemetryEditorForm.FormClosed += (s, args) => telemetryEditorForm = null;
+            telemetryEditorForm.Show(this);
+        }
+
+        private void buttonOpenClientSettingsForm_Click(object sender, EventArgs e)
+        {
+            if (clientSettingsForm != null && !clientSettingsForm.IsDisposed)
+            {
+                if (!clientSettingsForm.Visible)
+                {
+                    clientSettingsForm.Show(this);
+                }
+                if (clientSettingsForm.WindowState == FormWindowState.Minimized)
+                {
+                    clientSettingsForm.WindowState = FormWindowState.Normal;
+                }
+                clientSettingsForm.BringToFront();
+                clientSettingsForm.Focus();
+                return;
+            }
+
+            clientSettingsForm = new ClientSettingsForm();
+            RegisterOpenedWindow(clientSettingsForm);
+            clientSettingsForm.StartPosition = FormStartPosition.Manual;
+            clientSettingsForm.Location = GetNextChildWindowLocation();
+            clientSettingsForm.FormClosed += (s, args) => clientSettingsForm = null;
+            clientSettingsForm.Show(this);
         }
 
 
@@ -299,24 +401,39 @@ namespace PowerGridEditor
             if (elementsGrid == null) return;
             elementsGrid.Rows.Clear();
 
+            AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
 
+            AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                 AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
 
+            AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
                 AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
 
+            AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
                 AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+        }
+
+        private void AddSectionRow(string title)
+        {
+            int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
+            var row = elementsGrid.Rows[index];
+            row.ReadOnly = true;
+            row.DefaultCellStyle.BackColor = Color.FromArgb(45, 55, 72);
+            row.DefaultCellStyle.ForeColor = ThemeTextLight;
+            row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            row.Tag = null;
         }
 
         private void AddRowsForNode(string type, string elementName, dynamic data, object owner, IEnumerable<(string Key, string Label, double Value)> rows)
         {
             foreach (var row in rows)
             {
-                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг");
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.MeasurementIntervalSeconds, data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
                 elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
             }
         }
@@ -325,6 +442,7 @@ namespace PowerGridEditor
         {
             if (e.RowIndex < 0) return;
             var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
             if (row.Tag is Tuple<object, string, object> tag)
             {
                 dynamic data = tag.Item3;
@@ -336,6 +454,10 @@ namespace PowerGridEditor
 
                 data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
                 data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+                if (int.TryParse(Convert.ToString(row.Cells["MeasureInterval"].Value), out int measureInterval))
+                {
+                    data.MeasurementIntervalSeconds = Math.Max(1, measureInterval);
+                }
                 data.Protocol = Convert.ToString(row.Cells["Protocol"].Value) ?? "Modbus TCP";
                 data.IPAddress = Convert.ToString(row.Cells["IP"].Value) ?? "127.0.0.1";
                 data.Port = Convert.ToString(row.Cells["Port"].Value) ?? "502";
@@ -349,9 +471,22 @@ namespace PowerGridEditor
         private async void ElementsGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var row = elementsGrid.Rows[e.RowIndex];
+            if (row.Tag == null) return;
+
+            if (elementsGrid.Columns[e.ColumnIndex].Name == "Increment")
+            {
+                if (row.Tag is Tuple<object, string, object> incTag)
+                {
+                    dynamic data = incTag.Item3;
+                    string key = incTag.Item2;
+                    ConfigureIncrement(data, key, Convert.ToString(row.Cells["Element"].Value) + "." + Convert.ToString(row.Cells["Param"].Value));
+                }
+                return;
+            }
+
             if (elementsGrid.Columns[e.ColumnIndex].Name != "Ping") return;
 
-            var row = elementsGrid.Rows[e.RowIndex];
             string ip = Convert.ToString(row.Cells["IP"].Value);
             if (string.IsNullOrWhiteSpace(ip))
             {
@@ -362,6 +497,49 @@ namespace PowerGridEditor
             bool ok = await PingHostAsync(ip);
             row.Cells["IP"].Style.BackColor = ok ? Color.LightGreen : Color.LightPink;
             row.Cells["Ping"].Value = ok ? "ОК" : "Нет";
+        }
+
+        private void ConfigureIncrement(dynamic data, string key, string title)
+        {
+            string id = ParameterAutoChangeService.BuildId(data, key);
+            bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
+            if (!hasConfig)
+            {
+                if (data.ParamIncrementSteps.ContainsKey(key)) oldStep = Convert.ToDouble(data.ParamIncrementSteps[key]);
+                if (data.ParamIncrementIntervals.ContainsKey(key)) oldInterval = Convert.ToInt32(data.ParamIncrementIntervals[key]);
+            }
+            using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
+            {
+                if (form.ShowDialog(this) != DialogResult.OK) return;
+                data.ParamIncrementSteps[key] = form.StepValue;
+                data.ParamIncrementIntervals[key] = form.IntervalSeconds;
+                ParameterAutoChangeService.Configure(
+                    id,
+                    form.StepValue,
+                    form.IntervalSeconds,
+                    form.EnabledChange,
+                    () => GetParamValue(data, key),
+                    value => ApplyParamValue(data, key, value),
+                    () => BeginInvoke(new Action(() => { RefreshElementsGrid(); panel2.Invalidate(); })));
+            }
+        }
+
+        private double GetParamValue(dynamic data, string key)
+        {
+            if (key == "U") return data.InitialVoltage;
+            if (key == "P") return data.NominalActivePower;
+            if (key == "Q") return data.NominalReactivePower;
+            if (key == "Pg") return data.ActivePowerGeneration;
+            if (key == "Qg") return data.ReactivePowerGeneration;
+            if (key == "Uf") return data.FixedVoltageModule;
+            if (key == "Qmin") return data.MinReactivePower;
+            if (key == "Qmax") return data.MaxReactivePower;
+            if (key == "R") return data.ActiveResistance;
+            if (key == "X") return data.ReactiveResistance;
+            if (key == "B") return data.ReactiveConductivity;
+            if (key == "Ktr") return data.TransformationRatio;
+            if (key == "G") return data.ActiveConductivity;
+            return 0;
         }
 
         private async Task<bool> PingHostAsync(string ip)
@@ -399,7 +577,7 @@ namespace PowerGridEditor
 
         private void SetupCanvas()
         {
-            panel2.BackColor = Color.White;
+            panel2.BackColor = ThemeBgDark;
             panel2.BorderStyle = BorderStyle.FixedSingle;
             panel2.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(panel2, true, null);
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
@@ -1442,25 +1620,31 @@ namespace PowerGridEditor
         {
             try
             {
-                string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-                string filePath = Path.Combine(desktopPath, "Начальные данные.txt");
-
-                using (StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8))
+                using (var saveFileDialog = new SaveFileDialog())
                 {
-                    // 1. Все узлы (0201 0)
-                    WriteAllNodes(writer);
+                    saveFileDialog.Filter = "Текстовые файлы (*.txt)|*.txt|Все файлы (*.*)|*.*";
+                    saveFileDialog.Title = "Сохранить экспорт данных";
+                    saveFileDialog.FileName = "Начальные данные.txt";
+                    if (saveFileDialog.ShowDialog() != DialogResult.OK) return;
+                    string filePath = saveFileDialog.FileName;
 
-                    // 2. Базисные узлы (0102 0)
-                    WriteBaseNodesOnly(writer);
+                    using (StreamWriter writer = new StreamWriter(filePath, false, Encoding.UTF8))
+                    {
+                        // 1. Все узлы (0201 0)
+                        WriteAllNodes(writer);
 
-                    // 3. Все ветви и шунты (0301 0)
-                    WriteAllBranchesAndShunts(writer);
+                        // 2. Базисные узлы (0102 0)
+                        WriteBaseNodesOnly(writer);
 
-                    // 4. Координаты элементов (0901 0)
-                    WriteLayout(writer);
+                        // 3. Все ветви и шунты (0301 0)
+                        WriteAllBranchesAndShunts(writer);
+
+                        // 4. Координаты элементов (0901 0)
+                        WriteLayout(writer);
+                    }
+
+                    MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
                 }
-
-                MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
             }
             catch (Exception ex)
             {
@@ -2067,16 +2251,98 @@ namespace PowerGridEditor
             reportForm.Show(this);
         }
 
-        private void ConfigureToolbarStyle()
+        private void ApplyTheme(bool isDark)
         {
-            panel1.Padding = new Padding(8);
+            var bg = isDark ? Color.FromArgb(22, 26, 34) : Color.FromArgb(245, 247, 251);
+            var panel = isDark ? Color.FromArgb(30, 35, 46) : Color.FromArgb(226, 232, 240);
+            var accent = isDark ? Color.FromArgb(99, 102, 241) : Color.FromArgb(37, 99, 235);
+            var border = isDark ? Color.FromArgb(16, 185, 129) : Color.FromArgb(14, 116, 144);
+            var text = isDark ? Color.FromArgb(226, 232, 240) : Color.FromArgb(30, 41, 59);
+
+            this.BackColor = bg;
+            this.ForeColor = text;
+            panel1.BackColor = panel;
+            panel2.BackColor = bg;
+
             foreach (Control ctrl in panel1.Controls)
             {
                 if (ctrl is Button btn)
                 {
-                    btn.BackColor = Color.FromArgb(233, 242, 252);
-                    btn.ForeColor = Color.FromArgb(24, 50, 82);
+                    btn.BackColor = accent;
+                    btn.ForeColor = Color.White;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = border;
+                    btn.FlatAppearance.BorderSize = 1;
+                    btn.FlatAppearance.MouseOverBackColor = isDark ? Color.FromArgb(79, 70, 229) : Color.FromArgb(59, 130, 246);
+                    btn.FlatAppearance.MouseDownBackColor = isDark ? Color.FromArgb(67, 56, 202) : Color.FromArgb(37, 99, 235);
                 }
+            }
+
+            if (buttonThemeToggle != null)
+            {
+                buttonThemeToggle.Text = isDark ? "Тема: тёмная" : "Тема: светлая";
+            }
+
+            if (elementsGrid != null)
+            {
+                elementsGrid.BackgroundColor = bg;
+                elementsGrid.ColumnHeadersDefaultCellStyle.BackColor = panel;
+                elementsGrid.ColumnHeadersDefaultCellStyle.ForeColor = text;
+                elementsGrid.DefaultCellStyle.BackColor = isDark ? Color.FromArgb(28, 33, 43) : Color.White;
+                elementsGrid.DefaultCellStyle.ForeColor = text;
+                elementsGrid.DefaultCellStyle.SelectionBackColor = accent;
+                elementsGrid.DefaultCellStyle.SelectionForeColor = Color.White;
+                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = isDark ? Color.FromArgb(24, 29, 38) : Color.FromArgb(241, 245, 249);
+                elementsGrid.GridColor = isDark ? Color.FromArgb(51, 65, 85) : Color.FromArgb(203, 213, 225);
+            }
+
+            telemetryEditorForm?.ApplyTheme(isDark);
+            RefreshElementsGrid();
+            panel2.Invalidate();
+        }
+
+        private void ConfigureToolbarStyle()
+        {
+            panel1.Padding = new Padding(8);
+            panel1.BackColor = ThemePanelDark;
+            foreach (Control ctrl in panel1.Controls)
+            {
+                if (ctrl is Button btn)
+                {
+                    btn.BackColor = ThemeAccentPink;
+                    btn.ForeColor = ThemeTextLight;
+                    btn.FlatStyle = FlatStyle.Flat;
+                    btn.FlatAppearance.BorderColor = ThemeAccentGreen;
+                    btn.FlatAppearance.BorderSize = 1;
+                    btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(79, 70, 229);
+                    btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(67, 56, 202);
+                    btn.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+                    btn.Size = new Size(124, 34);
+                }
+            }
+
+            ArrangeMainToolbarButtons();
+        }
+
+        private void ArrangeMainToolbarButtons()
+        {
+            string[] topOrder = { "buttonAddNode", "buttonAddBaseNode", "buttonAddBranch", "buttonAddShunt", "buttonDelete", "buttonClearAll", "buttonExportData", "buttonImportData", "buttonOpenReport" };
+            string[] bottomOrder = { "buttonCalcSettings", "buttonOpenTelemetryForm", "buttonOpenClientSettingsForm", "buttonThemeToggle" };
+
+            var topButtons = topOrder.Select(name => panel1.Controls.Find(name, false).FirstOrDefault()).OfType<Button>().ToList();
+            int x = 12;
+            foreach (var button in topButtons)
+            {
+                button.Location = new Point(x, 12);
+                x += button.Width + 8;
+            }
+
+            var lowerButtons = bottomOrder.Select(name => panel1.Controls.Find(name, false).FirstOrDefault()).OfType<Button>().ToList();
+            int x2 = 12;
+            foreach (var button in lowerButtons)
+            {
+                button.Location = new Point(x2, 52);
+                x2 += button.Width + 8;
             }
         }
 
@@ -2177,9 +2443,16 @@ namespace PowerGridEditor
 
         private void StartGlobalTelemetryPolling()
         {
-            telemetryTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+            telemetryTimer = new System.Windows.Forms.Timer { Interval = AppRuntimeSettings.UpdateIntervalSeconds * 1000 };
             telemetryTimer.Tick += async (s, e) => await PollAllNodeTelemetryAsync();
             telemetryTimer.Start();
+            AppRuntimeSettings.UpdateIntervalChanged += seconds =>
+            {
+                if (telemetryTimer != null)
+                {
+                    telemetryTimer.Interval = Math.Max(1, seconds) * 1000;
+                }
+            };
         }
 
         private async Task PollAllNodeTelemetryAsync()
@@ -2189,14 +2462,43 @@ namespace PowerGridEditor
 
             try
             {
-                var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
-                foreach (var node in nodes) await PollSingleNodeAsync(node);
+                for (int i = 0; i < graphicElements.Count; i++)
+                {
+                    if (graphicElements[i] is GraphicNode gNode)
+                    {
+                        var node = gNode.Data;
+                        if (!string.IsNullOrWhiteSpace(node.IPAddress) && ShouldPoll(node))
+                        {
+                            await PollSingleNodeAsync(node);
+                        }
+                    }
+                    else if (graphicElements[i] is GraphicBaseNode gBaseNode)
+                    {
+                        var baseNode = gBaseNode.Data;
+                        if (!string.IsNullOrWhiteSpace(baseNode.IPAddress) && ShouldPoll(baseNode))
+                        {
+                            await PollGenericDataAsync(baseNode);
+                        }
+                    }
+                }
 
-                var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).ToList();
-                foreach (var baseNode in baseNodes) await PollGenericDataAsync(baseNode);
+                for (int i = 0; i < graphicBranches.Count; i++)
+                {
+                    var branch = graphicBranches[i].Data;
+                    if (!string.IsNullOrWhiteSpace(branch.IPAddress) && ShouldPoll(branch))
+                    {
+                        await PollGenericDataAsync(branch);
+                    }
+                }
 
-                foreach (var branch in graphicBranches.Select(b => b.Data).Where(b => !string.IsNullOrWhiteSpace(b.IPAddress))) await PollGenericDataAsync(branch);
-                foreach (var shunt in graphicShunts.Select(s => s.Data).Where(s => !string.IsNullOrWhiteSpace(s.IPAddress))) await PollGenericDataAsync(shunt);
+                for (int i = 0; i < graphicShunts.Count; i++)
+                {
+                    var shunt = graphicShunts[i].Data;
+                    if (!string.IsNullOrWhiteSpace(shunt.IPAddress) && ShouldPoll(shunt))
+                    {
+                        await PollGenericDataAsync(shunt);
+                    }
+                }
             }
             catch
             {
@@ -2205,6 +2507,26 @@ namespace PowerGridEditor
             {
                 telemetryPollingInProgress = false;
             }
+        }
+
+        private bool ShouldPoll(dynamic data)
+        {
+            object key = (object)data;
+            int interval = 2;
+            try
+            {
+                interval = Math.Max(1, Convert.ToInt32(data.MeasurementIntervalSeconds));
+            }
+            catch { }
+
+            DateTime now = DateTime.UtcNow;
+            if (lastTelemetryReadAt.TryGetValue(key, out DateTime last) && (now - last).TotalSeconds < interval)
+            {
+                return false;
+            }
+
+            lastTelemetryReadAt[key] = now;
+            return true;
         }
 
         private async Task PollSingleNodeAsync(Node node)
@@ -2292,10 +2614,24 @@ namespace PowerGridEditor
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            LoadNetworkAdapters();
+            SetLegacyClientControlsVisibility(false);
             StartClock();
             StartGlobalTelemetryPolling();
             RefreshElementsGrid();
+        }
+
+        private void SetLegacyClientControlsVisibility(bool visible)
+        {
+            labelAdapter.Visible = visible;
+            comboBoxAdapters.Visible = visible;
+            labelIp.Visible = visible;
+            textBoxStaticIp.Visible = visible;
+            labelMask.Visible = visible;
+            textBoxMask.Visible = visible;
+            labelGateway.Visible = visible;
+            textBoxGateway.Visible = visible;
+            buttonApplyStaticIp.Visible = visible;
+            labelTopClock.Visible = visible;
         }
     }
 }

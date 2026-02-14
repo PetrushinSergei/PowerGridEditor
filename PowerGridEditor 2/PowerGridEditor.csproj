@@ -13,6 +13,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -34,9 +35,6 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="NModbus, Version=3.0.81.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\NModbus.3.0.81\lib\net46\NModbus.dll</HintPath>
-    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -52,6 +50,9 @@
   <ItemGroup>
     <Compile Include="Models\BaseNode.cs" />
     <Compile Include="Models\CalculationOptions.cs" />
+    <Compile Include="Models\AppRuntimeSettings.cs" />
+    <Compile Include="Models\AppThemeSettings.cs" />
+    <Compile Include="Models\ParameterAutoChangeService.cs" />
     <Compile Include="Forms\BaseNodeForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -66,6 +67,12 @@
       <DependentUpon>BranchForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\CalculationSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\IncrementSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ClientSettingsForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\Form1.cs">
@@ -101,6 +108,9 @@
     <Compile Include="Forms\ShuntForm.Designer.cs">
       <DependentUpon>ShuntForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="Forms\TelemetryEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <EmbeddedResource Include="Forms\BaseNodeForm.resx">
       <DependentUpon>BaseNodeForm.cs</DependentUpon>
     </EmbeddedResource>
@@ -125,7 +135,6 @@
     <EmbeddedResource Include="Forms\ShuntForm.resx">
       <DependentUpon>ShuntForm.cs</DependentUpon>
     </EmbeddedResource>
-    <None Include="packages.config" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -142,6 +151,9 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Logic\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NModbus" Version="3.0.81" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

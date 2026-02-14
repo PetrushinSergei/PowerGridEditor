@@ -10,6 +10,9 @@ namespace PowerGridEditor
     {
         public BaseNode MyBaseNode { get; private set; }
         private readonly string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+        private NumericUpDown numericMeasurementInterval;
+        private TextBox[] incrementStepBoxes;
+        private TextBox[] incrementIntervalBoxes;
 
         public TextBox NodeNumberTextBox => paramBoxes[0];
         public TextBox InitialVoltageTextBox => paramBoxes[1];
@@ -29,6 +32,8 @@ namespace PowerGridEditor
             buttonSave.Click += (s, e) => SaveData();
             buttonCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             btnCheckIP.Click += async (s, e) => await RunPing();
+
+            SetupParameterIncrementEditors();
 
             LoadData();
         }
@@ -57,6 +62,12 @@ namespace PowerGridEditor
             textBoxID.Text = MyBaseNode.DeviceID;
             comboBoxProtocol.SelectedItem = MyBaseNode.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
+            numericMeasurementInterval.Value = MyBaseNode.MeasurementIntervalSeconds;
+            for (int i = 1; i < 9; i++)
+            {
+                if (MyBaseNode.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyBaseNode.ParamIncrementSteps[keys[i]].ToString(inv);
+                if (MyBaseNode.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyBaseNode.ParamIncrementIntervals[keys[i]].ToString(inv);
+            }
         }
 
         private void SaveData()
@@ -84,6 +95,14 @@ namespace PowerGridEditor
                 MyBaseNode.IPAddress = textBoxIP.Text;
                 MyBaseNode.Port = textBoxPort.Text;
                 MyBaseNode.DeviceID = textBoxID.Text;
+                MyBaseNode.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
+                for (int i = 1; i < 9; i++)
+                {
+                    if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
+                        MyBaseNode.ParamIncrementSteps[keys[i]] = step;
+                    if (int.TryParse(incrementIntervalBoxes[i].Text, out int interval))
+                        MyBaseNode.ParamIncrementIntervals[keys[i]] = Math.Max(1, interval);
+                }
 
                 DialogResult = DialogResult.OK;
                 Close();
