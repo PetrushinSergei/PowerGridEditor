@@ -35,7 +35,7 @@
             this.SuspendLayout();
 
             this.tabControl.Location = new System.Drawing.Point(12, 12);
-            this.tabControl.Size = new System.Drawing.Size(620, 240);
+            this.tabControl.Size = new System.Drawing.Size(760, 400);
             this.tabControl.Controls.Add(tabParams);
             this.tabControl.Controls.Add(tabSettings);
 
@@ -96,10 +96,10 @@
 
             SetupSettingsTab();
 
-            this.buttonSave.Location = new System.Drawing.Point(390, 265);
-            this.buttonCancel.Location = new System.Drawing.Point(505, 265);
+            this.buttonSave.Location = new System.Drawing.Point(530, 425);
+            this.buttonCancel.Location = new System.Drawing.Point(645, 425);
 
-            this.ClientSize = new System.Drawing.Size(644, 315);
+            this.ClientSize = new System.Drawing.Size(784, 475);
             this.Controls.AddRange(new System.Windows.Forms.Control[] { tabControl, buttonSave, buttonCancel });
             this.Text = "Редактор параметров шунта";
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
@@ -111,33 +111,48 @@
 
         private void SetupSettingsTab()
         {
-            int sy = 30;
+            int leftLabel = 20;
+            int leftInput = 140;
+            int top = 30;
+            int rowGap = 42;
 
-            var lblProt = new System.Windows.Forms.Label { Text = "Протокол:", Location = new System.Drawing.Point(20, sy + 3) };
+            var lblProt = new System.Windows.Forms.Label { Text = "Протокол:", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(110, 23) };
             comboBoxProtocol = new System.Windows.Forms.ComboBox
             {
-                Location = new System.Drawing.Point(140, sy),
-                Size = new System.Drawing.Size(150, 23),
+                Location = new System.Drawing.Point(leftInput, top),
+                Size = new System.Drawing.Size(190, 23),
                 DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
             };
             comboBoxProtocol.Items.AddRange(new object[] { "Modbus TCP", "МЭК-104" });
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblProt, comboBoxProtocol });
-            sy += 45;
 
-            var lblIp = new System.Windows.Forms.Label { Text = "IP адрес:", Location = new System.Drawing.Point(20, sy + 3) };
-            textBoxIP = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(150, 23) };
-            btnCheckIP = new System.Windows.Forms.Button { Text = "Пинг", Location = new System.Drawing.Point(300, sy - 1), Size = new System.Drawing.Size(80, 25) };
+            top += rowGap;
+            var lblIp = new System.Windows.Forms.Label { Text = "IP адрес:", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(110, 23) };
+            textBoxIP = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(leftInput, top), Size = new System.Drawing.Size(190, 23) };
+            btnCheckIP = new System.Windows.Forms.Button { Text = "Пинг", Location = new System.Drawing.Point(leftInput + 205, top - 1), Size = new System.Drawing.Size(100, 25) };
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblIp, textBoxIP, btnCheckIP });
-            sy += 45;
 
-            var lblPort = new System.Windows.Forms.Label { Text = "TCP Порт:", Location = new System.Drawing.Point(20, sy + 3) };
-            textBoxPort = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(80, 23) };
+            top += rowGap;
+            var lblPort = new System.Windows.Forms.Label { Text = "TCP Порт:", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(110, 23) };
+            textBoxPort = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(leftInput, top), Size = new System.Drawing.Size(100, 23) };
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblPort, textBoxPort });
-            sy += 45;
 
-            var lblId = new System.Windows.Forms.Label { Text = "ID устройства:", Location = new System.Drawing.Point(20, sy + 3) };
-            textBoxID = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(140, sy), Size = new System.Drawing.Size(80, 23) };
+            top += rowGap;
+            var lblId = new System.Windows.Forms.Label { Text = "ID устройства:", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(110, 23) };
+            textBoxID = new System.Windows.Forms.TextBox { Location = new System.Drawing.Point(leftInput, top), Size = new System.Drawing.Size(100, 23) };
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblId, textBoxID });
+
+            top += rowGap;
+            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения (сек):", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(150, 23) };
+            numericMeasurementInterval = new System.Windows.Forms.NumericUpDown
+            {
+                Location = new System.Drawing.Point(leftInput, top),
+                Size = new System.Drawing.Size(100, 23),
+                Minimum = 1,
+                Maximum = 3600
+            };
+            tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblInterval, numericMeasurementInterval });
         }
+
     }
 }
