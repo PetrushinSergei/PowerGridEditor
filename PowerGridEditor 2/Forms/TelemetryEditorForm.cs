@@ -37,6 +37,7 @@ namespace PowerGridEditor
         private readonly TextBox textBoxSearch;
 
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
+        private bool suppressGridEvents;
 
         public TelemetryEditorForm(
             Func<IEnumerable<object>> elementsProvider,
@@ -191,6 +192,7 @@ namespace PowerGridEditor
             if (grid.Rows.Count == 0) return false;
 
             grid.SuspendLayout();
+            suppressGridEvents = true;
             try
             {
                 foreach (DataGridViewRow row in grid.Rows)
@@ -226,6 +228,7 @@ namespace PowerGridEditor
             }
             finally
             {
+                suppressGridEvents = false;
                 grid.ResumeLayout(false);
             }
         }
@@ -269,43 +272,53 @@ namespace PowerGridEditor
             var branchesSnapshot = branchesProvider().ToList();
             var shuntsSnapshot = shuntsProvider().ToList();
 
-            grid.Rows.Clear();
+            grid.SuspendLayout();
+            suppressGridEvents = true;
+            try
+            {
+                grid.Rows.Clear();
 
-            AddSectionRow("Узлы");
-            foreach (var node in elementsSnapshot.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddParentWithChildren("Узел", $"N{node.Data.Number}", node.Data, new[]
-                {
-                    ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower),
-                    ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration),
-                    ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule),
-                    ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower)
-                }, filter, hasFilter);
+                AddSectionRow("Узлы");
+                foreach (var node in elementsSnapshot.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
+                    AddParentWithChildren("Узел", $"N{node.Data.Number}", node.Data, new[]
+                    {
+                        ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower),
+                        ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration),
+                        ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule),
+                        ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower)
+                    }, filter, hasFilter);
 
-            AddSectionRow("Базисный узел");
-            foreach (var baseNode in elementsSnapshot.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddParentWithChildren("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, new[]
-                {
-                    ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower),
-                    ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration),
-                    ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule),
-                    ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower)
-                }, filter, hasFilter);
+                AddSectionRow("Базисный узел");
+                foreach (var baseNode in elementsSnapshot.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
+                    AddParentWithChildren("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, new[]
+                    {
+                        ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower),
+                        ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration),
+                        ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule),
+                        ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower)
+                    }, filter, hasFilter);
 
-            AddSectionRow("Ветви");
-            foreach (var branch in branchesSnapshot.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddParentWithChildren("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, new[]
-                {
-                    ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance),
-                    ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio),
-                    ("G", "G", branch.Data.ActiveConductivity)
-                }, filter, hasFilter);
+                AddSectionRow("Ветви");
+                foreach (var branch in branchesSnapshot.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
+                    AddParentWithChildren("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, new[]
+                    {
+                        ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance),
+                        ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio),
+                        ("G", "G", branch.Data.ActiveConductivity)
+                    }, filter, hasFilter);
 
-            AddSectionRow("Шунты");
-            foreach (var shunt in shuntsSnapshot.OrderBy(s => s.Data.StartNodeNumber))
-                AddParentWithChildren("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, new[]
-                {
-                    ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance)
-                }, filter, hasFilter);
+                AddSectionRow("Шунты");
+                foreach (var shunt in shuntsSnapshot.OrderBy(s => s.Data.StartNodeNumber))
+                    AddParentWithChildren("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, new[]
+                    {
+                        ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance)
+                    }, filter, hasFilter);
+            }
+            finally
+            {
+                suppressGridEvents = false;
+                grid.ResumeLayout(false);
+            }
 
             if (!resetScroll && grid.Rows.Count > 0)
             {
@@ -388,6 +401,7 @@ namespace PowerGridEditor
 
         private void Grid_CellChanged(object sender, DataGridViewCellEventArgs e)
         {
+            if (suppressGridEvents) return;
             if (e.RowIndex < 0) return;
             var row = grid.Rows[e.RowIndex];
             if (!(row.Tag is GridRowTag tag) || tag.IsParent) return;

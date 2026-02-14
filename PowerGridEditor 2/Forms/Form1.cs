@@ -2368,14 +2368,43 @@ namespace PowerGridEditor
 
             try
             {
-                var nodes = graphicElements.OfType<GraphicNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).Where(ShouldPoll).ToList();
-                foreach (var node in nodes) await PollSingleNodeAsync(node);
+                for (int i = 0; i < graphicElements.Count; i++)
+                {
+                    if (graphicElements[i] is GraphicNode gNode)
+                    {
+                        var node = gNode.Data;
+                        if (!string.IsNullOrWhiteSpace(node.IPAddress) && ShouldPoll(node))
+                        {
+                            await PollSingleNodeAsync(node);
+                        }
+                    }
+                    else if (graphicElements[i] is GraphicBaseNode gBaseNode)
+                    {
+                        var baseNode = gBaseNode.Data;
+                        if (!string.IsNullOrWhiteSpace(baseNode.IPAddress) && ShouldPoll(baseNode))
+                        {
+                            await PollGenericDataAsync(baseNode);
+                        }
+                    }
+                }
 
-                var baseNodes = graphicElements.OfType<GraphicBaseNode>().Select(g => g.Data).Where(n => !string.IsNullOrWhiteSpace(n.IPAddress)).Where(ShouldPoll).ToList();
-                foreach (var baseNode in baseNodes) await PollGenericDataAsync(baseNode);
+                for (int i = 0; i < graphicBranches.Count; i++)
+                {
+                    var branch = graphicBranches[i].Data;
+                    if (!string.IsNullOrWhiteSpace(branch.IPAddress) && ShouldPoll(branch))
+                    {
+                        await PollGenericDataAsync(branch);
+                    }
+                }
 
-                foreach (var branch in graphicBranches.Select(b => b.Data).Where(b => !string.IsNullOrWhiteSpace(b.IPAddress)).Where(ShouldPoll)) await PollGenericDataAsync(branch);
-                foreach (var shunt in graphicShunts.Select(s => s.Data).Where(s => !string.IsNullOrWhiteSpace(s.IPAddress)).Where(ShouldPoll)) await PollGenericDataAsync(shunt);
+                for (int i = 0; i < graphicShunts.Count; i++)
+                {
+                    var shunt = graphicShunts[i].Data;
+                    if (!string.IsNullOrWhiteSpace(shunt.IPAddress) && ShouldPoll(shunt))
+                    {
+                        await PollGenericDataAsync(shunt);
+                    }
+                }
             }
             catch
             {
