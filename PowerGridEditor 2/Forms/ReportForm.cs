@@ -196,19 +196,29 @@ namespace PowerGridEditor
 
                 double mismatch = Func(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, p0, q0, unom, ja, jr, p, q, ds);
                 int count = 0;
+                var norms = new List<double>();
                 while (mismatch > CalculationOptions.Precision && count < CalculationOptions.MaxIterations)
                 {
                     Jacoby(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, ja, jr, unom, A);
                     Gauss(n, A, ds, va, vr);
                     count++;
                     mismatch = Func(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, p0, q0, unom, ja, jr, p, q, ds);
+                    norms.Add(mismatch);
                 }
 
                 report.Converged = mismatch <= CalculationOptions.Precision;
                 report.Iterations = count;
                 report.Mismatch = mismatch;
 
-                report.InputText = BuildInputText(nn, nk, unom, p0, q0, g, b, nm, m, r, x, by, gy, kt, n);
+                report.InputText = BuildInputText(nn, nk, unom, p0, q0, g, b, nm, m, r, x, by, gy, kt, n, norms);
+
+                if (!report.Converged)
+                {
+                    report.ResultsText = "Режим НЕ сошелся.";
+                    report.LossAnalysisText = "Режим НЕ сошелся.";
+                    report.LossComponentsText = "Режим НЕ сошелся.";
+                    return report;
+                }
 
                 var loadResult = BuildLoadAndLossTexts(nn, n, m, nus, nm1, unom, va, vr, g, b, gy, by, kt, gr, bx, p, q, r);
                 report.ResultsText = loadResult.Results;
@@ -235,10 +245,10 @@ namespace PowerGridEditor
                 return result;
             }
 
-            private static string BuildInputText(int[] nn, int[] nk, double[] unom, double[] p0, double[] q0, double[] g, double[] b, int[,] nm, int m, double[] r, double[] x, double[] by, double[] gy, double[] kt, int n)
+            private static string BuildInputText(int[] nn, int[] nk, double[] unom, double[] p0, double[] q0, double[] g, double[] b, int[,] nm, int m, double[] r, double[] x, double[] by, double[] gy, double[] kt, int n, List<double> norms)
             {
                 var sb = new StringBuilder();
-                sb.AppendLine($"Число узлов n = {n}\tЧисло Ветвей m = {m}");
+                sb.AppendLine($"Число узлов n = {n}	Число Ветвей m = {m}");
                 sb.AppendLine("     Входные данные для расчета потокораспределения");
                 sb.AppendLine("           У з л ы    с е т и ");
                 sb.AppendLine(" Узел   Тип  Uном        P        Q        g           b ");
@@ -254,6 +264,13 @@ namespace PowerGridEditor
                 {
                     sb.AppendLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(Math.Abs(by[j] * 1e6), 7),14}{Flex(gy[j] * 1e6, 0),10}{Flex(kt[j], 0),9}");
                 }
+
+                sb.AppendLine();
+                for (int i = 0; i < norms.Count; i++)
+                {
+                    sb.AppendLine($"{i + 1}{Flex(norms[i], 6),12}");
+                }
+
                 return sb.ToString();
             }
 
