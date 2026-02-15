@@ -1749,7 +1749,7 @@ namespace PowerGridEditor
                              $"{FormatDouble(branch.r),4}   " +
                              $"{FormatDouble(branch.x),5}   " +
                              $"{FormatDouble(branch.b, true),6}     " +
-                             $"{FormatInt(branch.k),1} " +
+                             $"{FormatDouble(branch.k),5} " +
                              $"{FormatInt(branch.g),1} 0 0";
 
                 writer.WriteLine(line);
