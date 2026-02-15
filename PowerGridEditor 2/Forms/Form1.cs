@@ -2015,6 +2015,32 @@ namespace PowerGridEditor
 
                 Point pos = SpiralPosition(index, 90);   // 90 px шаг
 
+                for (int i = graphicElements.Count - 1; i >= 0; i--)
+                {
+                    var existingNode = graphicElements[i] as GraphicNode;
+                    if (existingNode != null && existingNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                        continue;
+                    }
+
+                    var existingBaseNode = graphicElements[i] as GraphicBaseNode;
+                    if (existingBaseNode != null && existingBaseNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                    }
+                }
+
                 if (isBaseNode)
                 {
                     var bn = new BaseNode(number)
