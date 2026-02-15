@@ -55,11 +55,11 @@ namespace PowerGridEditor
             }
             else
             {
-                txtOverview.Text = BuildOverview(nodes, branches, shunts);
-                txtInput.Text = BuildInput(nodes, branches, shunts);
-                txtResults.Text = BuildResults(nodes, branches, shunts);
-                txtLoss.Text = BuildLoss(nodes, branches, shunts);
-                txtBreakdown.Text = BuildBreakdown(nodes, branches, shunts);
+                txtOverview.Text = BuildFallbackOverview(nodes, branches, shunts);
+                txtInput.Text = BuildFallbackInput(nodes, branches, shunts);
+                txtResults.Text = BuildFallbackResults(nodes, branches, shunts);
+                txtLoss.Text = BuildFallbackLoss(nodes, branches, shunts);
+                txtBreakdown.Text = BuildFallbackBreakdown(nodes, branches, shunts);
             }
         }
 
@@ -278,7 +278,7 @@ namespace PowerGridEditor
         }
 
         // fallback отображение, если внешний расчёт не запустился
-        private static string BuildOverview(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildFallbackOverview(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             var sb = new StringBuilder();
             sb.AppendLine("network.cdu");
@@ -290,42 +290,22 @@ namespace PowerGridEditor
             return sb.ToString();
         }
 
-        private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildFallbackInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             return "Внешний расчёт недоступен.";
         }
 
-        private static string BuildResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildFallbackResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             return "Внешний расчёт недоступен.";
         }
 
-        private static string BuildLoss(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildFallbackLoss(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             return "Внешний расчёт недоступен.";
         }
 
-        private List<NodeSnapshot> ReadNodes()
-        {
-            return "Внешний расчёт недоступен.";
-        }
-
-        private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
-        {
-            return "Внешний расчёт недоступен.";
-        }
-
-        private static string BuildResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
-        {
-            return "Внешний расчёт недоступен.";
-        }
-
-        private static string BuildLoss(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
-        {
-            return "Внешний расчёт недоступен.";
-        }
-
-        private static string BuildBreakdown(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildFallbackBreakdown(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             return "Внешний расчёт недоступен.";
         }
