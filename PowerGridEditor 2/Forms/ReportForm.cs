@@ -41,6 +41,7 @@ namespace PowerGridEditor
             var nodes = ReadNodes().OrderBy(x => x.Number).ToList();
             var branches = _branches.OrderBy(x => x.Data.StartNodeNumber).ThenBy(x => x.Data.EndNodeNumber).ToList();
             var shunts = _shunts.OrderBy(x => x.Data.StartNodeNumber).ToList();
+            var report = LoadFlowSolver.BuildReport(nodes, branches, shunts);
 
             var engine = new ConsoleApplicationEngine(nodes, branches, shunts, CalculationOptions.Precision, CalculationOptions.MaxIterations);
             var result = engine.Run();
@@ -831,6 +832,7 @@ namespace PowerGridEditor
                 if (Math.Abs(rv) < 5 * Math.Pow(10, -maxDecimals)) rv = 0;
                 return rv.ToString("0." + new string('#', maxDecimals), C);
             }
+        }
 
             private struct AlphaState
             {
