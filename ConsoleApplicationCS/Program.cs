@@ -322,11 +322,14 @@ internal static class Program
             jr[i2] -= (bx[j] * va[i1] + gr[j] * vr[i1]) / kt[j];
         }
 
-        for (int i = 1; i <= n; i++)
+        for (int i = 0; i <= n; i++)
         {
             p[i] = va[i] * ja[i] + vr[i] * jr[i];
             q[i] = vr[i] * ja[i] - va[i] * jr[i];
+        }
 
+        for (int i = 1; i <= n; i++)
+        {
             ds[2 * i] = -(p[i] + p0[i]);
             double h;
             if (nk[i] == 1)
