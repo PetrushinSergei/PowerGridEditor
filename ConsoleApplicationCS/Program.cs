@@ -556,31 +556,54 @@ internal static class Program
 
     private static void Alpha()
     {
-        // Ограниченная глубина как в старых реализациях, иначе появляются взрывы коэффициентов
-        const int maxDepth = 10;
-        for (int i = 1; i <= m; i++)
-        {
-            int j = k[i];
-            double koef = aa[i, j];
-            int currentNode = j;
+        const int maxDepth = 32;
+        const double minCoef = 1e-10;
 
-            for (int depth = 0; depth < maxDepth; depth++)
+        var src = new double[30, 20];
+        for (int i = 1; i <= m; i++)
+            for (int j = 0; j <= n; j++)
+                src[i, j] = aa[i, j];
+
+        // result starts from direct coefficients
+        var result = new double[30, 20];
+        for (int i = 1; i <= m; i++)
+            for (int j = 0; j <= n; j++)
+                result[i, j] = src[i, j];
+
+        for (int startBranch = 1; startBranch <= m; startBranch++)
+        {
+            var stack = new Stack<(int node, double coef, int depth)>();
+
+            for (int j = 0; j <= n; j++)
             {
-                bool found = false;
+                if (Math.Abs(src[startBranch, j]) > minCoef)
+                    stack.Push((j, src[startBranch, j], 0));
+            }
+
+            while (stack.Count > 0)
+            {
+                var (node, coef, depth) = stack.Pop();
+                if (depth >= maxDepth || Math.Abs(coef) < minCoef) continue;
+
                 for (int br = 1; br <= m; br++)
                 {
-                    if (N[br] == currentNode)
-                    {
-                        currentNode = k[br];
-                        koef *= aa[br, currentNode];
-                        aa[i, currentNode] += koef;
-                        found = true;
-                        break;
-                    }
+                    if (N[br] != node) continue;
+                    int nextNode = k[br];
+                    double step = src[br, nextNode];
+                    if (Math.Abs(step) < minCoef) continue;
+
+                    double nextCoef = coef * step;
+                    if (Math.Abs(nextCoef) < minCoef) continue;
+
+                    result[startBranch, nextNode] += nextCoef;
+                    stack.Push((nextNode, nextCoef, depth + 1));
                 }
-                if (!found || Math.Abs(koef) < 1e-10) break;
             }
         }
+
+        for (int i = 1; i <= m; i++)
+            for (int j = 0; j <= n; j++)
+                aa[i, j] = result[i, j];
     }
 
     private static void CalculateLossDistribution()
@@ -665,6 +688,8 @@ internal static class Program
 
         for (int i = 1; i <= L; i++) dP[i] = Math.Abs(rd[i]) * (ta[i] * ta[i] + tr[i] * tr[i]);
 
+        net2.WriteLine();
+        net2.WriteLine("              Результаты расчетов  ");
         net2.WriteLine();
         net2.WriteLine("          Составляющие потерь от нагрузок узлов   ");
         net2.Write("Ветвь    ");
