@@ -1,0 +1,14 @@
+[Files]
+main=U:\USERS\VITALY\LOADFLOW\LOADFLOW.EXE
+file1=D:\Nasta\Программа\READY1\9_0.cdu
+file2=D:\Nasta\Программа\READY1\9_8.cdu
+file3=D:\Nasta\Программа\READY1\4.cdu
+
+[Parametr]
+Font=Courier New
+precision=0,01
+iteraz=10
+Height=585
+Width=652
+DelFile=0
+FontSize=10

@@ -1,0 +1,25 @@
+Functions called:
+ fflush (4 times)
+ delete (23 times)
+ lseek (3 times)
+ delete[] (2 times)
+ strchr (2 times)
+ strstr (1 times)
+ free (13 times)
+ _lsetlocale (3 times)
+ new[] (11 times)
+ new (27 times)
+ calloc (4 times)
+ strlen (69 times)
+ realloc (1 times)
+ strdup (3 times)
+ malloc (5 times)
+ memcpy (5 times)
+Resource types used:
+ object array (11 allocs, 10 max)
+ object (27 allocs, 21 max)
+ memory block (13 allocs, 10 max)
+Modules used:
+ 00400000 01/05/1995 20:50:54
+ E:\Users\ivan\4_kurs\Program\c++5\NewVerson\Loadflow.exe
+==========================================

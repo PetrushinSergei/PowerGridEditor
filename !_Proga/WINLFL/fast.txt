@@ -1,0 +1,133 @@
+Ввод информации по ветвям
+
+  if (in(2),EQ.1) goto 10
+  if (in(2),EQ.2) goto 20
+  if (in(2),EQ.3) goto 30
+  if (in(2),EQ.4) goto 40
+  if (in(2),EQ.7) goto 50
+  if (in(2),EQ.8) goto 53
+  write (3,4)
+4:format(40x,"не указан номер п/к ветви")
+  pause"не указан номер п/к ветви"	
+  goto5
+10:M=M+1
+  NM(1,M)=AA(1)
+  NM(2,M)=AA(2)
+  GR(M)=AA(3)
+  BX(M)=AA(4)
+  if(BX(M).EQ.0.)BX(M)=0.001
+  if(GR(M).EQ.0)GR(M)=0.001
+  BY(M)=-AA(5)/1000000.0
+  AK(M)=AA(6)
+  RK(M)=AA(7)
+  GY(M)=AA(8)*.00001
+20:doto5
+30:in(4)=in(4)+1
+  M1=IN(4)
+  YY(M1)=AA(1)
+  SS(M1)=AA(2)
+  DS1(M1)=AA(4)
+40:goto5
+50:continue
+  L1=AA(1)
+  L2=AA(2)
+  DO51I=1,M
+  if(NM(1,I).EQ,L1.AND.NM(2,I).EQ,L2)GOTO52
+  if(NM(2,I).EQ,L1.AND.NM(1,I).EQ,L2)GOTO52
+  goto51  
+52:UKU(1,I)=AA(3)
+  UKU(2,I)=AA(4)
+  QP(1,I)=AA(5)
+  QP(1,I)=AA(6)
+  QP(1,I)=AA(7)
+  QP(1,I)=AA(8)
+  goto5
+53:continue
+  SR(1,I)=AA(3)
+  SX(1,I)=AA(4)
+  QQ(1,I)=AA(5)
+  QP(1,I)=AA(6)
+  PQ(1,I)=AA(7)
+  PP(1,I)=AA(8)
+  SP(1,I)=AA(2)
+  SG(1,I)=AA(9)
+  goto5
+51:continue
+print222,L1,L2
+222:format(10x,"осутствует линия",
+*14,"-",14,"для погрешностей R и X ")
+5:continue
+
+
+IF(IN(2).EQ.1)GOTO10
+IF(IN(2).EQ.2)GOTO20
+IF(IN(2).EQ.6)GOTO40
+IF(IN(2).EQ.3)GOTO30
+IF(IN(2).EQ.4)GOTO5
+IF(IN(2).EQ.7)GOTO63
+IF( IN(2).EQ,8) GO TO 66 I
+WRIТЕ(3,7) 
+7: FORMAT(40X."НЕ УКАЗАН НОМЕР П/К УЗЛА")
+PAUSE "НЕ УКАЗАН НОМЕР П/К УЗЛА"
+GOT0 5
+ПРИСВАИВАНИЕ ПЕРВОЙ КАРТЫ
+10: N=N+1
+IN(9)=IN(9)+1
+IF(lN(9),GT,26.OR.iN(9).LE.0) lN(9)=1
+NN(N)=AA(1)+IN(9)*1000000
+D(N)=AA(2)
+QS(N)=AA{4)
+PS(N)=AA(3)
+QQ(N)=AA(6)
+PP(N)=AA(5)
+DS3(N)=AA(7)
+QMIN(N)=AA(8)
+QMAX(N)=AA<9)
+IF(AA(8),EO.0.0.AND.AA(9).EQ.0.0) GOT0 65
+IF(AA(7).NE.0)D(N)=AA(7)
+NN(N)=-NN(N)
+655: IF(AA(7).NE.0.)GOT065
+DS3(N)=AA(2)
+65: C0NTINUE
+GOT05
+ПРИСВАИВАНИЕ ВТОРОЙ КАРТЫ
+20:IN(7)=IN(7)+l
+N1=IN(7)
+NK(N1)=AA(1)
+IF(AA(6),NE,0)NK(N1)=-NK(N1)
+VA(Nl)=AA(2)
+VR(Nl)=AA(3)
+DN(Nl)=AA(9)/57.3
+30:GOT0 5
+присваивание КАРТЫ погрешностей
+40: IN(6)=IN(6)+1
+N2=IN(6)
+IF(AA(5).NE.0..OR.AA(6).NE.0..0R.AA(7)
+GOTO 61
+RR(N2)=l000000.+AA(2)
+KN=300+N2
+RR(KN)=1000000.+АА(3)
+UKU(4,N2)е1000000.+АА(4)
+G0T062
+63: CONTINUE
+SP1=AA(3)
+SQl=AA(4)
+PQ=AA(8)
+GOT05 
+61: RR(N2)=AA(5)
+KN=300+N2
+RR(KN)=AA(6)
+UKU(4,N2)=AA(7)
+62: NL(N2)=AA(l)
+UKU(3,N2)=AA(8)
+GOTO5
+66: DO 67 I=1,4
+IF(AA(2*I-1).FQ.0) CO T067
+NZ(5l)=NZ(5l)+1
+NZZ=NZ(51)
+NZ(NZZ)=АА(I*2-1)
+PZ(NZZ)=AA(2*I)
+67:continue
+5:continue
+return
+end	  	
