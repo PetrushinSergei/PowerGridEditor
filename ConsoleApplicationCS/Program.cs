@@ -70,7 +70,7 @@ internal static class Program
 
         for (int j = 1; j <= m; j++)
         {
-            fout.WriteLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(-by[j], 7),14}{Flex(gy[j], 0),10}{Flex(kt[j], 0),9}");
+            fout.WriteLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(Math.Abs(by[j]), 7),14}{Flex(gy[j], 0),10}{Flex(kt[j], 0),9}");
         }
 
         fout.WriteLine();
@@ -88,12 +88,10 @@ internal static class Program
 
         if (count >= Iteraz && norm > Precision)
         {
-            fout.WriteLine($"Не сошелся за {count} итераций, невязка={Flex(norm,6)}");
             Console.WriteLine("Режим НЕ сошелся.");
         }
         else
         {
-            fout.WriteLine($"Сошелся. Итерация={count}, невязка={Flex(norm,6)}");
             Console.WriteLine($"Режим сошелся. Итерация={count}, невязка={Flex(norm,6)}");
             Load();
             CalculateLossDistribution();
@@ -488,7 +486,7 @@ internal static class Program
             dPsum += dpl;
 
             // В эталоне tok — внутренние индексы узлов
-            tok.WriteLine($"{i1,5}{i2,5}{F4(i1a),10}{F4(i1r),10}{Flex(r[j],3),15}");
+            tok.WriteLine($"{i1,5}{i2,5}{F4(i1a),10}{F4(i1r),10}{Flex(Math.Abs(r[j]),3),15}");
 
             net2.WriteLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
 
@@ -623,7 +621,7 @@ internal static class Program
         net2.WriteLine($"  Число узлов  = {n + 1}\tЧисло Ветвей  = {L}");
         net2.WriteLine("         Токи ветвей ");
         net2.WriteLine(" Ветвь Нач.   Кон.    Ток Ak   Ток Re    R  ");
-        for (int i = 1; i <= L; i++) net2.WriteLine($"{nn[na[i]],8}{nn[ka[i]],8}{F2(ta[i]),10}{F2(tr[i]),10}{F2(rd[i]),10}");
+        for (int i = 1; i <= L; i++) net2.WriteLine($"{nn[na[i]],8}{nn[ka[i]],8}{F2(ta[i]),10}{F2(tr[i]),10}{F2(Math.Abs(rd[i])),10}");
 
         net2.WriteLine("       Задающие токи узлов  ");
         net2.WriteLine("     Узел            ТЗа     ТЗр  ");
@@ -665,7 +663,7 @@ internal static class Program
                 ar[i, j] = tzr[j] * ar[i, j];
             }
 
-        for (int i = 1; i <= L; i++) dP[i] = rd[i] * (ta[i] * ta[i] + tr[i] * tr[i]);
+        for (int i = 1; i <= L; i++) dP[i] = Math.Abs(rd[i]) * (ta[i] * ta[i] + tr[i] * tr[i]);
 
         net2.WriteLine();
         net2.WriteLine("          Составляющие потерь от нагрузок узлов   ");
@@ -681,13 +679,13 @@ internal static class Program
             {
                 double comp = 0;
                 for (int kk1 = 0; kk1 <= n; kk1++) comp += a[i, j] * a[i, kk1] + ar[i, j] * ar[i, kk1];
-                aa[i, j] = rd[i] * comp;
+                aa[i, j] = Math.Abs(rd[i]) * comp;
                 total += aa[i, j];
                 net2.Write($"{F2(aa[i, j]),6}");
             }
             double bal = 0;
             for (int kk1 = 0; kk1 <= n; kk1++) bal += a[i, 0] * a[i, kk1] + ar[i, 0] * ar[i, kk1];
-            aa[i, 0] = rd[i] * bal;
+            aa[i, 0] = Math.Abs(rd[i]) * bal;
             total += aa[i, 0];
             net2.WriteLine($"{F2(aa[i, 0]),6}{F2(total),7}");
         }
