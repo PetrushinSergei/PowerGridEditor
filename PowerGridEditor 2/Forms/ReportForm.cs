@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
@@ -40,13 +41,13 @@ namespace PowerGridEditor
             var nodes = ReadNodes().OrderBy(x => x.Number).ToList();
             var branches = _branches.OrderBy(x => x.Data.StartNodeNumber).ThenBy(x => x.Data.EndNodeNumber).ToList();
             var shunts = _shunts.OrderBy(x => x.Data.StartNodeNumber).ToList();
-            var solution = LoadFlowSolver.Solve(nodes, branches, shunts);
+            var report = LoadFlowSolver.BuildReport(nodes, branches, shunts);
 
-            txtOverview.Text = BuildOverview(nodes, branches, shunts);
-            txtInput.Text = BuildInput(nodes, branches, shunts);
-            txtResults.Text = BuildResults(solution);
-            txtLoss.Text = BuildLoss(solution);
-            txtBreakdown.Text = BuildBreakdown(solution);
+            txtOverview.Text = BuildOverview(nodes, branches, shunts, report);
+            txtInput.Text = report.InputText;
+            txtResults.Text = report.ResultsText;
+            txtLoss.Text = report.LossAnalysisText;
+            txtBreakdown.Text = report.LossComponentsText;
         }
 
         private List<NodeSnapshot> ReadNodes()
@@ -67,7 +68,7 @@ namespace PowerGridEditor
             return list;
         }
 
-        private static string BuildOverview(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private static string BuildOverview(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts, LoadFlowReport report)
         {
             var sb = new StringBuilder();
             sb.AppendLine("network.cdu");
@@ -76,112 +77,653 @@ namespace PowerGridEditor
             sb.AppendLine($"Число узлов: {nodes.Count}");
             sb.AppendLine($"Число ветвей: {branches.Count}");
             sb.AppendLine($"Число шунтов: {shunts.Count}");
-            sb.AppendLine();
-            sb.AppendLine("Сводка по узлам:");
-            sb.AppendLine("N      Тип   Uном      Pнаг      Qнаг      Pген      Qген");
-            foreach (var n in nodes)
-            {
-                sb.AppendLine($"{n.Number,4}   {n.Type,2}  {n.U,7:F2}  {n.PLoad,8:F2}  {n.QLoad,8:F2}  {n.PGen,8:F2}  {n.QGen,8:F2}");
-            }
+            sb.AppendLine($"Итераций: {report.Iterations}");
+            sb.AppendLine($"Невязка: {report.Mismatch:G6}");
+            sb.AppendLine($"Сходимость: {(report.Converged ? "Да" : "Нет")}");
             return sb.ToString();
         }
 
-        private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        private sealed class LoadFlowSolver
         {
-            var sb = new StringBuilder();
-            sb.AppendLine($"Число узлов n = {nodes.Count}      Число Ветвей m = {branches.Count}");
-            sb.AppendLine("Входные данные для расчета потокораспределения");
-            sb.AppendLine();
-            sb.AppendLine("Узлы сети");
-            sb.AppendLine("Узел  Тип  Unom      P        Q        g        b");
-            foreach (var n in nodes)
+            private const int kkk = 100;
+            private const int kk = 10;
+            private static readonly CultureInfo C = CultureInfo.InvariantCulture;
+
+            public static LoadFlowReport BuildReport(List<NodeSnapshot> sourceNodes, List<GraphicBranch> sourceBranches, List<GraphicShunt> sourceShunts)
             {
-                sb.AppendLine($"{n.Number,4}  {n.Type,3}  {n.U,5:F0}  {n.PLoad,7:F2}  {n.QLoad,7:F2}  {n.G,7:F3}  {n.B,7:F3}");
+                var report = new LoadFlowReport();
+                if (sourceNodes.Count == 0)
+                {
+                    report.InputText = "Нет данных для расчета.";
+                    report.ResultsText = "Нет данных для расчета.";
+                    report.LossAnalysisText = "Нет данных для расчета.";
+                    report.LossComponentsText = "Нет данных для расчета.";
+                    return report;
+                }
+
+                var nodes = ReorderNodes(sourceNodes);
+                int n = nodes.Count - 1;
+                int m = sourceBranches.Count;
+                int[] nn = new int[nodes.Count];
+                int[] nk = new int[nodes.Count];
+                double[] unom = new double[nodes.Count];
+                double[] p0 = new double[nodes.Count];
+                double[] q0 = new double[nodes.Count];
+                double[] g = new double[nodes.Count];
+                double[] b = new double[nodes.Count];
+                int[] nus = new int[10];
+
+                var idxByNumber = new Dictionary<int, int>();
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    var node = nodes[i];
+                    idxByNumber[node.Number] = i;
+                    nn[i] = node.Number;
+                    nk[i] = node.Type;
+                    unom[i] = node.U;
+                    p0[i] = node.PLoad - node.PGen;
+                    q0[i] = node.QLoad - node.QGen;
+                    g[i] = node.G;
+                    b[i] = node.B;
+                    int rk = nn[i] / kkk;
+                    while (rk > 9) rk /= kk;
+                    nus[rk]++;
+                }
+
+                foreach (var s in sourceShunts)
+                {
+                    int idx;
+                    if (!idxByNumber.TryGetValue(s.Data.StartNodeNumber, out idx)) continue;
+                    g[idx] += s.Data.ActiveResistance;
+                    b[idx] -= s.Data.ReactiveResistance;
+                }
+
+                int[,] nm = new int[3, m + 1];
+                int[,] nm1 = new int[3, m + 1];
+                double[] r = new double[m + 1];
+                double[] x = new double[m + 1];
+                double[] gy = new double[m + 1];
+                double[] by = new double[m + 1];
+                double[] kt = new double[m + 1];
+                for (int j = 1; j <= m; j++)
+                {
+                    var br = sourceBranches[j - 1].Data;
+                    nm[1, j] = br.StartNodeNumber;
+                    nm[2, j] = br.EndNodeNumber;
+                    r[j] = br.ActiveResistance;
+                    x[j] = Math.Abs(br.ReactiveResistance) < 1.001 ? 1.01 : br.ReactiveResistance;
+                    gy[j] = br.ActiveConductivity * 1e-6;
+                    by[j] = -br.ReactiveConductivity * 1e-6;
+                    kt[j] = br.TransformationRatio < 0.001 ? 1 : br.TransformationRatio;
+                    nm1[1, j] = idxByNumber.ContainsKey(nm[1, j]) ? idxByNumber[nm[1, j]] : 0;
+                    nm1[2, j] = idxByNumber.ContainsKey(nm[2, j]) ? idxByNumber[nm[2, j]] : 0;
+                }
+
+                double[] gr = new double[m + 1];
+                double[] bx = new double[m + 1];
+                double[] gg = new double[nodes.Count];
+                double[] bb = new double[nodes.Count];
+                double[] va = new double[nodes.Count];
+                double[] vr = new double[nodes.Count];
+                double[] p = new double[nodes.Count];
+                double[] q = new double[nodes.Count];
+                double[] ja = new double[nodes.Count];
+                double[] jr = new double[nodes.Count];
+                double[] ds = new double[2 * nodes.Count + 2];
+                double[,] A = new double[2 * nodes.Count + 2, 2 * nodes.Count + 2];
+
+                for (int i = 0; i < nodes.Count; i++)
+                {
+                    va[i] = unom[i];
+                    vr[i] = 0;
+                    gg[i] = g[i] * 1e-6;
+                    bb[i] = b[i] * 1e-6;
+                }
+
+                for (int j = 1; j <= m; j++)
+                {
+                    double c = r[j] * r[j] + x[j] * x[j];
+                    gr[j] = r[j] / c;
+                    bx[j] = -x[j] / c;
+
+                    int i1 = nm1[1, j];
+                    int i2 = nm1[2, j];
+                    gg[i1] += gr[j] / (kt[j] * kt[j]) + gy[j] / 2.0;
+                    bb[i1] += bx[j] / (kt[j] * kt[j]) + by[j] / 2.0;
+                    gg[i2] += gr[j] + gy[j] / 2.0;
+                    bb[i2] += bx[j] + by[j] / 2.0;
+                }
+
+                double mismatch = Func(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, p0, q0, unom, ja, jr, p, q, ds);
+                int count = 0;
+                while (mismatch > CalculationOptions.Precision && count < CalculationOptions.MaxIterations)
+                {
+                    Jacoby(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, ja, jr, unom, A);
+                    Gauss(n, A, ds, va, vr);
+                    count++;
+                    mismatch = Func(n, m, nk, nm1, kt, gr, bx, gg, bb, va, vr, p0, q0, unom, ja, jr, p, q, ds);
+                }
+
+                report.Converged = mismatch <= CalculationOptions.Precision;
+                report.Iterations = count;
+                report.Mismatch = mismatch;
+
+                report.InputText = BuildInputText(nn, nk, unom, p0, q0, g, b, nm, m, r, x, by, gy, kt, n);
+
+                var loadResult = BuildLoadAndLossTexts(nn, n, m, nus, nm1, unom, va, vr, g, b, gy, by, kt, gr, bx, p, q, r);
+                report.ResultsText = loadResult.Results;
+                report.LossAnalysisText = loadResult.LossAnalysis;
+                report.LossComponentsText = BuildLossComponentsText(n, m, nn, loadResult.TokRows);
+                return report;
             }
 
-            sb.AppendLine();
-            sb.AppendLine("Ветви сети");
-            sb.AppendLine("N1   N2      r        x        b        g      Kt");
-            foreach (var b in branches)
+            private static List<NodeSnapshot> ReorderNodes(List<NodeSnapshot> source)
             {
-                sb.AppendLine($"{b.Data.StartNodeNumber,4} {b.Data.EndNodeNumber,4}  {b.Data.ActiveResistance,7:F3}  {b.Data.ReactiveResistance,7:F3}  {b.Data.ReactiveConductivity,7:F3}  {b.Data.ActiveConductivity,7:F3}  {b.Data.TransformationRatio,6:F3}");
+                var result = new List<NodeSnapshot>(source.Count);
+                int slackIndex = source.FindIndex(x => x.Type == 3);
+                if (slackIndex >= 0)
+                {
+                    result.Add(source[slackIndex]);
+                }
+                result.AddRange(source.Where((x, i) => i != slackIndex));
+                if (result[0].Type != 3)
+                {
+                    var s = result[0];
+                    s.Type = 3;
+                    result[0] = s;
+                }
+                return result;
             }
 
-            sb.AppendLine();
-            sb.AppendLine("Шунты");
-            sb.AppendLine("Узел     r        x");
-            foreach (var s in shunts)
+            private static string BuildInputText(int[] nn, int[] nk, double[] unom, double[] p0, double[] q0, double[] g, double[] b, int[,] nm, int m, double[] r, double[] x, double[] by, double[] gy, double[] kt, int n)
             {
-                sb.AppendLine($"{s.Data.StartNodeNumber,4}  {s.Data.ActiveResistance,7:F3}  {s.Data.ReactiveResistance,7:F3}");
+                var sb = new StringBuilder();
+                sb.AppendLine($"Число узлов n = {n}\tЧисло Ветвей m = {m}");
+                sb.AppendLine("     Входные данные для расчета потокораспределения");
+                sb.AppendLine("           У з л ы    с е т и ");
+                sb.AppendLine(" Узел   Тип  Uном        P        Q        g           b ");
+                for (int i = 0; i <= n; i++)
+                {
+                    sb.AppendLine($"{nn[i],5}{nk[i],5}{Flex(unom[i], 0),7}{Flex(p0[i], 0),9}{Flex(q0[i], 0),9}{Flex(g[i], 5),9}{Flex(b[i], 5),12}");
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("               В е т в и    с е т и");
+                sb.AppendLine("   N1   N2        r         x            b           g       Kt ");
+                for (int j = 1; j <= m; j++)
+                {
+                    sb.AppendLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(Math.Abs(by[j] * 1e6), 7),14}{Flex(gy[j] * 1e6, 0),10}{Flex(kt[j], 0),9}");
+                }
+                return sb.ToString();
             }
 
-            return sb.ToString();
+            private static LoadOutput BuildLoadAndLossTexts(int[] nn, int n, int m, int[] nus, int[,] nm1, double[] unom, double[] va, double[] vr, double[] g, double[] b, double[] gy, double[] by, double[] kt, double[] gr, double[] bx, double[] p, double[] q, double[] r)
+            {
+                var net2 = new StringBuilder();
+                var raipot = new StringBuilder();
+                var tokRows = new List<TokRow>();
+
+                net2.AppendLine("          Результаты расчета по узлам");
+                net2.AppendLine("    N        V         dV         P         Q        Pg       Qb");
+
+                double sp = 0, sq = 0, spg = 0, sqb = 0, dPsum = 0;
+                var saldo = new double[2, 10];
+                var sumpot = new double[10];
+                var sv = new int[10];
+                var line = new double[10, 10];
+                var linc = new int[10, 10];
+
+                for (int i = 0; i <= n; i++)
+                {
+                    double mv = va[i] * va[i] + vr[i] * vr[i];
+                    double dv = Math.Atan2(vr[i], va[i]) * 57.295779515;
+                    double pg = mv * (g[i] * 1e-6);
+                    double qb = -mv * (b[i] * 1e-6);
+                    sp += p[i]; sq += q[i]; spg += pg; sqb += qb;
+                    mv = Math.Sqrt(mv);
+
+                    net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(-p[i]),10}{F2(-q[i]),10}{F2(pg),10}{F2(qb),10}");
+                }
+
+                net2.AppendLine("---------------------------------------------------");
+                net2.AppendLine($"Баланс пассивных элементов {F2(sp),10}{F2(sq),10}{F2(spg),10}{F2(sqb),10}");
+                net2.AppendLine("                         + потребление, - генерация ");
+                net2.AppendLine();
+                net2.AppendLine("                   Результаты расчета по ветвям");
+                net2.AppendLine("   N1   N1       P12       Q12       P21       Q21       dP");
+
+                for (int j = 1; j <= m; j++)
+                {
+                    int i1 = nm1[1, j], i2 = nm1[2, j];
+
+                    double i1a = (va[i1] * gr[j] - vr[i1] * bx[j]) / (kt[j] * kt[j]) - (va[i2] * gr[j] - vr[i2] * bx[j]) / kt[j];
+                    double i1r = (va[i1] * bx[j] + vr[i1] * gr[j]) / (kt[j] * kt[j]) - (va[i2] * bx[j] + vr[i2] * gr[j]) / kt[j];
+                    double i2a = (va[i1] * gr[j] - vr[i1] * bx[j]) / kt[j] - (va[i2] * gr[j] - vr[i2] * bx[j]);
+                    double i2r = (va[i1] * bx[j] + vr[i1] * gr[j]) / kt[j] - (va[i2] * bx[j] + vr[i2] * gr[j]);
+
+                    double mv = va[i1] * va[i1] + vr[i1] * vr[i1];
+                    double p12 = va[i1] * i1a + vr[i1] * i1r - gy[j] * mv / 2.0;
+                    double q12 = vr[i1] * i1a - va[i1] * i1r - by[j] * mv / 2.0;
+
+                    mv = va[i2] * va[i2] + vr[i2] * vr[i2];
+                    double p21 = va[i2] * i2a + vr[i2] * i2r + gy[j] * mv / 2.0;
+                    double q21 = vr[i2] * i2a - va[i2] * i2r + by[j] * mv / 2.0;
+
+                    double dpl = Math.Abs(p21 - p12);
+                    dPsum += dpl;
+
+                    tokRows.Add(new TokRow { Start = i1, End = i2, Ia = i1a, Ir = i1r, R = Math.Abs(r[j]) });
+                    net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
+
+                    int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
+                    int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
+                    if (rk == r2)
+                    {
+                        sv[rk]++;
+                        sumpot[rk] += dpl;
+                        if (Math.Abs(kt[j] - 1) < 0.001)
+                        {
+                            int cls = VoltageClass(unom[i1]);
+                            line[rk, cls] += dpl;
+                            linc[rk, cls]++;
+                        }
+                    }
+                    else
+                    {
+                        saldo[0, rk] += -p12;
+                        saldo[1, rk] += -q12;
+                        saldo[0, r2] += p21;
+                        saldo[1, r2] += q21;
+                    }
+                }
+
+                net2.AppendLine($"{F2(dPsum),60}");
+
+                int[] ul = { 6, 10, 20, 35, 110, 220, 330, 500, 750, 1150 };
+                for (int i = 0; i < 10; i++)
+                {
+                    if (sv[i] == 0) continue;
+                    raipot.AppendLine($"Район  №{i,6}");
+                    for (int g1 = 0; g1 < 10; g1++)
+                    {
+                        if (linc[i, g1] != 0)
+                        {
+                            raipot.AppendLine(" Потери в линиях");
+                            raipot.AppendLine($"{ul[g1],5} кВ{Flex(line[i, g1], 3),15}");
+                        }
+                    }
+                }
+
+                raipot.AppendLine();
+                raipot.AppendLine("№ района          Сальдо P           Сальдо Q       Сумм. потери в районе");
+                double sumoll = 0;
+                for (int i = 0; i < 10; i++)
+                {
+                    if (nus[i] == 0) continue;
+                    raipot.AppendLine($"{i,5}{F2(saldo[0, i]),20}{F2(saldo[1, i]),20}{F2(sumpot[i]),20}");
+                    sumoll += sumpot[i];
+                }
+                raipot.AppendLine($" Суммарные потери в сетях районов {F2(sumoll),25}");
+
+                return new LoadOutput
+                {
+                    Results = net2.ToString(),
+                    LossAnalysis = raipot.ToString(),
+                    TokRows = tokRows
+                };
+            }
+
+            private static string BuildLossComponentsText(int n, int m, int[] nn, List<TokRow> tokRows)
+            {
+                int L = m;
+                int[] na = new int[L + 1], ka = new int[L + 1], nr = new int[L + 1], kr = new int[L + 1], N = new int[L + 1], k = new int[L + 1];
+                double[] ta = new double[L + 1], tr = new double[L + 1], rd = new double[L + 1], dP = new double[L + 1], tza = new double[n + 1], tzr = new double[n + 1];
+                double[,] aa = new double[L + 1, n + 1], a = new double[L + 1, n + 1], ar = new double[L + 1, n + 1];
+
+                for (int i = 1; i <= L; i++)
+                {
+                    var row = tokRows[i - 1];
+                    na[i] = row.Start;
+                    ka[i] = row.End;
+                    ta[i] = row.Ia;
+                    tr[i] = row.Ir;
+                    rd[i] = row.R;
+                    nr[i] = na[i];
+                    kr[i] = ka[i];
+                }
+
+                for (int i = 1; i <= L; i++)
+                {
+                    tza[na[i]] -= ta[i];
+                    tzr[na[i]] -= tr[i];
+                    tza[ka[i]] += ta[i];
+                    tzr[ka[i]] += tr[i];
+                }
+
+                var sb = new StringBuilder();
+                sb.AppendLine("  Разделение потерь мощности электрической сети  ");
+                sb.AppendLine("  Входные данные для расчета ");
+                sb.AppendLine($"  Число узлов  = {n + 1}\tЧисло Ветвей  = {L}");
+                sb.AppendLine("         Токи ветвей ");
+                sb.AppendLine(" Ветвь Нач.   Кон.    Ток Ak   Ток Re    R  ");
+                for (int i = 1; i <= L; i++) sb.AppendLine($"{nn[na[i]],8}{nn[ka[i]],8}{F2(ta[i]),10}{F2(tr[i]),10}{F2(Math.Abs(rd[i])),10}");
+
+                sb.AppendLine("       Задающие токи узлов  ");
+                sb.AppendLine("     Узел            ТЗа     ТЗр  ");
+                for (int j = 1; j <= n; j++) sb.AppendLine($"{nn[j],8}{F2(tza[j]),10}{F2(tzr[j]),10}");
+                sb.AppendLine($"{nn[0],8}{F2(tza[0]),10}{F2(tzr[0]),10}");
+
+                for (int j = 0; j <= n; j++)
+                {
+                    double sia = tza[j];
+                    for (int i = 1; i <= L; i++) if (na[i] == j) sia += ta[i];
+                    if (Math.Abs(sia) > 1e-10)
+                        for (int i = 1; i <= L; i++) if (ka[i] == j) a[i, j] = ta[i] / sia;
+                }
+
+                for (int j = 0; j <= n; j++)
+                {
+                    double sia = tzr[j];
+                    for (int i = 1; i <= L; i++) if (nr[i] == j) sia += tr[i];
+                    if (Math.Abs(sia) > 1e-10)
+                        for (int i = 1; i <= L; i++) if (kr[i] == j) ar[i, j] = tr[i] / sia;
+                }
+
+                for (int i = 1; i <= L; i++)
+                {
+                    N[i] = na[i];
+                    k[i] = ka[i];
+                    for (int j = 0; j <= n; j++) aa[i, j] = a[i, j];
+                }
+                Alpha(L, n, aa, N, k);
+                for (int i = 1; i <= L; i++) for (int j = 0; j <= n; j++) a[i, j] = aa[i, j];
+
+                for (int i = 1; i <= L; i++)
+                {
+                    N[i] = nr[i];
+                    k[i] = kr[i];
+                    for (int j = 0; j <= n; j++) aa[i, j] = ar[i, j];
+                }
+                Alpha(L, n, aa, N, k);
+                for (int i = 1; i <= L; i++) for (int j = 0; j <= n; j++) ar[i, j] = aa[i, j];
+
+                for (int i = 1; i <= L; i++)
+                {
+                    for (int j = 0; j <= n; j++)
+                    {
+                        a[i, j] = tza[j] * a[i, j];
+                        ar[i, j] = tzr[j] * ar[i, j];
+                    }
+                    dP[i] = Math.Abs(rd[i]) * (ta[i] * ta[i] + tr[i] * tr[i]);
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("              Результаты расчетов  ");
+                sb.AppendLine();
+                sb.AppendLine("          Составляющие потерь от нагрузок узлов   ");
+                sb.Append("Ветвь    ");
+                for (int j = 1; j <= n; j++) sb.Append($"{nn[j],6}");
+                sb.AppendLine($"{nn[0],6}   dP");
+
+                for (int i = 1; i <= L; i++)
+                {
+                    sb.Append($"{nn[na[i]],4} {nn[ka[i]],4}");
+                    double total = 0;
+                    for (int j = 1; j <= n; j++)
+                    {
+                        double comp = 0;
+                        for (int kk1 = 0; kk1 <= n; kk1++) comp += a[i, j] * a[i, kk1] + ar[i, j] * ar[i, kk1];
+                        aa[i, j] = Math.Abs(rd[i]) * comp;
+                        total += aa[i, j];
+                        sb.Append($"{F2(aa[i, j]),6}");
+                    }
+                    double bal = 0;
+                    for (int kk1 = 0; kk1 <= n; kk1++) bal += a[i, 0] * a[i, kk1] + ar[i, 0] * ar[i, kk1];
+                    aa[i, 0] = Math.Abs(rd[i]) * bal;
+                    total += aa[i, 0];
+                    sb.AppendLine($"{F2(aa[i, 0]),6}{F2(total),7}");
+                }
+
+                sb.AppendLine();
+                for (int i = 1; i <= L; i++)
+                {
+                    sb.AppendLine($"Ветвь   {nn[na[i]]}-{nn[ka[i]]}  Потери  {F2(dP[i])}");
+                    sb.Append("Составляющие ");
+                    for (int j = 1; j <= n; j++) if (Math.Abs(aa[i, j]) > 1e-6) sb.Append($" dP{nn[j]}={F2(aa[i, j])}");
+                    if (Math.Abs(aa[i, 0]) > 1e-6) sb.Append($" dP{nn[0]}={F2(aa[i, 0])}");
+                    sb.AppendLine();
+                }
+
+                sb.AppendLine();
+                sb.AppendLine("          Доля транзитных потерь от нагрузок узлов   ");
+                sb.Append("Узлы    ");
+                for (int j = 1; j <= n; j++) sb.Append($"{nn[j],6}");
+                sb.AppendLine($"{nn[0],6}");
+                sb.Append("Потери ");
+                for (int j = 1; j <= n; j++)
+                {
+                    double nodeLoss = 0;
+                    for (int i = 1; i <= L; i++) nodeLoss += aa[i, j];
+                    sb.Append($"{F2(nodeLoss),6}");
+                }
+                double balLoss = 0;
+                for (int i = 1; i <= L; i++) balLoss += aa[i, 0];
+                sb.AppendLine($"{F2(balLoss),6}");
+
+                return sb.ToString();
+            }
+
+            private static void Alpha(int L, int n, double[,] aa, int[] N, int[] k)
+            {
+                const int maxDepth = 32;
+                const double minCoef = 1e-10;
+                var src = new double[L + 1, n + 1];
+                var result = new double[L + 1, n + 1];
+
+                for (int i = 1; i <= L; i++)
+                for (int j = 0; j <= n; j++)
+                {
+                    src[i, j] = aa[i, j];
+                    result[i, j] = src[i, j];
+                }
+
+                for (int startBranch = 1; startBranch <= L; startBranch++)
+                {
+                    var stack = new Stack<AlphaState>();
+                    for (int j = 0; j <= n; j++)
+                        if (Math.Abs(src[startBranch, j]) > minCoef)
+                            stack.Push(new AlphaState { Node = j, Coef = src[startBranch, j], Depth = 0 });
+
+                    while (stack.Count > 0)
+                    {
+                        var st = stack.Pop();
+                        if (st.Depth >= maxDepth || Math.Abs(st.Coef) < minCoef) continue;
+
+                        for (int br = 1; br <= L; br++)
+                        {
+                            if (N[br] != st.Node) continue;
+                            int nextNode = k[br];
+                            double step = src[br, nextNode];
+                            if (Math.Abs(step) < minCoef) continue;
+                            double nextCoef = st.Coef * step;
+                            if (Math.Abs(nextCoef) < minCoef) continue;
+                            result[startBranch, nextNode] += nextCoef;
+                            stack.Push(new AlphaState { Node = nextNode, Coef = nextCoef, Depth = st.Depth + 1 });
+                        }
+                    }
+                }
+
+                for (int i = 1; i <= L; i++)
+                for (int j = 0; j <= n; j++) aa[i, j] = result[i, j];
+            }
+
+            private static double Func(int n, int m, int[] nk, int[,] nm1, double[] kt, double[] gr, double[] bx, double[] gg, double[] bb, double[] va, double[] vr, double[] p0, double[] q0, double[] unom, double[] ja, double[] jr, double[] p, double[] q, double[] ds)
+            {
+                double w = 0;
+                for (int i = 0; i <= n; i++)
+                {
+                    ja[i] = gg[i] * va[i] - bb[i] * vr[i];
+                    jr[i] = bb[i] * va[i] + gg[i] * vr[i];
+                }
+                for (int j = 1; j <= m; j++)
+                {
+                    int i1 = nm1[1, j], i2 = nm1[2, j];
+                    ja[i1] -= (gr[j] * va[i2] - bx[j] * vr[i2]) / kt[j];
+                    jr[i1] -= (bx[j] * va[i2] + gr[j] * vr[i2]) / kt[j];
+                    ja[i2] -= (gr[j] * va[i1] - bx[j] * vr[i1]) / kt[j];
+                    jr[i2] -= (bx[j] * va[i1] + gr[j] * vr[i1]) / kt[j];
+                }
+                for (int i = 0; i <= n; i++)
+                {
+                    p[i] = va[i] * ja[i] + vr[i] * jr[i];
+                    q[i] = vr[i] * ja[i] - va[i] * jr[i];
+                }
+                for (int i = 1; i <= n; i++)
+                {
+                    ds[2 * i] = -(p[i] + p0[i]);
+                    double h;
+                    if (nk[i] == 1)
+                    {
+                        ds[2 * i - 1] = -(q[i] + q0[i]);
+                        h = Math.Abs(q0[i]) < 1 ? ds[2 * i - 1] : ds[2 * i - 1] / q0[i];
+                    }
+                    else
+                    {
+                        ds[2 * i - 1] = -(va[i] * va[i] + vr[i] * vr[i] - unom[i] * unom[i]) / unom[i];
+                        h = ds[2 * i - 1] / unom[i];
+                    }
+                    double pp = Math.Abs(p0[i]) < 1 ? ds[2 * i] : ds[2 * i] / p0[i];
+                    w += pp * pp + h * h;
+                }
+                return Math.Sqrt(w / (2 * Math.Max(n, 1)));
+            }
+
+            private static void Jacoby(int n, int m, int[] nk, int[,] nm1, double[] kt, double[] gr, double[] bx, double[] gg, double[] bb, double[] va, double[] vr, double[] ja, double[] jr, double[] unom, double[,] A)
+            {
+                Array.Clear(A, 0, A.Length);
+                for (int i = 1; i <= n; i++)
+                {
+                    if (nk[i] == 1)
+                    {
+                        A[2 * i - 1, 2 * i - 1] = -bb[i] * va[i] + gg[i] * vr[i] - jr[i];
+                        A[2 * i - 1, 2 * i] = -gg[i] * va[i] - bb[i] * vr[i] + ja[i];
+                    }
+                    else
+                    {
+                        A[2 * i - 1, 2 * i - 1] = 2 * va[i] / unom[i];
+                        A[2 * i - 1, 2 * i] = 2 * vr[i] / unom[i];
+                    }
+                    A[2 * i, 2 * i - 1] = gg[i] * va[i] + bb[i] * vr[i] + ja[i];
+                    A[2 * i, 2 * i] = -bb[i] * va[i] + gg[i] * vr[i] + jr[i];
+                }
+                for (int j = 1; j <= m; j++)
+                {
+                    int i1 = nm1[1, j], i2 = nm1[2, j];
+                    if (i1 == 0 || i2 == 0) continue;
+                    int j1 = 2 * i1 - 1, j2 = 2 * i1, j3 = 2 * i2 - 1, j4 = 2 * i2;
+                    if (nk[i1] == 1)
+                    {
+                        A[j1, j3] = -(-bx[j] * va[i1] + gr[j] * vr[i1]) / kt[j];
+                        A[j1, j4] = -(-gr[j] * va[i1] - bx[j] * vr[i1]) / kt[j];
+                    }
+                    A[j2, j3] = -(gr[j] * va[i1] + bx[j] * vr[i1]) / kt[j];
+                    A[j2, j4] = -(-bx[j] * va[i1] + gr[j] * vr[i1]) / kt[j];
+                    if (nk[i2] == 1)
+                    {
+                        A[j3, j1] = -(-bx[j] * va[i2] + gr[j] * vr[i2]) / kt[j];
+                        A[j3, j2] = -(-gr[j] * va[i2] - bx[j] * vr[i2]) / kt[j];
+                    }
+                    A[j4, j1] = -(gr[j] * va[i2] + bx[j] * vr[i2]) / kt[j];
+                    A[j4, j2] = -(-bx[j] * va[i2] + gr[j] * vr[i2]) / kt[j];
+                }
+            }
+
+            private static void Gauss(int n, double[,] A, double[] ds, double[] va, double[] vr)
+            {
+                var u = new double[2 * n + 1];
+                for (int i = 1; i <= 2 * n - 1; i++)
+                {
+                    double c = Math.Abs(A[i, i]) < 1e-7 ? 1e-7 : A[i, i];
+                    for (int j = i + 1; j <= 2 * n; j++) if (Math.Abs(A[i, j]) > 1e-7) A[i, j] /= c;
+                    ds[i] /= c;
+                    for (int k1 = i + 1; k1 <= 2 * n; k1++)
+                    {
+                        double d = A[k1, i];
+                        if (Math.Abs(d) <= 1e-7) continue;
+                        for (int l = i + 1; l <= 2 * n; l++) if (Math.Abs(A[i, l]) > 1e-7) A[k1, l] -= A[i, l] * d;
+                        ds[k1] -= ds[i] * d;
+                    }
+                }
+                u[2 * n] = ds[2 * n] / A[2 * n, 2 * n];
+                for (int k1 = 2 * n - 1; k1 >= 1; k1--)
+                {
+                    double s = 0;
+                    for (int j = k1 + 1; j <= 2 * n; j++) if (Math.Abs(A[k1, j]) > 1e-7) s += A[k1, j] * u[j];
+                    u[k1] = ds[k1] - s;
+                }
+                for (int i = 1; i <= n; i++)
+                {
+                    va[i] += u[2 * i - 1];
+                    vr[i] += u[2 * i];
+                }
+            }
+
+            private static int VoltageClass(double u)
+            {
+                if (u <= 8) return 0;
+                if (u <= 15) return 1;
+                if (u <= 28) return 2;
+                if (u <= 70) return 3;
+                if (u <= 140) return 4;
+                if (u <= 270) return 5;
+                if (u <= 430) return 6;
+                if (u <= 600) return 7;
+                if (u <= 900) return 8;
+                return 9;
+            }
+
+            private static string F2(double v) => Math.Round(v, 2, MidpointRounding.AwayFromZero).ToString("0.00", C);
+
+            private static string Flex(double v, int maxDecimals = 7)
+            {
+                double rv = Math.Round(v, maxDecimals, MidpointRounding.AwayFromZero);
+                if (Math.Abs(rv) < 5 * Math.Pow(10, -maxDecimals)) rv = 0;
+                return rv.ToString("0." + new string('#', maxDecimals), C);
+            }
+
+            private struct AlphaState
+            {
+                public int Node;
+                public double Coef;
+                public int Depth;
+            }
+
+            private sealed class LoadOutput
+            {
+                public string Results;
+                public string LossAnalysis;
+                public List<TokRow> TokRows;
+            }
+
+            private sealed class TokRow
+            {
+                public int Start;
+                public int End;
+                public double Ia;
+                public double Ir;
+                public double R;
+            }
         }
 
-        private static string BuildResults(LoadFlowSolution solution)
+        private sealed class LoadFlowReport
         {
-            var sb = new StringBuilder();
-            sb.AppendLine($"Параметры расчёта: eps={CalculationOptions.Precision:G6}, maxIter={CalculationOptions.MaxIterations}");
-            sb.AppendLine($"Итог итераций: {solution.Iterations}, невязка={solution.Mismatch:G6}, сходимость={(solution.Converged ? "Да" : "Нет")}");
-            sb.AppendLine();
-            sb.AppendLine("Результаты расчета по узлам");
-            sb.AppendLine("N       V       dU       P       Q       Pg      Qg");
-            foreach (var n in solution.Nodes)
-            {
-                sb.AppendLine($"{n.Number,4}  {n.Voltage,7:F2}  {n.Angle,6:F2}  {-n.P,7:F2}  {-n.Q,7:F2}  {n.Pg,7:F2}  {n.Qb,7:F2}");
-            }
-
-            sb.AppendLine();
-            sb.AppendLine("Результаты расчета по ветвям");
-            sb.AppendLine("N1   N2      P12      Q12      P21      Q21      dP");
-            foreach (var b in solution.Branches)
-            {
-                sb.AppendLine($"{b.StartNode,4} {b.EndNode,4}  {-b.P12,8:F2}  {-b.Q12,8:F2}  {b.P21,8:F2}  {b.Q21,8:F2}  {b.DeltaP,8:F2}");
-            }
-
-            return sb.ToString();
-        }
-
-        private static string BuildLoss(LoadFlowSolution solution)
-        {
-            var sb = new StringBuilder();
-            double activeLoss = solution.Branches.Sum(x => x.DeltaP);
-            double reactiveLoss = solution.Branches.Sum(x => Math.Abs(x.Q12 + x.Q21));
-
-            sb.AppendLine("Район №    0");
-            sb.AppendLine("Потери в линиях");
-            sb.AppendLine($"220 кВ      {activeLoss:F3}");
-            sb.AppendLine();
-            sb.AppendLine("№ района        Сальдо P        Сальдо Q      Сумм. потери в районе");
-            sb.AppendLine($"0              {activeLoss:F3}        {reactiveLoss:F3}            {activeLoss:F3}");
-            sb.AppendLine($"Суммарные потери в сетях районов: {activeLoss:F3}");
-
-            return sb.ToString();
-        }
-
-        private static string BuildBreakdown(LoadFlowSolution solution)
-        {
-            var sb = new StringBuilder();
-            sb.AppendLine("Разделение потерь мощности электрической сети");
-            sb.AppendLine("Входные данные для расчета");
-            sb.AppendLine($"Число узлов = {solution.Nodes.Count}      Число Ветвей = {solution.Branches.Count}");
-            sb.AppendLine();
-            sb.AppendLine("Токи ветвей");
-            sb.AppendLine("Ветвь Нач. Кон.   Ток Ак    Ток Re      R");
-            foreach (var b in solution.Branches)
-            {
-                sb.AppendLine($"      {b.StartNode,4} {b.EndNode,4}   {b.Ia,7:F2}   {b.Ir,7:F2}   {b.R,5:F2}");
-            }
-
-            sb.AppendLine();
-            sb.AppendLine("Задающие токи узлов");
-            sb.AppendLine("Узел      ТЗa      ТЗp");
-            foreach (var n in solution.Nodes)
-            {
-                sb.AppendLine($"{n.Number,4}   {n.P,7:F2}  {n.Q,7:F2}");
-            }
-
-            return sb.ToString();
+            public bool Converged;
+            public int Iterations;
+            public double Mismatch;
+            public string InputText;
+            public string ResultsText;
+            public string LossAnalysisText;
+            public string LossComponentsText;
         }
 
         private sealed class LoadFlowSolver
