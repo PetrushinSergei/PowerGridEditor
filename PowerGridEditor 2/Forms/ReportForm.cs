@@ -57,14 +57,17 @@ namespace PowerGridEditor
             var list = new List<ReportNodeSnapshot>();
             foreach (var el in _elements)
             {
-                if (el is GraphicNode n)
+                var node = el as GraphicNode;
+                if (node != null)
                 {
-                    int type = n.Data.FixedVoltageModule > 0.1 ? 2 : 1;
-                    list.Add(ReportNodeSnapshot.FromNode(n.Data.Number, type, n.Data));
+                    int type = node.Data.FixedVoltageModule > 0.1 ? 2 : 1;
+                    list.Add(ReportNodeSnapshot.FromNode(node.Data.Number, type, node.Data));
                 }
-                else if (el is GraphicBaseNode b)
+
+                var baseNode = el as GraphicBaseNode;
+                if (baseNode != null)
                 {
-                    list.Add(ReportNodeSnapshot.FromNode(b.Data.Number, 3, b.Data));
+                    list.Add(ReportNodeSnapshot.FromNode(baseNode.Data.Number, 3, baseNode.Data));
                 }
             }
             return list;
