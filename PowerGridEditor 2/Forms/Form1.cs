@@ -1652,38 +1652,30 @@ namespace PowerGridEditor
 
         private void WriteAllNodes(StreamWriter writer)
         {
+            var baseNodeNumbers = new HashSet<int>(graphicElements
+                .OfType<GraphicBaseNode>()
+                .Select(x => x.Data.Number));
+
             var allNodes = new List<(int number, double voltage, double pLoad, double qLoad, double pGen, double qGen, double uFixed, double qMin, double qMax)>();
 
-            foreach (var element in graphicElements)
+            foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                if (element is GraphicNode node)
+                if (baseNodeNumbers.Contains(node.Data.Number))
                 {
-                    allNodes.Add((
-                        node.Data.Number,
-                        node.Data.InitialVoltage,
-                        node.Data.NominalActivePower,
-                        node.Data.NominalReactivePower,
-                        node.Data.ActivePowerGeneration,
-                        node.Data.ReactivePowerGeneration,
-                        node.Data.FixedVoltageModule,
-                        node.Data.MinReactivePower,
-                        node.Data.MaxReactivePower
-                    ));
+                    continue;
                 }
-                else if (element is GraphicBaseNode baseNode)
-                {
-                    allNodes.Add((
-                        baseNode.Data.Number,
-                        baseNode.Data.InitialVoltage,
-                        baseNode.Data.NominalActivePower,
-                        baseNode.Data.NominalReactivePower,
-                        baseNode.Data.ActivePowerGeneration,
-                        baseNode.Data.ReactivePowerGeneration,
-                        baseNode.Data.FixedVoltageModule,
-                        baseNode.Data.MinReactivePower,
-                        baseNode.Data.MaxReactivePower
-                    ));
-                }
+
+                allNodes.Add((
+                    node.Data.Number,
+                    node.Data.InitialVoltage,
+                    node.Data.NominalActivePower,
+                    node.Data.NominalReactivePower,
+                    node.Data.ActivePowerGeneration,
+                    node.Data.ReactivePowerGeneration,
+                    node.Data.FixedVoltageModule,
+                    node.Data.MinReactivePower,
+                    node.Data.MaxReactivePower
+                ));
             }
 
             allNodes = allNodes.OrderBy(n => n.number).ToList();
