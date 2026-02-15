@@ -305,6 +305,26 @@ namespace PowerGridEditor
             return "Внешний расчёт недоступен.";
         }
 
+        private List<NodeSnapshot> ReadNodes()
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private static string BuildResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private static string BuildLoss(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
         private static string BuildBreakdown(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
         {
             return "Внешний расчёт недоступен.";
