@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -39,6 +40,7 @@ namespace PowerGridEditor
             var nodes = ReadNodes().OrderBy(x => x.Number).ToList();
             var branches = _branches.OrderBy(x => x.Data.StartNodeNumber).ThenBy(x => x.Data.EndNodeNumber).ToList();
             var shunts = _shunts.OrderBy(x => x.Data.StartNodeNumber).ToList();
+            var report = LoadFlowSolver.BuildReport(nodes, branches, shunts);
 
             var engine = new ConsoleApplicationEngine(nodes, branches, shunts, CalculationOptions.Precision, CalculationOptions.MaxIterations);
             var result = engine.Run();
