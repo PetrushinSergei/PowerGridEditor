@@ -71,6 +71,37 @@ namespace PowerGridEditor
             return list;
         }
 
+        private sealed class EngineResult
+        {
+            public string NetworkCdu;
+            public string NetworkOut;
+            public string NetworkRez;
+            public string NetworkRip;
+            public string LossesRez;
+        }
+
+        private struct NodeSnapshot
+        {
+            public int Number;
+            public int Type;
+            public double U;
+            public double PLoad;
+            public double QLoad;
+
+            public static NodeSnapshot FromNode(int number, int type, dynamic d)
+            {
+                return new NodeSnapshot
+                {
+                    Number = number,
+                    Type = type,
+                    U = d.InitialVoltage,
+                    PLoad = d.NominalActivePower,
+                    QLoad = d.NominalReactivePower
+                };
+            }
+        }
+
+
         private sealed class ConsoleApplicationEngine
         {
             private const int inn = 100;
@@ -621,6 +652,7 @@ namespace PowerGridEditor
                 raipot.AppendLine($" Суммарные потери в сетях районов {F2(sumoll),25}");
                 return raipot.ToString();
             }
+        }
 
             private void Alpha()
             {
@@ -832,7 +864,6 @@ namespace PowerGridEditor
                 if (Math.Abs(rv) < 5 * Math.Pow(10, -maxDecimals)) rv = 0;
                 return rv.ToString("0." + new string('#', maxDecimals), C);
             }
-        }
 
             private struct AlphaState
             {
@@ -851,34 +882,5 @@ namespace PowerGridEditor
             }
         }
 
-        private sealed class EngineResult
-        {
-            public string NetworkCdu;
-            public string NetworkOut;
-            public string NetworkRez;
-            public string NetworkRip;
-            public string LossesRez;
-        }
-
-        private struct NodeSnapshot
-        {
-            public int Number;
-            public int Type;
-            public double U;
-            public double PLoad;
-            public double QLoad;
-
-            public static NodeSnapshot FromNode(int number, int type, dynamic d)
-            {
-                return new NodeSnapshot
-                {
-                    Number = number,
-                    Type = type,
-                    U = d.InitialVoltage,
-                    PLoad = d.NominalActivePower,
-                    QLoad = d.NominalReactivePower
-                };
-            }
-        }
     }
 }
