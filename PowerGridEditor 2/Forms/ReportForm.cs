@@ -16,12 +16,6 @@ namespace PowerGridEditor
         private List<GraphicShunt> _shunts;
         private readonly Timer refreshTimer;
 
-        private string _lastSignature;
-        private string _cachedOverview;
-        private string _cachedInput;
-        private string _cachedResults;
-        private string _cachedLoss;
-        private string _cachedBreakdown;
 
         public ReportForm()
         {
@@ -51,68 +45,22 @@ namespace PowerGridEditor
             var branches = _branches.OrderBy(x => x.Data.StartNodeNumber).ThenBy(x => x.Data.EndNodeNumber).ToList();
             var shunts = _shunts.OrderBy(x => x.Data.StartNodeNumber).ToList();
 
-            var signature = BuildSignature(nodes, branches, shunts);
-            if (signature == _lastSignature)
-            {
-                txtOverview.Text = _cachedOverview ?? string.Empty;
-                txtInput.Text = _cachedInput ?? string.Empty;
-                txtResults.Text = _cachedResults ?? string.Empty;
-                txtLoss.Text = _cachedLoss ?? string.Empty;
-                txtBreakdown.Text = _cachedBreakdown ?? string.Empty;
-                return;
-            }
-
             if (TryGenerateExternalReports(nodes, branches, shunts, out var ov, out var input, out var rez, out var rip, out var loss))
             {
-                _lastSignature = signature;
-                _cachedOverview = ov;
-                _cachedInput = input;
-                _cachedResults = rez;
-                _cachedLoss = rip;
-                _cachedBreakdown = loss;
+                txtOverview.Text = ov;
+                txtInput.Text = input;
+                txtResults.Text = rez;
+                txtLoss.Text = rip;
+                txtBreakdown.Text = loss;
             }
             else
             {
-                // fallback к предыдущему встроенному отображению
-                _lastSignature = signature;
-                _cachedOverview = BuildOverview(nodes, branches, shunts);
-                _cachedInput = BuildInput(nodes, branches, shunts);
-                _cachedResults = BuildResults(nodes, branches, shunts);
-                _cachedLoss = BuildLoss(nodes, branches, shunts);
-                _cachedBreakdown = BuildBreakdown(nodes, branches, shunts);
+                txtOverview.Text = BuildOverview(nodes, branches, shunts);
+                txtInput.Text = BuildInput(nodes, branches, shunts);
+                txtResults.Text = BuildResults(nodes, branches, shunts);
+                txtLoss.Text = BuildLoss(nodes, branches, shunts);
+                txtBreakdown.Text = BuildBreakdown(nodes, branches, shunts);
             }
-
-            txtOverview.Text = _cachedOverview;
-            txtInput.Text = _cachedInput;
-            txtResults.Text = _cachedResults;
-            txtLoss.Text = _cachedLoss;
-            txtBreakdown.Text = _cachedBreakdown;
-        }
-
-        private static string BuildSignature(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
-        {
-            var sb = new StringBuilder();
-            foreach (var n in nodes)
-            {
-                sb.Append(n.Number).Append('|').Append(n.Type).Append('|').Append(n.U.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(n.PLoad.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(n.QLoad.ToString("G17", CultureInfo.InvariantCulture)).Append(';');
-            }
-            foreach (var b in branches)
-            {
-                sb.Append(b.Data.StartNodeNumber).Append('-').Append(b.Data.EndNodeNumber).Append('|')
-                    .Append(b.Data.ActiveResistance.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(b.Data.ReactiveResistance.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(b.Data.ReactiveConductivity.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(b.Data.TransformationRatio.ToString("G17", CultureInfo.InvariantCulture)).Append(';');
-            }
-            foreach (var s in shunts)
-            {
-                sb.Append("S").Append(s.Data.StartNodeNumber).Append('|')
-                    .Append(s.Data.ActiveResistance.ToString("G17", CultureInfo.InvariantCulture)).Append('|')
-                    .Append(s.Data.ReactiveResistance.ToString("G17", CultureInfo.InvariantCulture)).Append(';');
-            }
-            return sb.ToString();
         }
 
         private bool TryGenerateExternalReports(
@@ -162,7 +110,7 @@ namespace PowerGridEditor
             var slack = nodes.FirstOrDefault(x => x.Type == 3);
             var pqpv = nodes.Where(x => x.Type != 3).ToList();
 
-            using (var sw = new StreamWriter(filePath, false, Encoding.UTF8))
+            using (var sw = new StreamWriter(filePath, false, Encoding.GetEncoding(1251)))
             {
                 if (slack.Number != 0)
                 {
@@ -208,7 +156,12 @@ namespace PowerGridEditor
             string runnerPath = FindRunner();
             if (string.IsNullOrEmpty(runnerPath))
             {
-                error = "Не найден ConsoleApplicationCS.exe (или .dll). Сначала соберите ConsoleApplicationCS.";
+                TryBuildConsoleApp();
+                runnerPath = FindRunner();
+            }
+            if (string.IsNullOrEmpty(runnerPath))
+            {
+                error = "Не найден ConsoleApplicationCS.exe (или .dll). Не удалось собрать ConsoleApplicationCS автоматически.";
                 return false;
             }
 
@@ -237,7 +190,12 @@ namespace PowerGridEditor
 
                 var output = process.StandardOutput.ReadToEnd();
                 var err = process.StandardError.ReadToEnd();
-                process.WaitForExit(60000);
+                if (!process.WaitForExit(60000))
+                {
+                    try { process.Kill(); } catch { }
+                    error = "Таймаут выполнения ConsoleApplicationCS (более 60 сек).";
+                    return false;
+                }
 
                 if (process.ExitCode != 0)
                 {
@@ -247,6 +205,43 @@ namespace PowerGridEditor
             }
 
             return true;
+        }
+
+        private static void TryBuildConsoleApp()
+        {
+            try
+            {
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                var csprojCandidates = new[]
+                {
+                    Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\ConsoleApplicationCS\ConsoleApplicationCS.csproj")),
+                    Path.GetFullPath(Path.Combine(baseDir, @"..\..\..\..\ConsoleApplicationCS\ConsoleApplicationCS.csproj"))
+                };
+
+                var csproj = csprojCandidates.FirstOrDefault(File.Exists);
+                if (string.IsNullOrEmpty(csproj)) return;
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = "build \"" + csproj + "\" -c Release",
+                    WorkingDirectory = Path.GetDirectoryName(csproj),
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using (var p = new Process { StartInfo = psi })
+                {
+                    p.Start();
+                    p.WaitForExit(90000);
+                }
+            }
+            catch
+            {
+                // ignore, fallback handled by caller
+            }
         }
 
         private static string FindRunner()
@@ -293,6 +288,26 @@ namespace PowerGridEditor
             sb.AppendLine($"Число ветвей: {branches.Count}");
             sb.AppendLine($"Число шунтов: {shunts.Count}");
             return sb.ToString();
+        }
+
+        private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private static string BuildResults(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private static string BuildLoss(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
+        {
+            return "Внешний расчёт недоступен.";
+        }
+
+        private List<NodeSnapshot> ReadNodes()
+        {
+            return "Внешний расчёт недоступен.";
         }
 
         private static string BuildInput(List<NodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts)
