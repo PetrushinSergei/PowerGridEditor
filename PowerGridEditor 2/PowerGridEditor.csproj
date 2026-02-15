@@ -96,6 +96,7 @@
     <Compile Include="Forms\ReportForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Forms\ConsoleApplicationEngine.cs" />
     <Compile Include="Forms\ReportForm.Designer.cs">
       <DependentUpon>ReportForm.cs</DependentUpon>
     </Compile>
