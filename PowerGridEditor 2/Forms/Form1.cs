@@ -1652,38 +1652,30 @@ namespace PowerGridEditor
 
         private void WriteAllNodes(StreamWriter writer)
         {
+            var baseNodeNumbers = new HashSet<int>(graphicElements
+                .OfType<GraphicBaseNode>()
+                .Select(x => x.Data.Number));
+
             var allNodes = new List<(int number, double voltage, double pLoad, double qLoad, double pGen, double qGen, double uFixed, double qMin, double qMax)>();
 
-            foreach (var element in graphicElements)
+            foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                if (element is GraphicNode node)
+                if (baseNodeNumbers.Contains(node.Data.Number))
                 {
-                    allNodes.Add((
-                        node.Data.Number,
-                        node.Data.InitialVoltage,
-                        node.Data.NominalActivePower,
-                        node.Data.NominalReactivePower,
-                        node.Data.ActivePowerGeneration,
-                        node.Data.ReactivePowerGeneration,
-                        node.Data.FixedVoltageModule,
-                        node.Data.MinReactivePower,
-                        node.Data.MaxReactivePower
-                    ));
+                    continue;
                 }
-                else if (element is GraphicBaseNode baseNode)
-                {
-                    allNodes.Add((
-                        baseNode.Data.Number,
-                        baseNode.Data.InitialVoltage,
-                        baseNode.Data.NominalActivePower,
-                        baseNode.Data.NominalReactivePower,
-                        baseNode.Data.ActivePowerGeneration,
-                        baseNode.Data.ReactivePowerGeneration,
-                        baseNode.Data.FixedVoltageModule,
-                        baseNode.Data.MinReactivePower,
-                        baseNode.Data.MaxReactivePower
-                    ));
-                }
+
+                allNodes.Add((
+                    node.Data.Number,
+                    node.Data.InitialVoltage,
+                    node.Data.NominalActivePower,
+                    node.Data.NominalReactivePower,
+                    node.Data.ActivePowerGeneration,
+                    node.Data.ReactivePowerGeneration,
+                    node.Data.FixedVoltageModule,
+                    node.Data.MinReactivePower,
+                    node.Data.MaxReactivePower
+                ));
             }
 
             allNodes = allNodes.OrderBy(n => n.number).ToList();
@@ -1757,7 +1749,7 @@ namespace PowerGridEditor
                              $"{FormatDouble(branch.r),4}   " +
                              $"{FormatDouble(branch.x),5}   " +
                              $"{FormatDouble(branch.b, true),6}     " +
-                             $"{FormatInt(branch.k),1} " +
+                             $"{FormatDouble(branch.k),5} " +
                              $"{FormatInt(branch.g),1} 0 0";
 
                 writer.WriteLine(line);
@@ -2014,6 +2006,32 @@ namespace PowerGridEditor
                 double qMax = ParseDouble(parts[10]);
 
                 Point pos = SpiralPosition(index, 90);   // 90 px шаг
+
+                for (int i = graphicElements.Count - 1; i >= 0; i--)
+                {
+                    var existingNode = graphicElements[i] as GraphicNode;
+                    if (existingNode != null && existingNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                        continue;
+                    }
+
+                    var existingBaseNode = graphicElements[i] as GraphicBaseNode;
+                    if (existingBaseNode != null && existingBaseNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                    }
+                }
 
                 if (isBaseNode)
                 {
