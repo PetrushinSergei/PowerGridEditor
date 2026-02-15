@@ -31,6 +31,8 @@ internal static class Program
     private static int Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
+        CultureInfo.CurrentCulture = C;
+        CultureInfo.CurrentUICulture = C;
 
         Console.WriteLine("=== Расчёт установившегося режима (потокораспределение) ===");
         Console.Write("Введите путь к файлу .CDU: ");
@@ -59,7 +61,7 @@ internal static class Program
 
         for (int i = 0; i <= n; i++)
         {
-            fout.WriteLine($"{nn[i],5}{nk[i],5}{unom[i],7:F0}{p0[i],9:F0}{q0[i],9:F0}{g[i],9:F5}{b[i],12:F5}");
+            fout.WriteLine($"{nn[i],5}{nk[i],5}{Flex(unom[i], 0),7}{Flex(p0[i], 0),9}{Flex(q0[i], 0),9}{Flex(g[i], 5),9}{Flex(b[i], 5),12}");
         }
 
         fout.WriteLine();
@@ -68,7 +70,7 @@ internal static class Program
 
         for (int j = 1; j <= m; j++)
         {
-            fout.WriteLine($"{nm[1, j],5}{nm[2, j],5}{r[j],10:F3}{x[j],10:F2}{(-by[j]),14:F6}{gy[j],10:F0}{kt[j],9:F0}");
+            fout.WriteLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(-by[j], 7),14}{Flex(gy[j], 0),10}{Flex(kt[j], 0),9}");
         }
 
         fout.WriteLine();
@@ -81,18 +83,18 @@ internal static class Program
             Gauss();
             count++;
             norm = Func();
-            fout.WriteLine($"{count}{norm,12:F6}");
+            fout.WriteLine($"{count}{Flex(norm, 6),12}");
         }
 
         if (count >= Iteraz && norm > Precision)
         {
-            fout.WriteLine($"Не сошелся за {count} итераций, невязка={norm:F6}");
+            fout.WriteLine($"Не сошелся за {count} итераций, невязка={Flex(norm,6)}");
             Console.WriteLine("Режим НЕ сошелся.");
         }
         else
         {
-            fout.WriteLine($"Сошелся. Итерация={count}, невязка={norm:F6}");
-            Console.WriteLine($"Режим сошелся. Итерация={count}, невязка={norm:F6}");
+            fout.WriteLine($"Сошелся. Итерация={count}, невязка={Flex(norm,6)}");
+            Console.WriteLine($"Режим сошелся. Итерация={count}, невязка={Flex(norm,6)}");
             Load();
             CalculateLossDistribution();
         }
@@ -177,14 +179,14 @@ internal static class Program
 
                 if (nm[2, br] == 0)
                 {
-                    double gb = t.Length > 4 ? ParseD(t[4]) : 0;
-                    double bbv = t.Length > 5 ? ParseD(t[5]) : 0;
+                    g[br] = t.Length > 4 ? ParseD(t[4]) : 0;
+                    b[br] = t.Length > 5 ? ParseD(t[5]) : 0;
                     for (int l = 1; l <= j; l++)
                     {
                         if (nn[l] == nm[1, br])
                         {
-                            b[l] = -bbv;
-                            _ = gb;
+                            b[l] = -b[br];
+                            b[br] = 0;
                         }
                     }
                     br--;
@@ -455,11 +457,11 @@ internal static class Program
             sp += p[i]; sq += q[i]; spg += pg; sqb += qb;
             mv = Math.Sqrt(mv);
 
-            net2.WriteLine($"{nn[i],5}{mv,10:F2}{dv,10:F2}{(-p[i]),10:F2}{(-q[i]),10:F2}{pg,10:F2}{qb,10:F2}");
+            net2.WriteLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(-p[i]),10}{F2(-q[i]),10}{F2(pg),10}{F2(qb),10}");
         }
 
         net2.WriteLine("---------------------------------------------------");
-        net2.WriteLine($"Баланс пассивных элементов {sp,10:F2}{sq,10:F2}{spg,10:F2}{sqb,10:F2}");
+        net2.WriteLine($"Баланс пассивных элементов {F2(sp),10}{F2(sq),10}{F2(spg),10}{F2(sqb),10}");
         net2.WriteLine("                         + потребление, - генерация ");
         net2.WriteLine();
         net2.WriteLine("                   Результаты расчета по ветвям");
@@ -486,9 +488,9 @@ internal static class Program
             dPsum += dpl;
 
             // В эталоне tok — внутренние индексы узлов
-            tok.WriteLine($"{i1,5}{i2,5}{i1a,10:F4}{i1r,10:F4}{r[j],15:F3}");
+            tok.WriteLine($"{i1,5}{i2,5}{F4(i1a),10}{F4(i1r),10}{Flex(r[j],3),15}");
 
-            net2.WriteLine($"{nn[i1],5}{nn[i2],5}{(-p12),10:F2}{(-q12),10:F2}{p21,10:F2}{q21,10:F2}{dpl,10:F2}");
+            net2.WriteLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
@@ -523,7 +525,7 @@ internal static class Program
             }
         }
 
-        net2.WriteLine($"{dPsum,60:F2}");
+        net2.WriteLine($"{F2(dPsum),60}");
 
         int[] ul = { 6, 10, 20, 35, 110, 220, 330, 500, 750, 1150 };
         for (int i = 0; i < 10; i++)
@@ -535,7 +537,7 @@ internal static class Program
                 if (linc[i, g1] != 0)
                 {
                     raipot.WriteLine(" Потери в линиях");
-                    raipot.WriteLine($"{ul[g1],5} кВ{line[i, g1],15:F3}");
+                    raipot.WriteLine($"{ul[g1],5} кВ{Flex(line[i, g1],3),15}");
                 }
             }
         }
@@ -546,10 +548,10 @@ internal static class Program
         for (int i = 0; i < 10; i++)
         {
             if (nus[i] == 0) continue;
-            raipot.WriteLine($"{i,5}{saldo[0, i],20:F2}{saldo[1, i],20:F2}{sumpot[i],20:F2}");
+            raipot.WriteLine($"{i,5}{F2(saldo[0, i]),20}{F2(saldo[1, i]),20}{F2(sumpot[i]),20}");
             sumoll += sumpot[i];
         }
-        raipot.WriteLine($" Суммарные потери в сетях районов {sumoll,25:F2}");
+        raipot.WriteLine($" Суммарные потери в сетях районов {F2(sumoll),25}");
 
         return true;
     }
@@ -621,12 +623,12 @@ internal static class Program
         net2.WriteLine($"  Число узлов  = {n + 1}\tЧисло Ветвей  = {L}");
         net2.WriteLine("         Токи ветвей ");
         net2.WriteLine(" Ветвь Нач.   Кон.    Ток Ak   Ток Re    R  ");
-        for (int i = 1; i <= L; i++) net2.WriteLine($"{nn[na[i]],8}{nn[ka[i]],8}{ta[i],10:F2}{tr[i],10:F2}{rd[i],10:F2}");
+        for (int i = 1; i <= L; i++) net2.WriteLine($"{nn[na[i]],8}{nn[ka[i]],8}{F2(ta[i]),10}{F2(tr[i]),10}{F2(rd[i]),10}");
 
         net2.WriteLine("       Задающие токи узлов  ");
         net2.WriteLine("     Узел            ТЗа     ТЗр  ");
-        for (int j = 1; j <= n; j++) net2.WriteLine($"{nn[j],8}{tza[j],10:F2}{tzr[j],10:F2}");
-        net2.WriteLine($"{nn[0],8}{tza[0],10:F2}{tzr[0],10:F2}");
+        for (int j = 1; j <= n; j++) net2.WriteLine($"{nn[j],8}{F2(tza[j]),10}{F2(tzr[j]),10}");
+        net2.WriteLine($"{nn[0],8}{F2(tza[0]),10}{F2(tzr[0]),10}");
 
         for (int i = 1; i <= L; i++)
             for (int j = 0; j <= n; j++)
@@ -681,22 +683,22 @@ internal static class Program
                 for (int kk1 = 0; kk1 <= n; kk1++) comp += a[i, j] * a[i, kk1] + ar[i, j] * ar[i, kk1];
                 aa[i, j] = rd[i] * comp;
                 total += aa[i, j];
-                net2.Write($"{aa[i, j],6:F2}");
+                net2.Write($"{F2(aa[i, j]),6}");
             }
             double bal = 0;
             for (int kk1 = 0; kk1 <= n; kk1++) bal += a[i, 0] * a[i, kk1] + ar[i, 0] * ar[i, kk1];
             aa[i, 0] = rd[i] * bal;
             total += aa[i, 0];
-            net2.WriteLine($"{aa[i, 0],6:F2}{total,7:F2}");
+            net2.WriteLine($"{F2(aa[i, 0]),6}{F2(total),7}");
         }
 
         net2.WriteLine();
         for (int i = 1; i <= L; i++)
         {
-            net2.WriteLine($"Ветвь   {nn[na[i]]}-{nn[ka[i]]}  Потери  {dP[i]:F2}");
+            net2.WriteLine($"Ветвь   {nn[na[i]]}-{nn[ka[i]]}  Потери  {F2(dP[i])}");
             net2.Write("Составляющие ");
-            for (int j = 1; j <= n; j++) if (Math.Abs(aa[i, j]) > 1e-6) net2.Write($" dP{nn[j]}={aa[i, j]:F2}");
-            if (Math.Abs(aa[i, 0]) > 1e-6) net2.Write($" dP{nn[0]}={aa[i, 0]:F2}");
+            for (int j = 1; j <= n; j++) if (Math.Abs(aa[i, j]) > 1e-6) net2.Write($" dP{nn[j]}={F2(aa[i, j])}");
+            if (Math.Abs(aa[i, 0]) > 1e-6) net2.Write($" dP{nn[0]}={F2(aa[i, 0])}");
             net2.WriteLine();
         }
 
@@ -710,10 +712,19 @@ internal static class Program
         {
             double nodeLoss = 0;
             for (int i = 1; i <= L; i++) nodeLoss += aa[i, j];
-            net2.Write($"{nodeLoss,6:F2}");
+            net2.Write($"{F2(nodeLoss),6}");
         }
         double balLoss = 0;
         for (int i = 1; i <= L; i++) balLoss += aa[i, 0];
-        net2.WriteLine($"{balLoss,6:F2}");
+        net2.WriteLine($"{F2(balLoss),6}");
     }
+    private static string F2(double v) => Math.Round(v, 2, MidpointRounding.AwayFromZero).ToString("0.00", C);
+    private static string F4(double v) => Math.Round(v, 4, MidpointRounding.AwayFromZero).ToString("0.0000", C);
+    private static string Flex(double v, int maxDecimals = 7)
+    {
+        double rv = Math.Round(v, maxDecimals, MidpointRounding.AwayFromZero);
+        if (Math.Abs(rv) < 5 * Math.Pow(10, -maxDecimals)) rv = 0;
+        return rv.ToString("0." + new string('#', maxDecimals), C);
+    }
+
 }
