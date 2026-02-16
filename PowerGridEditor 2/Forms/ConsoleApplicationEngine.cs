@@ -445,8 +445,7 @@ internal sealed class ConsoleApplicationEngine
 
         for (int j = 1; j <= m; j++)
         {
-            double ktr = kt[j] < 0.001 ? 1 : kt[j];
-            sb.AppendLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(Math.Abs(by[j]), 7),14}{Flex(gy[j], 0),10}{Flex(ktr, 3),9}");
+            sb.AppendLine($"{nm[1, j],5}{nm[2, j],5}{Flex(r[j], 3),10}{Flex(x[j], 2),10}{Flex(Math.Abs(by[j]), 7),14}{Flex(gy[j], 0),10}{Flex(kt[j], 0),9}");
         }
 
         sb.AppendLine();
@@ -509,7 +508,7 @@ internal sealed class ConsoleApplicationEngine
             double dpl = Math.Abs(p21 - p12);
             dPsum += dpl;
 
-            tokRows.Add(new TokRow { Start = i1, End = i2, Ia = i1a, Ir = i1r, R = Math.Abs(r[j]) });
+            tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
             net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
 
@@ -792,6 +791,11 @@ internal sealed class ConsoleApplicationEngine
     }
 
     private static string F2(double v) => Math.Round(v, 2, MidpointRounding.AwayFromZero).ToString("0.00", C);
+
+    private static double RoundFromFlex(double v, int maxDecimals)
+    {
+        return double.Parse(Flex(v, maxDecimals), NumberStyles.Float, C);
+    }
 
     private static string Flex(double v, int maxDecimals = 7)
     {
