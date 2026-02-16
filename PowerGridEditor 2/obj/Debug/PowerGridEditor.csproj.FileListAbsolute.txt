@@ -1,0 +1,16 @@
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\bin\Debug\PowerGridEditor.exe.config
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\bin\Debug\PowerGridEditor.exe
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\bin\Debug\PowerGridEditor.pdb
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\bin\Debug\NModbus.dll
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.AssemblyReference.cache
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.BaseNodeForm.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.BranchForm.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.Form1.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.NodeForm.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.Properties.Resources.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.ShuntForm.resources
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.GenerateResource.cache
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.CoreCompileInputs.cache
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGri.81ACA730.Up2Date
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.exe
+C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.pdb
