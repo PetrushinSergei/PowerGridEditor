@@ -607,6 +607,7 @@ namespace PowerGridEditor
             foreach (var branch in graphicBranches)
             {
                 branch.Draw(e.Graphics);
+                DrawBranchCurrentInfo(e.Graphics, branch);
             }
 
             // 3. Затем рисуем прямоугольники шунтов
@@ -637,6 +638,81 @@ namespace PowerGridEditor
                     e.Graphics.DrawRectangle(pen, rect);
                 }
             }
+
+            DrawBranchLegend(e.Graphics);
+        }
+
+        private void DrawBranchCurrentInfo(Graphics g, GraphicBranch branch)
+        {
+            if (branch == null || branch.StartNode == null || branch.EndNode == null)
+            {
+                return;
+            }
+
+            Point start = NodeGraphicsHelper.GetNodeCenter(branch.StartNode);
+            Point end = NodeGraphicsHelper.GetNodeCenter(branch.EndNode);
+            Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
+
+            double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+            double ir = branch.Data.CalculatedCurrent;
+            double loading = branch.Data.LoadingPercent;
+            double reserve = 100.0 - loading;
+
+            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Запас={reserve:F2}%";
+            var size = g.MeasureString(info, Font);
+            var rect = new RectangleF(middle.X - size.Width / 2f - 4f, middle.Y - 25f, size.Width + 8f, size.Height + 2f);
+
+            using (var bg = new SolidBrush(Color.FromArgb(225, Color.White)))
+            using (var textBrush = new SolidBrush(Color.Black))
+            using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            {
+                g.FillRectangle(bg, rect);
+                g.DrawString(info, font, textBrush, rect.X + 4f, rect.Y + 1f);
+            }
+        }
+
+        private void DrawBranchLegend(Graphics g)
+        {
+            var state = g.Save();
+            g.ResetTransform();
+
+            int x = Math.Max(6, panel2.ClientSize.Width - 365);
+            int y = Math.Max(6, panel2.ClientSize.Height - 170);
+            int rowH = 24;
+            int legendW = 350;
+            int legendH = 155;
+
+            using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
+            using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
+            using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            {
+                g.FillRectangle(bg, x, y, legendW, legendH);
+                g.DrawRectangle(border, x, y, legendW, legendH);
+                g.DrawString("Легенда загрузки ветвей", font, Brushes.Black, x + 8, y + 6);
+
+                var rows = new[]
+                {
+                    (Color.Blue, "0% - 50%", "Линия недогружена (холодная)"),
+                    (Color.Green, "50% - 80%", "Оптимальный режим"),
+                    (Color.Yellow, "80% - 95%", "Внимание! Близко к пределу"),
+                    (Color.Orange, "95% - 100%", "Предупреждение"),
+                    (Color.Red, "> 100%", "ПЕРЕГРУЗКА! Риск повреждения")
+                };
+
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    int ry = y + 30 + i * rowH;
+                    using (var colorBrush = new SolidBrush(rows[i].Item1))
+                    {
+                        g.FillRectangle(colorBrush, x + 8, ry + 4, 18, 12);
+                    }
+
+                    g.DrawRectangle(Pens.Black, x + 8, ry + 4, 18, 12);
+                    g.DrawString($"{rows[i].Item2}: {rows[i].Item3}", font, Brushes.Black, x + 34, ry + 1);
+                }
+            }
+
+            g.Restore(state);
         }
 
         private Rectangle GetMarqueeRectangle()
