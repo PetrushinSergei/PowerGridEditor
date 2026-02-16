@@ -27,6 +27,9 @@ namespace PowerGridEditor
         public NodeForm(Node node)
         {
             InitializeComponent(); // Все контроллеры создаются здесь (в Designer.cs)
+            BackColor = Color.FromArgb(236, 253, 245);
+            tabParams.BackColor = Color.FromArgb(236, 253, 245);
+            tabSettings.BackColor = Color.FromArgb(236, 253, 245);
             MyNode = node;
 
             liveTimer = new Timer { Interval = 2000 };

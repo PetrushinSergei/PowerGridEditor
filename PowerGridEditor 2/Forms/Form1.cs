@@ -49,7 +49,7 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
-        private static readonly Color ThemePageBackground = Color.FromArgb(241, 247, 255);
+        private static readonly Color ThemePageBackground = Color.FromArgb(236, 253, 245);
         private static readonly Color ThemePanelBackground = Color.White;
         private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
         private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
@@ -112,10 +112,10 @@ namespace PowerGridEditor
             grid.EnableHeadersVisualStyles = false;
             grid.DefaultCellStyle.BackColor = Color.White;
             grid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
             grid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
-            grid.GridColor = Color.FromArgb(191, 219, 254);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+            grid.GridColor = Color.FromArgb(187, 247, 208);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
@@ -148,7 +148,7 @@ namespace PowerGridEditor
                 Dock = DockStyle.Top,
                 Height = 140,
                 Padding = new Padding(12),
-                BackColor = Color.FromArgb(219, 234, 254)
+                BackColor = Color.FromArgb(187, 247, 208)
             };
 
             labelTopClock.Parent = contentPanel;
@@ -411,7 +411,7 @@ namespace PowerGridEditor
             int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(219, 234, 254);
+            row.DefaultCellStyle.BackColor = Color.FromArgb(187, 247, 208);
             row.DefaultCellStyle.ForeColor = ThemeTextBlack;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
@@ -565,7 +565,7 @@ namespace PowerGridEditor
 
         private void SetupCanvas()
         {
-            panel2.BackColor = ThemePageBackground;
+            panel2.BackColor = Color.White;
             panel2.BorderStyle = BorderStyle.FixedSingle;
             panel2.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(panel2, true, null);
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
@@ -710,7 +710,10 @@ namespace PowerGridEditor
             {
                 if (ctrlPressed)
                 {
-                    ToggleSelection(hitElement);
+                    if (!selectedElements.Contains(hitElement))
+                    {
+                        SelectElement(hitElement);
+                    }
                 }
                 else
                 {
@@ -2241,7 +2244,7 @@ namespace PowerGridEditor
             this.BackColor = ThemePageBackground;
             this.ForeColor = ThemeTextBlack;
             panel1.BackColor = ThemePanelBackground;
-            panel2.BackColor = ThemePageBackground;
+            panel2.BackColor = Color.White;
 
             foreach (Control ctrl in panel1.Controls)
             {
@@ -2264,10 +2267,10 @@ namespace PowerGridEditor
                 elementsGrid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
                 elementsGrid.DefaultCellStyle.BackColor = Color.White;
                 elementsGrid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
                 elementsGrid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
-                elementsGrid.GridColor = Color.FromArgb(191, 219, 254);
+                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+                elementsGrid.GridColor = Color.FromArgb(187, 247, 208);
             }
 
             telemetryEditorForm?.ApplyTheme();

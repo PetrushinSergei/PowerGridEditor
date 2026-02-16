@@ -35,6 +35,9 @@ namespace PowerGridEditor
         public BaseNodeForm()
         {
             InitializeComponent();
+            BackColor = Color.FromArgb(236, 253, 245);
+            tabParams.BackColor = Color.FromArgb(236, 253, 245);
+            tabSettings.BackColor = Color.FromArgb(236, 253, 245);
             MyBaseNode = new BaseNode(0);
 
             buttonSave.Click += (s, e) => SaveData();

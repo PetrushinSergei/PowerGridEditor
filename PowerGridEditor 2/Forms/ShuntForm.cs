@@ -29,6 +29,9 @@ namespace PowerGridEditor
         public ShuntForm()
         {
             InitializeComponent();
+            BackColor = Color.FromArgb(236, 253, 245);
+            tabParams.BackColor = Color.FromArgb(236, 253, 245);
+            tabSettings.BackColor = Color.FromArgb(236, 253, 245);
             MyShunt = new Shunt(0);
 
             buttonSave.Click += (s, e) => SaveData();
