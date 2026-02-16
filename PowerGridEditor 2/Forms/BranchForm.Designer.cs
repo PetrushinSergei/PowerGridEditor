@@ -25,9 +25,9 @@
             this.tabParams = new System.Windows.Forms.TabPage { Text = "Параметры ветви" };
             this.tabSettings = new System.Windows.Forms.TabPage { Text = "Настройки связи" };
 
-            this.paramBoxes = new System.Windows.Forms.TextBox[7];
-            this.paramChecks = new System.Windows.Forms.CheckBox[7];
-            this.addrBoxes = new System.Windows.Forms.TextBox[7];
+            this.paramBoxes = new System.Windows.Forms.TextBox[8];
+            this.paramChecks = new System.Windows.Forms.CheckBox[8];
+            this.addrBoxes = new System.Windows.Forms.TextBox[8];
 
             this.buttonSave = new System.Windows.Forms.Button { Text = "Сохранить", Size = new System.Drawing.Size(100, 32) };
             this.buttonCancel = new System.Windows.Forms.Button { Text = "Отмена", Size = new System.Drawing.Size(100, 32) };
@@ -42,15 +42,16 @@
             string[] names = {
                 "Начальный узел:",
                 "Конечный узел:",
-                "Активное сопротивление R:",
-                "Реактивное сопротивление X:",
-                "Реактивная проводимость B:",
-                "Коэф. трансформации K:",
-                "Активная проводимость G:"
+                "Активное сопротивление R (Ом):",
+                "Реактивное сопротивление X (Ом):",
+                "Реактивная проводимость B (См):",
+                "Коэф. трансформации K (о.е.):",
+                "Активная проводимость G (См):",
+                "Допустимый ток Iдоп (А):"
             };
 
             int y = 20;
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 var lblName = new System.Windows.Forms.Label
                 {
@@ -147,7 +148,7 @@
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblId, textBoxID });
 
             top += rowGap;
-            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения (сек):", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(150, 23) };
+            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения\r\n(сек):", Location = new System.Drawing.Point(leftLabel, top + 1), Size = new System.Drawing.Size(150, 34) };
             numericMeasurementInterval = new System.Windows.Forms.NumericUpDown
             {
                 Location = new System.Drawing.Point(leftInput, top),

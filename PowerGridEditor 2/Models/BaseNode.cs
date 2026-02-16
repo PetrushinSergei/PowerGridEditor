@@ -14,6 +14,7 @@ namespace PowerGridEditor
         public double FixedVoltageModule { get; set; }
         public double MinReactivePower { get; set; }
         public double MaxReactivePower { get; set; }
+        public double PermissibleCurrent { get; set; } = 600;
 
         public string IPAddress { get; set; } = "127.0.0.1";
         public string Port { get; set; } = "502";
@@ -32,7 +33,7 @@ namespace PowerGridEditor
             Number = number;
             InitialVoltage = 525.0;
 
-            string[] keys = { "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+            string[] keys = { "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax", "Imax" };
             foreach (var key in keys)
             {
                 ParamRegisters[key] = "0";
