@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Windows.Forms;
 
 namespace PowerGridEditor
@@ -37,39 +36,116 @@ namespace PowerGridEditor
                 return;
             }
 
-            var nodes = ReadNodes().OrderBy(x => x.Number).ToList();
-            var branches = _branches.OrderBy(x => x.Data.StartNodeNumber).ThenBy(x => x.Data.EndNodeNumber).ToList();
-            var shunts = _shunts.OrderBy(x => x.Data.StartNodeNumber).ToList();
-
-            var engine = new ConsoleApplicationEngine(nodes, branches, shunts, CalculationOptions.Precision, CalculationOptions.MaxIterations);
+            var cduLines = BuildCduLines();
+            var engine = new ConsoleApplicationEngine(cduLines, CalculationOptions.Precision, CalculationOptions.MaxIterations);
             var result = engine.Run();
 
             txtOverview.Text = result.NetworkCdu;
+            txtErr.Text = result.NetworkErr;
             txtInput.Text = result.NetworkOut;
             txtResults.Text = result.NetworkRez;
             txtLoss.Text = result.NetworkRip;
             txtBreakdown.Text = result.LossesRez;
         }
 
-        private List<ReportNodeSnapshot> ReadNodes()
+        private List<string> BuildCduLines()
         {
-            var list = new List<ReportNodeSnapshot>();
-            foreach (var el in _elements)
-            {
-                var node = el as GraphicNode;
-                if (node != null)
-                {
-                    int type = node.Data.FixedVoltageModule > 0.1 ? 2 : 1;
-                    list.Add(ReportNodeSnapshot.FromNode(node.Data.Number, type, node.Data));
-                }
+            var lines = new List<string>();
 
-                var baseNode = el as GraphicBaseNode;
+            var baseNodeNumbers = new HashSet<int>();
+            foreach (var element in _elements)
+            {
+                var baseNode = element as GraphicBaseNode;
                 if (baseNode != null)
                 {
-                    list.Add(ReportNodeSnapshot.FromNode(baseNode.Data.Number, 3, baseNode.Data));
+                    baseNodeNumbers.Add(baseNode.Data.Number);
                 }
             }
-            return list;
+
+            foreach (var element in _elements)
+            {
+                var node = element as GraphicNode;
+                if (node == null || baseNodeNumbers.Contains(node.Data.Number))
+                {
+                    continue;
+                }
+
+                string line = $"0201 0   {node.Data.Number,3}  {node.Data.InitialVoltage,3}     " +
+                              $"{FormatInt(node.Data.NominalActivePower),4}  {FormatInt(node.Data.NominalReactivePower),3}  " +
+                              $"{FormatInt(node.Data.ActivePowerGeneration),1} {FormatInt(node.Data.ReactivePowerGeneration),1}  " +
+                              $"{FormatInt(node.Data.FixedVoltageModule),3} {FormatInt(node.Data.MinReactivePower),1} {FormatInt(node.Data.MaxReactivePower),1}";
+                lines.Add(line);
+            }
+
+            foreach (var element in _elements)
+            {
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode == null)
+                {
+                    continue;
+                }
+
+                string line = $"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
+                              $"{FormatInt(baseNode.Data.NominalActivePower),1}    " +
+                              $"{FormatInt(baseNode.Data.NominalReactivePower),1}  " +
+                              $"{FormatInt(baseNode.Data.ActivePowerGeneration),1} {FormatInt(baseNode.Data.ReactivePowerGeneration),1}   " +
+                              $"{FormatInt(baseNode.Data.FixedVoltageModule),1} " +
+                              $"{FormatInt(baseNode.Data.MinReactivePower),1} " +
+                              $"{FormatInt(baseNode.Data.MaxReactivePower),1}";
+                lines.Add(line);
+            }
+
+            foreach (var shunt in _shunts)
+            {
+                string shuntLine = $"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                                   $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                                   $"{FormatDouble(shunt.Data.ReactiveResistance),5}";
+                lines.Add(shuntLine);
+            }
+
+            foreach (var branch in _branches)
+            {
+                string branchLine = $"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                                    $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                                    $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
+                lines.Add(branchLine);
+            }
+
+            return lines;
+        }
+
+        private string FormatInt(double number)
+        {
+            if (number == 0)
+            {
+                return "0";
+            }
+
+            return ((int)number).ToString(CultureInfo.InvariantCulture);
+        }
+
+        private string FormatDouble(double number, bool isConductivity = false)
+        {
+            if (number == 0)
+            {
+                return "0";
+            }
+
+            if (isConductivity && number < 0)
+            {
+                return $"-{Math.Abs(number).ToString("F1", CultureInfo.InvariantCulture)}";
+            }
+
+            string formatted = number.ToString("F2", CultureInfo.InvariantCulture);
+            if (formatted.StartsWith("0."))
+            {
+                formatted = "." + formatted.Substring(2);
+            }
+
+            return formatted;
         }
     }
 }
