@@ -32,8 +32,6 @@ namespace PowerGridEditor
             g.DrawLine(pen, startCenter, endCenter);
             pen.Dispose();
 
-            // Рисуем параметры ветви
-            DrawBranchInfo(g, startCenter, endCenter);
         }
 
 

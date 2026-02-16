@@ -42,11 +42,11 @@
             string[] names = {
                 "Начальный узел:",
                 "Конечный узел:",
-                "Активное сопротивление R:",
-                "Реактивное сопротивление X:",
-                "Реактивная проводимость B:",
-                "Коэф. трансформации K:",
-                "Активная проводимость G:"
+                "Активное сопротивление R (Ом):",
+                "Реактивное сопротивление X (Ом):",
+                "Реактивная проводимость B (См):",
+                "Коэф. трансформации K (о.е.):",
+                "Активная проводимость G (См):"
             };
 
             int y = 20;
@@ -147,7 +147,7 @@
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblId, textBoxID });
 
             top += rowGap;
-            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения (сек):", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(150, 23) };
+            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения\r\n(сек):", Location = new System.Drawing.Point(leftLabel, top + 1), Size = new System.Drawing.Size(150, 34) };
             numericMeasurementInterval = new System.Windows.Forms.NumericUpDown
             {
                 Location = new System.Drawing.Point(leftInput, top),

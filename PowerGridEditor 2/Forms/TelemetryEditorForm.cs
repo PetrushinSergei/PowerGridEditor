@@ -43,12 +43,12 @@ namespace PowerGridEditor
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
         private bool suppressGridEvents;
 
-        private static readonly Color ThemePageBackground = Color.FromArgb(241, 247, 255);
+        private static readonly Color ThemePageBackground = Color.FromArgb(236, 253, 245);
         private static readonly Color ThemePanelBackground = Color.White;
-        private static readonly Color ThemeAccentBlue = Color.FromArgb(37, 99, 235);
-        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(59, 130, 246);
-        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(29, 78, 216);
-        private static readonly Color ThemeBorderBlue = Color.FromArgb(96, 165, 250);
+        private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
+        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
+        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(74, 222, 128);
+        private static readonly Color ThemeBorderBlue = Color.FromArgb(34, 197, 94);
         private static readonly Color ThemeTextBlack = Color.Black;
 
         public TelemetryEditorForm(
@@ -67,6 +67,7 @@ namespace PowerGridEditor
             Height = 800;
             BackColor = ThemePageBackground;
             ForeColor = ThemeTextBlack;
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold);
 
             topHint = new Label
             {
@@ -205,12 +206,20 @@ namespace PowerGridEditor
             grid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
             grid.DefaultCellStyle.BackColor = Color.White;
             grid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
             grid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
-            grid.GridColor = Color.FromArgb(191, 219, 254);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+            grid.GridColor = Color.FromArgb(187, 247, 208);
 
+            ApplyBoldFontsRecursive(this);
             RefreshGridFromModels(false);
+        }
+
+        private void ApplyBoldFontsRecursive(Control root)
+        {
+            if (root == null) return;
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control child in root.Controls) ApplyBoldFontsRecursive(child);
         }
 
         private DataGridView BuildGrid()
@@ -232,10 +241,10 @@ namespace PowerGridEditor
             table.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
             table.DefaultCellStyle.BackColor = Color.White;
             table.DefaultCellStyle.ForeColor = ThemeTextBlack;
-            table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+            table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
             table.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-            table.GridColor = Color.FromArgb(191, 219, 254);
-            table.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
+            table.GridColor = Color.FromArgb(187, 247, 208);
+            table.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
             table.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             table.EnableHeadersVisualStyles = false;
 
@@ -251,7 +260,9 @@ namespace PowerGridEditor
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "DeviceID", HeaderText = "ID устройства", Width = 95 });
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "UpdateInterval", HeaderText = "Интервал, c", Width = 85 });
             table.Columns.Add(new DataGridViewButtonColumn { Name = "Ping", HeaderText = "Пинг", Text = "Пинг", UseColumnTextForButtonValue = true, Width = 70 });
-            table.Columns.Add(new DataGridViewButtonColumn { Name = "Increment", HeaderText = "Авто изменение", Text = "Настроить", UseColumnTextForButtonValue = true, Width = 95 });
+            table.Columns.Add(new DataGridViewTextBoxColumn { Name = "IncStep", HeaderText = "Шаг", Width = 70 });
+            table.Columns.Add(new DataGridViewTextBoxColumn { Name = "IncInterval", HeaderText = "Инт.,с", Width = 70 });
+            table.Columns.Add(new DataGridViewButtonColumn { Name = "AutoChange", HeaderText = "Авто изм.", Text = "Старт", UseColumnTextForButtonValue = false, Width = 90 });
 
             table.CellEndEdit += Grid_CellChanged;
             table.CellValueChanged += Grid_CellChanged;
@@ -309,6 +320,8 @@ namespace PowerGridEditor
                         row.Cells["Value"].Value = GetParamValue(data, tag.Key);
                         row.Cells["Telemetry"].Value = data.ParamAutoModes[tag.Key];
                         row.Cells["Register"].Value = data.ParamRegisters[tag.Key];
+                        row.Cells["IncStep"].Value = data.ParamIncrementSteps.ContainsKey(tag.Key) ? data.ParamIncrementSteps[tag.Key] : 1;
+                        row.Cells["IncInterval"].Value = data.ParamIncrementIntervals.ContainsKey(tag.Key) ? data.ParamIncrementIntervals[tag.Key] : 2;
                         UpdateIncrementButtonState(row, data, tag.Key);
                     }
                 }
@@ -376,36 +389,36 @@ namespace PowerGridEditor
                 foreach (var node in elementsSnapshot.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                     AddParentWithChildren("Узел", $"N{node.Data.Number}", node.Data, new[]
                     {
-                        ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower),
-                        ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration),
-                        ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule),
-                        ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower)
+                        ("U", "Напряжение, кВ", node.Data.InitialVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower),
+                        ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration),
+                        ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule),
+                        ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower)
                     }, filter, hasFilter);
 
                 AddSectionRow("Базисный узел");
                 foreach (var baseNode in elementsSnapshot.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                     AddParentWithChildren("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, new[]
                     {
-                        ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower),
-                        ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration),
-                        ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule),
-                        ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower)
+                        ("U", "Напряжение, кВ", baseNode.Data.InitialVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower),
+                        ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration),
+                        ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule),
+                        ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower)
                     }, filter, hasFilter);
 
                 AddSectionRow("Ветви");
                 foreach (var branch in branchesSnapshot.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
                     AddParentWithChildren("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, new[]
                     {
-                        ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance),
-                        ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio),
-                        ("G", "G", branch.Data.ActiveConductivity)
+                        ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance),
+                        ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio),
+                        ("G", "G, См", branch.Data.ActiveConductivity)
                     }, filter, hasFilter);
 
                 AddSectionRow("Шунты");
                 foreach (var shunt in shuntsSnapshot.OrderBy(s => s.Data.StartNodeNumber))
                     AddParentWithChildren("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, new[]
                     {
-                        ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance)
+                        ("R", "R, Ом", shunt.Data.ActiveResistance), ("X", "X, Ом", shunt.Data.ReactiveResistance)
                     }, filter, hasFilter);
             }
             finally
@@ -460,14 +473,14 @@ namespace PowerGridEditor
             string id = ParameterAutoChangeService.BuildId(data, key);
             bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
 
-            var cell = row.Cells["Increment"];
+            var cell = row.Cells["AutoChange"];
             if (running)
             {
                 cell.Style.BackColor = ThemeAccentBlue;
                 cell.Style.ForeColor = ThemeTextBlack;
-                cell.Style.SelectionBackColor = Color.FromArgb(191, 219, 254);
+                cell.Style.SelectionBackColor = Color.FromArgb(187, 247, 208);
                 cell.Style.SelectionForeColor = ThemeTextBlack;
-                cell.Value = "Запущено";
+                cell.Value = "Стоп";
             }
             else
             {
@@ -475,7 +488,7 @@ namespace PowerGridEditor
                 cell.Style.ForeColor = Color.Empty;
                 cell.Style.SelectionBackColor = Color.Empty;
                 cell.Style.SelectionForeColor = Color.Empty;
-                cell.Value = "Настроить";
+                cell.Value = "Старт";
             }
         }
 
@@ -490,10 +503,10 @@ namespace PowerGridEditor
 
             if (hasFilter && !matchesParent && filteredChildren.Count == 0) return;
 
-            int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "", "");
+            int parentIndex = grid.Rows.Add(type, (expandedGroups.Contains(groupKey) ? "▼ " : "▶ ") + elementName, "", "", false, "", data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "", "", "", "");
             var parentRow = grid.Rows[parentIndex];
             parentRow.ReadOnly = true;
-            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(219, 234, 254);
+            parentRow.DefaultCellStyle.BackColor = Color.FromArgb(187, 247, 208);
             parentRow.DefaultCellStyle.ForeColor = ThemeTextBlack;
             parentRow.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             parentRow.Tag = new GridRowTag { GroupKey = groupKey, Data = data, IsParent = true, ParentText = elementName };
@@ -503,7 +516,7 @@ namespace PowerGridEditor
 
             foreach (var row in filteredChildren)
             {
-                int index = grid.Rows.Add(type, "   " + elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "Пинг", "Настроить");
+                int index = grid.Rows.Add(type, "   " + elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, data.MeasurementIntervalSeconds, "Пинг", data.ParamIncrementSteps[row.Key], data.ParamIncrementIntervals[row.Key], "Старт");
                 var childRow = grid.Rows[index];
                 childRow.Tag = new GridRowTag { GroupKey = groupKey, Key = row.Key, Data = data, IsParent = false, ParentText = elementName, ParamText = row.Label };
                 UpdateIncrementButtonState(childRow, data, row.Key);
@@ -512,10 +525,10 @@ namespace PowerGridEditor
 
         private void AddSectionRow(string title)
         {
-            int index = grid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
+            int index = grid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "", "", "");
             var row = grid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(219, 234, 254);
+            row.DefaultCellStyle.BackColor = Color.FromArgb(187, 247, 208);
             row.DefaultCellStyle.ForeColor = ThemeTextBlack;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;
@@ -534,6 +547,15 @@ namespace PowerGridEditor
             if (double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double value))
             {
                 ApplyParamValue(data, key, value);
+            }
+
+            if (double.TryParse(Convert.ToString(row.Cells["IncStep"].Value), out double step))
+            {
+                data.ParamIncrementSteps[key] = step;
+            }
+            if (int.TryParse(Convert.ToString(row.Cells["IncInterval"].Value), out int incInterval))
+            {
+                data.ParamIncrementIntervals[key] = Math.Max(1, incInterval);
             }
 
             data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
@@ -558,9 +580,9 @@ namespace PowerGridEditor
             if (!(row.Tag is GridRowTag tag)) return;
             if (tag.IsParent) return;
 
-            if (grid.Columns[e.ColumnIndex].Name == "Increment")
+            if (grid.Columns[e.ColumnIndex].Name == "AutoChange")
             {
-                ConfigureIncrement(tag.Data, tag.Key, tag.ParentText + "." + tag.ParamText);
+                ToggleIncrement(tag.Data, tag.Key, row);
                 return;
             }
 
@@ -582,42 +604,43 @@ namespace PowerGridEditor
             if (e.RowIndex < 0) return;
             if (!(grid.Rows[e.RowIndex].Tag is GridRowTag tag)) return;
             if (!tag.IsParent) return;
-            if (grid.Columns[e.ColumnIndex].Name == "Ping" || grid.Columns[e.ColumnIndex].Name == "Increment") return;
+            if (grid.Columns[e.ColumnIndex].Name == "Ping" || grid.Columns[e.ColumnIndex].Name == "AutoChange") return;
 
             if (expandedGroups.Contains(tag.GroupKey)) expandedGroups.Remove(tag.GroupKey);
             else expandedGroups.Add(tag.GroupKey);
             RefreshGridFromModels(false);
         }
 
-        private void ConfigureIncrement(dynamic data, string key, string title)
+        private void ToggleIncrement(dynamic data, string key, DataGridViewRow row)
         {
-            string id = ParameterAutoChangeService.BuildId(data, key);
-            bool hasConfig = ParameterAutoChangeService.TryGet(id, out double oldStep, out int oldInterval, out bool oldEnabled);
-            if (!hasConfig)
-            {
-                if (data.ParamIncrementSteps.ContainsKey(key)) oldStep = Convert.ToDouble(data.ParamIncrementSteps[key]);
-                if (data.ParamIncrementIntervals.ContainsKey(key)) oldInterval = Convert.ToInt32(data.ParamIncrementIntervals[key]);
-            }
-            using (var form = new IncrementSettingsForm(title, oldStep, oldInterval, oldEnabled))
-            {
-                if (form.ShowDialog(this) != DialogResult.OK) return;
-                data.ParamIncrementSteps[key] = form.StepValue;
-                data.ParamIncrementIntervals[key] = form.IntervalSeconds;
-                ParameterAutoChangeService.Configure(
-                    id,
-                    form.StepValue,
-                    form.IntervalSeconds,
-                    form.EnabledChange,
-                    () => GetParamValue(data, key),
-                    value => ApplyParamValue(data, key, value),
-                    () => BeginInvoke(new Action(() =>
-                    {
-                        RefreshGridFromModels(false);
-                        invalidateCanvas();
-                    })));
+            double step = 1;
+            int interval = 2;
+            double.TryParse(Convert.ToString(row.Cells["IncStep"].Value), out step);
+            int.TryParse(Convert.ToString(row.Cells["IncInterval"].Value), out interval);
+            interval = Math.Max(1, interval);
 
-                RefreshGridFromModels(false);
-            }
+            data.ParamIncrementSteps[key] = step;
+            data.ParamIncrementIntervals[key] = interval;
+
+            string id = ParameterAutoChangeService.BuildId(data, key);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+            bool enable = !running;
+
+            ParameterAutoChangeService.Configure(
+                id,
+                step,
+                interval,
+                enable,
+                () => GetParamValue(data, key),
+                value => ApplyParamValue(data, key, value),
+                () => BeginInvoke(new Action(() =>
+                {
+                    row.Cells["Value"].Value = GetParamValue(data, key);
+                    UpdateIncrementButtonState(row, data, key);
+                    invalidateCanvas();
+                })));
+
+            UpdateIncrementButtonState(row, data, key);
         }
 
         private void ButtonApplyBulk_Click(object sender, EventArgs e)
