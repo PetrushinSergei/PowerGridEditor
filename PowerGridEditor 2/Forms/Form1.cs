@@ -51,10 +51,10 @@ namespace PowerGridEditor
 
         private static readonly Color ThemePageBackground = Color.FromArgb(241, 247, 255);
         private static readonly Color ThemePanelBackground = Color.White;
-        private static readonly Color ThemeAccentBlue = Color.FromArgb(37, 99, 235);
-        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(59, 130, 246);
-        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(29, 78, 216);
-        private static readonly Color ThemeBorderBlue = Color.FromArgb(96, 165, 250);
+        private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
+        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
+        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(74, 222, 128);
+        private static readonly Color ThemeBorderBlue = Color.FromArgb(34, 197, 94);
         private static readonly Color ThemeTextBlack = Color.Black;
 
         private sealed class AdapterEntry
@@ -76,7 +76,7 @@ namespace PowerGridEditor
             this.MouseWheel += Form1_MouseWheel; // зум колесом
             BackColor = ThemePageBackground;
             ForeColor = ThemeTextBlack;
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             ConfigureToolbarStyle();
             AddDynamicControls();
             ApplyTheme();
@@ -158,39 +158,39 @@ namespace PowerGridEditor
 
             labelAdapter.Parent = contentPanel;
             labelAdapter.Location = new Point(22, 52);
-            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
             comboBoxAdapters.Size = new Size(670, 28);
-            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelIp.Parent = contentPanel;
             labelIp.Location = new Point(22, 95);
-            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxStaticIp.Parent = contentPanel;
             textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
-            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelMask.Parent = contentPanel;
             labelMask.Location = new Point(305, 95);
-            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxMask.Parent = contentPanel;
             textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
-            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelGateway.Parent = contentPanel;
             labelGateway.Location = new Point(530, 95);
-            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxGateway.Parent = contentPanel;
             textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
-            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
@@ -291,7 +291,12 @@ namespace PowerGridEditor
                 () => graphicElements,
                 () => graphicBranches,
                 () => graphicShunts,
-                () => panel2.Invalidate());
+                () =>
+                {
+                    panel2.Invalidate();
+                    RefreshElementsGrid();
+                    RefreshOpenedEditorForms();
+                });
             RegisterOpenedWindow(telemetryEditorForm);
             telemetryEditorForm.StartPosition = FormStartPosition.Manual;
             telemetryEditorForm.Location = GetNextChildWindowLocation();
@@ -386,19 +391,19 @@ namespace PowerGridEditor
 
             AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение, кВ", node.Data.InitialVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower) });
 
             AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение, кВ", baseNode.Data.InitialVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower) });
 
             AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity) });
 
             AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
-                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R, Ом", shunt.Data.ActiveResistance), ("X", "X, Ом", shunt.Data.ReactiveResistance) });
         }
 
         private void AddSectionRow(string title)
@@ -914,13 +919,7 @@ namespace PowerGridEditor
         private void EditBranch(GraphicBranch graphicBranch)
         {
             BranchForm form = new BranchForm();
-            form.StartNodeTextBox.Text = graphicBranch.GetStartNodeNumber().ToString();
-            form.EndNodeTextBox.Text = graphicBranch.GetEndNodeNumber().ToString();
-            form.ActiveResistanceTextBox.Text = graphicBranch.Data.ActiveResistance.ToString("F1");
-            form.ReactiveResistanceTextBox.Text = graphicBranch.Data.ReactiveResistance.ToString("F2");
-            form.ReactiveConductivityTextBox.Text = graphicBranch.Data.ReactiveConductivity.ToString("F1");
-            form.TransformationRatioTextBox.Text = graphicBranch.Data.TransformationRatio.ToString();
-            form.ActiveConductivityTextBox.Text = graphicBranch.Data.ActiveConductivity.ToString();
+            form.BindModel(graphicBranch.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1074,7 +1073,7 @@ namespace PowerGridEditor
 
         private void EditNode(GraphicNode graphicNode)
         {
-            NodeForm form = new NodeForm(selectedNode.Data);
+            NodeForm form = new NodeForm(graphicNode.Data);
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
             form.Location = GetNextChildWindowLocation();
@@ -1105,15 +1104,7 @@ namespace PowerGridEditor
         private void EditBaseNode(GraphicBaseNode graphicBaseNode)
         {
             BaseNodeForm form = new BaseNodeForm();
-            form.NodeNumberTextBox.Text = graphicBaseNode.Data.Number.ToString();
-            form.InitialVoltageTextBox.Text = graphicBaseNode.Data.InitialVoltage.ToString("F2");
-            form.NominalActivePowerTextBox.Text = graphicBaseNode.Data.NominalActivePower.ToString("F2");
-            form.NominalReactivePowerTextBox.Text = graphicBaseNode.Data.NominalReactivePower.ToString("F2");
-            form.ActivePowerGenerationTextBox.Text = graphicBaseNode.Data.ActivePowerGeneration.ToString("F2");
-            form.ReactivePowerGenerationTextBox.Text = graphicBaseNode.Data.ReactivePowerGeneration.ToString("F2");
-            form.FixedVoltageModuleTextBox.Text = graphicBaseNode.Data.FixedVoltageModule.ToString("F2");
-            form.MinReactivePowerTextBox.Text = graphicBaseNode.Data.MinReactivePower.ToString("F2");
-            form.MaxReactivePowerTextBox.Text = graphicBaseNode.Data.MaxReactivePower.ToString("F2");
+            form.BindModel(graphicBaseNode.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1537,9 +1528,7 @@ namespace PowerGridEditor
         private void EditShunt(GraphicShunt graphicShunt)
         {
             ShuntForm form = new ShuntForm();
-            form.StartNodeTextBox.Text = graphicShunt.Data.StartNodeNumber.ToString();
-            form.ActiveResistanceTextBox.Text = graphicShunt.Data.ActiveResistance.ToString("F1");
-            form.ReactiveResistanceTextBox.Text = graphicShunt.Data.ReactiveResistance.ToString();
+            form.BindModel(graphicShunt.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1567,6 +1556,23 @@ namespace PowerGridEditor
                 panel2.Invalidate();
             };
             form.Show(this);
+        }
+
+
+        private void RefreshOpenedEditorForms()
+        {
+            foreach (var list in openedEditorWindows.Values)
+            {
+                foreach (var form in list.ToList())
+                {
+                    if (form == null || form.IsDisposed) continue;
+
+                    if (form is NodeForm nodeForm) nodeForm.RefreshFromModel();
+                    else if (form is BaseNodeForm baseNodeForm) baseNodeForm.RefreshFromModel();
+                    else if (form is BranchForm branchForm) branchForm.RefreshFromModel();
+                    else if (form is ShuntForm shuntForm) shuntForm.RefreshFromModel();
+                }
+            }
         }
 
         // Метод проверки существования узла с таким номером
@@ -2265,8 +2271,19 @@ namespace PowerGridEditor
             }
 
             telemetryEditorForm?.ApplyTheme();
+            ApplyBoldFontsRecursive(this);
             RefreshElementsGrid();
             panel2.Invalidate();
+        }
+
+        private void ApplyBoldFontsRecursive(Control root)
+        {
+            if (root == null) return;
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control child in root.Controls)
+            {
+                ApplyBoldFontsRecursive(child);
+            }
         }
 
         private void ConfigureToolbarStyle()
