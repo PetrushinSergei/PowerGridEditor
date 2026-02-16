@@ -49,6 +49,7 @@ namespace PowerGridEditor
             txtLoss.Text = result.NetworkRip;
             txtBreakdown.Text = result.LossesRez;
             txtLoadCurrent.Text = BuildCurrentLoadingReport(result.LossesRez);
+            txtLoadCurrentAmp.Text = BuildCurrentLoadingAmpReport(result.LossesRez);
         }
 
         private sealed class BranchCurrentRow
@@ -66,7 +67,7 @@ namespace PowerGridEditor
         private string BuildCurrentLoadingReport(string lossesRez)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Расчет загрузки ветвей по току");
+            sb.AppendLine("Расчет загрузки ветвей по току (в относительных единицах)");
             sb.AppendLine("Формулы:");
             sb.AppendLine("Iр = sqrt(Iак^2 + Iре^2)");
             sb.AppendLine("Kзагр = Iр / Iдоп * 100%");
@@ -115,6 +116,92 @@ namespace PowerGridEditor
             sb.AppendLine(">100%      : Красный  - ПЕРЕГРУЗКА! Риск повреждения провода");
 
             return sb.ToString();
+        }
+
+        private string BuildCurrentLoadingAmpReport(string lossesRez)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Расчет загрузки ветвей по току в амперах");
+            sb.AppendLine("Формулы:");
+            sb.AppendLine("I_pu = sqrt(re^2 + im^2)");
+            sb.AppendLine("S_base = 1000");
+            sb.AppendLine("I_amp = (I_pu * S_base) / (sqrt(3) * Uном_кВ) * 1000");
+            sb.AppendLine("Kзагр = I_amp / I_max * 100%");
+            sb.AppendLine();
+            sb.AppendLine("Ветвь      re(pu)   im(pu)   Uном,кВ   Ipu      I_amp,А    Imax,А    Kзагр     Перегруз");
+
+            var currents = ParseBranchCurrents(lossesRez);
+            foreach (var branch in _branches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
+            {
+                int start = branch.Data.StartNodeNumber;
+                int end = branch.Data.EndNodeNumber;
+                BranchCurrentRow c;
+                if (!currents.TryGetValue(BuildBranchKey(start, end), out c) && !currents.TryGetValue(BuildBranchKey(end, start), out c))
+                {
+                    sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0,4}-{1,-4}  нет данных тока в losses.rez", start, end));
+                    continue;
+                }
+
+                double uNomKv = GetNodeNominalVoltageKv(start);
+                double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                bool overloaded;
+                double iPu;
+                double iAmp = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, iMax, out overloaded, out iPu);
+                double load = iMax > 0 ? iAmp / iMax * 100.0 : 0;
+
+                sb.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0,4}-{1,-4}  {2,7:F3}  {3,7:F3}  {4,8:F2}  {5,7:F3}  {6,9:F2}  {7,8:F2}  {8,7:F2}%  {9}",
+                    start,
+                    end,
+                    c.Active,
+                    c.Reactive,
+                    uNomKv,
+                    iPu,
+                    iAmp,
+                    iMax,
+                    load,
+                    overloaded ? "Да" : "Нет"));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Шкала интерпретации:");
+            sb.AppendLine("0% - 50%   : Синий    - Линия недогружена (холодная)");
+            sb.AppendLine("50% - 80%  : Зеленый  - Оптимальный режим");
+            sb.AppendLine("80% - 95%  : Желтый   - Внимание! Близко к пределу");
+            sb.AppendLine("95% - 100% : Оранжевый- Предупреждение (МУН должен реагировать)");
+            sb.AppendLine(">100%      : Красный  - ПЕРЕГРУЗКА! Риск повреждения провода");
+            return sb.ToString();
+        }
+
+        private double GetNodeNominalVoltageKv(int nodeNumber)
+        {
+            foreach (var element in _elements)
+            {
+                var node = element as GraphicNode;
+                if (node != null && node.Data.Number == nodeNumber)
+                {
+                    return node.Data.InitialVoltage > 0 ? node.Data.InitialVoltage : 110;
+                }
+
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode != null && baseNode.Data.Number == nodeNumber)
+                {
+                    return baseNode.Data.InitialVoltage > 0 ? baseNode.Data.InitialVoltage : 110;
+                }
+            }
+
+            return 110;
+        }
+
+        private double ConvertTokToAmperes(double re, double im, double uNomKv, double iMax, out bool overloaded, out double iPu)
+        {
+            iPu = Math.Sqrt(re * re + im * im);
+            const double sBase = 1000.0;
+            double u = uNomKv <= 0 ? 110.0 : uNomKv;
+            double iAmp = (iPu * sBase) / (Math.Sqrt(3.0) * u) * 1000.0;
+            overloaded = iAmp > iMax;
+            return iAmp;
         }
 
         private static string BuildBranchKey(int start, int end)

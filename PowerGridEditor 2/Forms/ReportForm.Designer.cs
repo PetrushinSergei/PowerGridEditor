@@ -11,6 +11,7 @@ namespace PowerGridEditor
         private System.Windows.Forms.TabPage tabLoss;
         private System.Windows.Forms.TabPage tabBreakdown;
         private System.Windows.Forms.TabPage tabLoadCurrent;
+        private System.Windows.Forms.TabPage tabLoadCurrentAmp;
         private System.Windows.Forms.TextBox txtOverview;
         private System.Windows.Forms.TextBox txtErr;
         private System.Windows.Forms.TextBox txtInput;
@@ -18,6 +19,7 @@ namespace PowerGridEditor
         private System.Windows.Forms.TextBox txtLoss;
         private System.Windows.Forms.TextBox txtBreakdown;
         private System.Windows.Forms.TextBox txtLoadCurrent;
+        private System.Windows.Forms.TextBox txtLoadCurrentAmp;
 
         protected override void Dispose(bool disposing)
         {
@@ -45,6 +47,8 @@ namespace PowerGridEditor
             this.txtBreakdown = new System.Windows.Forms.TextBox();
             this.tabLoadCurrent = new System.Windows.Forms.TabPage();
             this.txtLoadCurrent = new System.Windows.Forms.TextBox();
+            this.tabLoadCurrentAmp = new System.Windows.Forms.TabPage();
+            this.txtLoadCurrentAmp = new System.Windows.Forms.TextBox();
             this.tabControl1.SuspendLayout();
             this.tabOverview.SuspendLayout();
             this.tabErr.SuspendLayout();
@@ -53,6 +57,7 @@ namespace PowerGridEditor
             this.tabLoss.SuspendLayout();
             this.tabBreakdown.SuspendLayout();
             this.tabLoadCurrent.SuspendLayout();
+            this.tabLoadCurrentAmp.SuspendLayout();
             this.SuspendLayout();
             //
             // tabControl1
@@ -64,6 +69,7 @@ namespace PowerGridEditor
             this.tabControl1.Controls.Add(this.tabLoss);
             this.tabControl1.Controls.Add(this.tabBreakdown);
             this.tabControl1.Controls.Add(this.tabLoadCurrent);
+            this.tabControl1.Controls.Add(this.tabLoadCurrentAmp);
             this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabControl1.Location = new System.Drawing.Point(0, 0);
             this.tabControl1.Name = "tabControl1";
@@ -220,7 +226,7 @@ namespace PowerGridEditor
             this.tabLoadCurrent.Name = "tabLoadCurrent";
             this.tabLoadCurrent.Size = new System.Drawing.Size(892, 624);
             this.tabLoadCurrent.TabIndex = 6;
-            this.tabLoadCurrent.Text = "Загрузка по току";
+            this.tabLoadCurrent.Text = "Загрузка по току (о.е.)";
             this.tabLoadCurrent.UseVisualStyleBackColor = true;
             //
             // txtLoadCurrent
@@ -235,6 +241,29 @@ namespace PowerGridEditor
             this.txtLoadCurrent.Size = new System.Drawing.Size(892, 624);
             this.txtLoadCurrent.TabIndex = 0;
             this.txtLoadCurrent.WordWrap = false;
+            //
+            // tabLoadCurrentAmp
+            //
+            this.tabLoadCurrentAmp.Controls.Add(this.txtLoadCurrentAmp);
+            this.tabLoadCurrentAmp.Location = new System.Drawing.Point(4, 22);
+            this.tabLoadCurrentAmp.Name = "tabLoadCurrentAmp";
+            this.tabLoadCurrentAmp.Size = new System.Drawing.Size(892, 624);
+            this.tabLoadCurrentAmp.TabIndex = 7;
+            this.tabLoadCurrentAmp.Text = "Загрузка по току в амперах";
+            this.tabLoadCurrentAmp.UseVisualStyleBackColor = true;
+            //
+            // txtLoadCurrentAmp
+            //
+            this.txtLoadCurrentAmp.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.txtLoadCurrentAmp.Font = new System.Drawing.Font("Consolas", 10F);
+            this.txtLoadCurrentAmp.Location = new System.Drawing.Point(0, 0);
+            this.txtLoadCurrentAmp.Multiline = true;
+            this.txtLoadCurrentAmp.Name = "txtLoadCurrentAmp";
+            this.txtLoadCurrentAmp.ReadOnly = true;
+            this.txtLoadCurrentAmp.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.txtLoadCurrentAmp.Size = new System.Drawing.Size(892, 624);
+            this.txtLoadCurrentAmp.TabIndex = 0;
+            this.txtLoadCurrentAmp.WordWrap = false;
             //
             // ReportForm
             //
@@ -259,6 +288,8 @@ namespace PowerGridEditor
             this.tabBreakdown.PerformLayout();
             this.tabLoadCurrent.ResumeLayout(false);
             this.tabLoadCurrent.PerformLayout();
+            this.tabLoadCurrentAmp.ResumeLayout(false);
+            this.tabLoadCurrentAmp.PerformLayout();
             this.ResumeLayout(false);
         }
     }

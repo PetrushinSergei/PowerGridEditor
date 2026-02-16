@@ -2349,14 +2349,45 @@ namespace PowerGridEditor
 
                 branch.Data.CalculatedActiveCurrent = c.Active;
                 branch.Data.CalculatedReactiveCurrent = c.Reactive;
-                branch.Data.CalculatedCurrent = Math.Sqrt(c.Active * c.Active + c.Reactive * c.Reactive);
+                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                bool overloaded;
+                branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
                 branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
             panel2.Invalidate();
             RefreshElementsGrid();
+        }
+
+        private double GetNodeNominalVoltageKv(int nodeNumber)
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node && node.Data.Number == nodeNumber)
+                {
+                    return node.Data.InitialVoltage > 0 ? node.Data.InitialVoltage : 110;
+                }
+
+                if (element is GraphicBaseNode baseNode && baseNode.Data.Number == nodeNumber)
+                {
+                    return baseNode.Data.InitialVoltage > 0 ? baseNode.Data.InitialVoltage : 110;
+                }
+            }
+
+            return 110;
+        }
+
+        // Перевод тока из network.tok в Амперы по заданной формуле.
+        private double ConvertTokToAmperes(double re, double im, double uNomKv, double iMax, out bool overloaded)
+        {
+            double iPu = Math.Sqrt(re * re + im * im);
+            const double sBase = 1000.0;
+            double u = uNomKv <= 0 ? 110.0 : uNomKv;
+            double iAmp = (iPu * sBase) / (Math.Sqrt(3.0) * u) * 1000.0;
+            overloaded = iAmp > iMax;
+            return iAmp;
         }
 
         private string RunCurrentLossesCalculation()
