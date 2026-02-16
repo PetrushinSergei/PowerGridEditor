@@ -1652,41 +1652,31 @@ namespace PowerGridEditor
 
         private void WriteAllNodes(StreamWriter writer)
         {
+            var baseNodeNumbers = new HashSet<int>(graphicElements
+                .OfType<GraphicBaseNode>()
+                .Select(x => x.Data.Number));
+
             var allNodes = new List<(int number, double voltage, double pLoad, double qLoad, double pGen, double qGen, double uFixed, double qMin, double qMax)>();
 
-            foreach (var element in graphicElements)
+            foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                if (element is GraphicNode node)
+                if (baseNodeNumbers.Contains(node.Data.Number))
                 {
-                    allNodes.Add((
-                        node.Data.Number,
-                        node.Data.InitialVoltage,
-                        node.Data.NominalActivePower,
-                        node.Data.NominalReactivePower,
-                        node.Data.ActivePowerGeneration,
-                        node.Data.ReactivePowerGeneration,
-                        node.Data.FixedVoltageModule,
-                        node.Data.MinReactivePower,
-                        node.Data.MaxReactivePower
-                    ));
+                    continue;
                 }
-                else if (element is GraphicBaseNode baseNode)
-                {
-                    allNodes.Add((
-                        baseNode.Data.Number,
-                        baseNode.Data.InitialVoltage,
-                        baseNode.Data.NominalActivePower,
-                        baseNode.Data.NominalReactivePower,
-                        baseNode.Data.ActivePowerGeneration,
-                        baseNode.Data.ReactivePowerGeneration,
-                        baseNode.Data.FixedVoltageModule,
-                        baseNode.Data.MinReactivePower,
-                        baseNode.Data.MaxReactivePower
-                    ));
-                }
-            }
 
-            allNodes = allNodes.OrderBy(n => n.number).ToList();
+                allNodes.Add((
+                    node.Data.Number,
+                    node.Data.InitialVoltage,
+                    node.Data.NominalActivePower,
+                    node.Data.NominalReactivePower,
+                    node.Data.ActivePowerGeneration,
+                    node.Data.ReactivePowerGeneration,
+                    node.Data.FixedVoltageModule,
+                    node.Data.MinReactivePower,
+                    node.Data.MaxReactivePower
+                ));
+            }
 
             foreach (var node in allNodes)
             {
@@ -1721,46 +1711,26 @@ namespace PowerGridEditor
 
         private void WriteAllBranchesAndShunts(StreamWriter writer)
         {
-            var allBranches = new List<(int startNode, int endNode, double r, double x, double b, double k, double g)>();
-
-            // Ветви
-            foreach (var branch in graphicBranches)
-            {
-                allBranches.Add((
-                    branch.Data.StartNodeNumber,
-                    branch.Data.EndNodeNumber,
-                    branch.Data.ActiveResistance,
-                    branch.Data.ReactiveResistance,
-                    branch.Data.ReactiveConductivity,
-                    branch.Data.TransformationRatio,
-                    branch.Data.ActiveConductivity
-                ));
-            }
-
-            // Шунты
+            // Сначала шунты (как в исходных CDU), затем ветви.
+            // Это важно для совместимости с ConsoleApplicationCS,
+            // где при чтении шунтов используется временный индекс ветви.
             foreach (var shunt in graphicShunts)
             {
-                allBranches.Add((
-                    shunt.Data.StartNodeNumber,
-                    shunt.Data.EndNodeNumber,
-                    shunt.Data.ActiveResistance,
-                    shunt.Data.ReactiveResistance,
-                    0, 0, 0
-                ));
+                string shuntLine = $"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                                   $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                                   $"{FormatDouble(shunt.Data.ReactiveResistance),5}";
+                writer.WriteLine(shuntLine);
             }
 
-            allBranches = allBranches.OrderBy(b => b.startNode).ThenBy(b => b.endNode).ToList();
-
-            foreach (var branch in allBranches)
+            foreach (var branch in graphicBranches)
             {
-                string line = $"0301 0   {branch.startNode,3}      {branch.endNode,2}    " +
-                             $"{FormatDouble(branch.r),4}   " +
-                             $"{FormatDouble(branch.x),5}   " +
-                             $"{FormatDouble(branch.b, true),6}     " +
-                             $"{FormatInt(branch.k),1} " +
-                             $"{FormatInt(branch.g),1} 0 0";
-
-                writer.WriteLine(line);
+                string branchLine = $"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                                    $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                                    $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
+                writer.WriteLine(branchLine);
             }
         }
 
@@ -2014,6 +1984,32 @@ namespace PowerGridEditor
                 double qMax = ParseDouble(parts[10]);
 
                 Point pos = SpiralPosition(index, 90);   // 90 px шаг
+
+                for (int i = graphicElements.Count - 1; i >= 0; i--)
+                {
+                    var existingNode = graphicElements[i] as GraphicNode;
+                    if (existingNode != null && existingNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                        continue;
+                    }
+
+                    var existingBaseNode = graphicElements[i] as GraphicBaseNode;
+                    if (existingBaseNode != null && existingBaseNode.Data.Number == number)
+                    {
+                        if (!isBaseNode)
+                        {
+                            return;
+                        }
+
+                        graphicElements.RemoveAt(i);
+                    }
+                }
 
                 if (isBaseNode)
                 {
