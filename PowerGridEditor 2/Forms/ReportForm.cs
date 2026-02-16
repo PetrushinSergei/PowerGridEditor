@@ -51,6 +51,18 @@ namespace PowerGridEditor
             txtLoadCurrent.Text = BuildCurrentLoadingReport(result.LossesRez);
         }
 
+        private sealed class BranchCurrentRow
+        {
+            public double Active;
+            public double Reactive;
+        }
+
+        private sealed class LoadMeaning
+        {
+            public string Color;
+            public string Description;
+        }
+
         private string BuildCurrentLoadingReport(string lossesRez)
         {
             var sb = new StringBuilder();
@@ -64,13 +76,14 @@ namespace PowerGridEditor
             var currents = ParseBranchCurrents(lossesRez);
             foreach (var branch in _branches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
             {
-                var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
-                if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
+                int start = branch.Data.StartNodeNumber;
+                int end = branch.Data.EndNodeNumber;
+                BranchCurrentRow c;
+                if (!currents.TryGetValue(BuildBranchKey(start, end), out c) && !currents.TryGetValue(BuildBranchKey(end, start), out c))
                 {
-                    sb.AppendLine($"{key.Item1,4}-{key.Item2,-4}  нет данных тока в losses.rez");
+                    sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "{0,4}-{1,-4}  нет данных тока в losses.rez", start, end));
                     continue;
                 }
-            }
 
                 double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 double ir = Math.Sqrt(c.Active * c.Active + c.Reactive * c.Reactive);
@@ -78,8 +91,19 @@ namespace PowerGridEditor
                 double reserve = 100.0 - load;
 
                 var meaning = GetLoadMeaning(load);
-                sb.AppendLine(
-                    $"{key.Item1,4}-{key.Item2,-4}  {c.Active,7:F3}  {c.Reactive,8:F3}  {ir,8:F3}  {id,8:F2}  {load,7:F2}%  {reserve,7:F2}%  {meaning.Color,-9} {meaning.Description}");
+                sb.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0,4}-{1,-4}  {2,7:F3}  {3,8:F3}  {4,8:F3}  {5,8:F2}  {6,7:F2}%  {7,7:F2}%  {8,-9} {9}",
+                    start,
+                    end,
+                    c.Active,
+                    c.Reactive,
+                    ir,
+                    id,
+                    load,
+                    reserve,
+                    meaning.Color,
+                    meaning.Description));
             }
 
             sb.AppendLine();
@@ -93,9 +117,14 @@ namespace PowerGridEditor
             return sb.ToString();
         }
 
-        private Dictionary<(int Start, int End), (double Active, double Reactive)> ParseBranchCurrents(string lossesRez)
+        private static string BuildBranchKey(int start, int end)
         {
-            var result = new Dictionary<(int Start, int End), (double Active, double Reactive)>();
+            return start.ToString(CultureInfo.InvariantCulture) + "-" + end.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private Dictionary<string, BranchCurrentRow> ParseBranchCurrents(string lossesRez)
+        {
+            var result = new Dictionary<string, BranchCurrentRow>();
             if (string.IsNullOrWhiteSpace(lossesRez))
             {
                 return result;
@@ -148,19 +177,19 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                result[(start, end)] = (ia, ir);
+                result[BuildBranchKey(start, end)] = new BranchCurrentRow { Active = ia, Reactive = ir };
             }
 
             return result;
         }
 
-        private (string Color, string Description) GetLoadMeaning(double load)
+        private LoadMeaning GetLoadMeaning(double load)
         {
-            if (load <= 50) return ("Синий", "Линия недогружена (холодная)");
-            if (load <= 80) return ("Зеленый", "Оптимальный режим");
-            if (load <= 95) return ("Желтый", "Внимание! Близко к пределу");
-            if (load <= 100) return ("Оранжевый", "Предупреждение (МУН должен реагировать)");
-            return ("Красный", "ПЕРЕГРУЗКА! Риск повреждения провода");
+            if (load <= 50) return new LoadMeaning { Color = "Синий", Description = "Линия недогружена (холодная)" };
+            if (load <= 80) return new LoadMeaning { Color = "Зеленый", Description = "Оптимальный режим" };
+            if (load <= 95) return new LoadMeaning { Color = "Желтый", Description = "Внимание! Близко к пределу" };
+            if (load <= 100) return new LoadMeaning { Color = "Оранжевый", Description = "Предупреждение (МУН должен реагировать)" };
+            return new LoadMeaning { Color = "Красный", Description = "ПЕРЕГРУЗКА! Риск повреждения провода" };
         }
 
         private List<string> BuildCduLines()
@@ -174,21 +203,6 @@ namespace PowerGridEditor
                 if (baseNode != null)
                 {
                     baseNodeNumbers.Add(baseNode.Data.Number);
-                }
-
-                string line = $"0201 0   {node.Data.Number,3}  {node.Data.InitialVoltage,3}     " +
-                              $"{FormatInt(node.Data.NominalActivePower),4}  {FormatInt(node.Data.NominalReactivePower),3}  " +
-                              $"{FormatInt(node.Data.ActivePowerGeneration),1} {FormatInt(node.Data.ReactivePowerGeneration),1}  " +
-                              $"{FormatInt(node.Data.FixedVoltageModule),3} {FormatInt(node.Data.MinReactivePower),1} {FormatInt(node.Data.MaxReactivePower),1}";
-                lines.Add(line);
-            }
-
-            foreach (var element in _elements)
-            {
-                var baseNode = element as GraphicBaseNode;
-                if (baseNode == null)
-                {
-                    continue;
                 }
 
                 string line = $"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
@@ -218,6 +232,37 @@ namespace PowerGridEditor
                                     $"{FormatDouble(branch.Data.TransformationRatio),5} " +
                                     $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
                 lines.Add(branchLine);
+            }
+
+            return lines;
+        }
+
+        private string FormatInt(double number)
+        {
+            if (number == 0)
+            {
+                return "0";
+            }
+
+            return ((int)number).ToString(CultureInfo.InvariantCulture);
+        }
+
+        private string FormatDouble(double number, bool isConductivity = false)
+        {
+            if (number == 0)
+            {
+                return "0";
+            }
+
+            if (isConductivity && number < 0)
+            {
+                return $"-{Math.Abs(number).ToString("F1", CultureInfo.InvariantCulture)}";
+            }
+
+            string formatted = number.ToString("F2", CultureInfo.InvariantCulture);
+            if (formatted.StartsWith("0."))
+            {
+                formatted = "." + formatted.Substring(2);
             }
 
             foreach (var element in _elements)
