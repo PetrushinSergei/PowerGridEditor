@@ -70,6 +70,7 @@ namespace PowerGridEditor
                     sb.AppendLine($"{key.Item1,4}-{key.Item2,-4}  нет данных тока в losses.rez");
                     continue;
                 }
+            }
 
                 double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 double ir = Math.Sqrt(c.Active * c.Active + c.Reactive * c.Reactive);
@@ -174,6 +175,49 @@ namespace PowerGridEditor
                 {
                     baseNodeNumbers.Add(baseNode.Data.Number);
                 }
+
+                string line = $"0201 0   {node.Data.Number,3}  {node.Data.InitialVoltage,3}     " +
+                              $"{FormatInt(node.Data.NominalActivePower),4}  {FormatInt(node.Data.NominalReactivePower),3}  " +
+                              $"{FormatInt(node.Data.ActivePowerGeneration),1} {FormatInt(node.Data.ReactivePowerGeneration),1}  " +
+                              $"{FormatInt(node.Data.FixedVoltageModule),3} {FormatInt(node.Data.MinReactivePower),1} {FormatInt(node.Data.MaxReactivePower),1}";
+                lines.Add(line);
+            }
+
+            foreach (var element in _elements)
+            {
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode == null)
+                {
+                    continue;
+                }
+
+                string line = $"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
+                              $"{FormatInt(baseNode.Data.NominalActivePower),1}    " +
+                              $"{FormatInt(baseNode.Data.NominalReactivePower),1}  " +
+                              $"{FormatInt(baseNode.Data.ActivePowerGeneration),1} {FormatInt(baseNode.Data.ReactivePowerGeneration),1}   " +
+                              $"{FormatInt(baseNode.Data.FixedVoltageModule),1} " +
+                              $"{FormatInt(baseNode.Data.MinReactivePower),1} " +
+                              $"{FormatInt(baseNode.Data.MaxReactivePower),1}";
+                lines.Add(line);
+            }
+
+            foreach (var shunt in _shunts)
+            {
+                string shuntLine = $"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                                   $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                                   $"{FormatDouble(shunt.Data.ReactiveResistance),5}";
+                lines.Add(shuntLine);
+            }
+
+            foreach (var branch in _branches)
+            {
+                string branchLine = $"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                                    $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                                    $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
+                lines.Add(branchLine);
             }
 
             foreach (var element in _elements)
