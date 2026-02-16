@@ -157,7 +157,7 @@
             tabSettings.Controls.AddRange(new System.Windows.Forms.Control[] { lblId, textBoxID });
 
             top += rowGap;
-            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения (сек):", Location = new System.Drawing.Point(leftLabel, top + 3), Size = new System.Drawing.Size(150, 23) };
+            var lblInterval = new System.Windows.Forms.Label { Text = "Интервал измерения\r\n(сек):", Location = new System.Drawing.Point(leftLabel, top + 1), Size = new System.Drawing.Size(150, 34) };
             numericMeasurementInterval = new System.Windows.Forms.NumericUpDown
             {
                 Location = new System.Drawing.Point(leftInput, top),
