@@ -1678,8 +1678,6 @@ namespace PowerGridEditor
                 ));
             }
 
-            allNodes = allNodes.OrderBy(n => n.number).ToList();
-
             foreach (var node in allNodes)
             {
                 string line = $"0201 0   {node.number,3}  {node.voltage,3}     " +
@@ -1713,46 +1711,26 @@ namespace PowerGridEditor
 
         private void WriteAllBranchesAndShunts(StreamWriter writer)
         {
-            var allBranches = new List<(int startNode, int endNode, double r, double x, double b, double k, double g)>();
-
-            // Ветви
-            foreach (var branch in graphicBranches)
-            {
-                allBranches.Add((
-                    branch.Data.StartNodeNumber,
-                    branch.Data.EndNodeNumber,
-                    branch.Data.ActiveResistance,
-                    branch.Data.ReactiveResistance,
-                    branch.Data.ReactiveConductivity,
-                    branch.Data.TransformationRatio,
-                    branch.Data.ActiveConductivity
-                ));
-            }
-
-            // Шунты
+            // Сначала шунты (как в исходных CDU), затем ветви.
+            // Это важно для совместимости с ConsoleApplicationCS,
+            // где при чтении шунтов используется временный индекс ветви.
             foreach (var shunt in graphicShunts)
             {
-                allBranches.Add((
-                    shunt.Data.StartNodeNumber,
-                    shunt.Data.EndNodeNumber,
-                    shunt.Data.ActiveResistance,
-                    shunt.Data.ReactiveResistance,
-                    0, 0, 0
-                ));
+                string shuntLine = $"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                                   $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                                   $"{FormatDouble(shunt.Data.ReactiveResistance),5}";
+                writer.WriteLine(shuntLine);
             }
 
-            allBranches = allBranches.OrderBy(b => b.startNode).ThenBy(b => b.endNode).ToList();
-
-            foreach (var branch in allBranches)
+            foreach (var branch in graphicBranches)
             {
-                string line = $"0301 0   {branch.startNode,3}      {branch.endNode,2}    " +
-                             $"{FormatDouble(branch.r),4}   " +
-                             $"{FormatDouble(branch.x),5}   " +
-                             $"{FormatDouble(branch.b, true),6}     " +
-                             $"{FormatDouble(branch.k),5} " +
-                             $"{FormatInt(branch.g),1} 0 0";
-
-                writer.WriteLine(line);
+                string branchLine = $"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                                    $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                                    $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                                    $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
+                writer.WriteLine(branchLine);
             }
         }
 
