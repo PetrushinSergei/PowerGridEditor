@@ -419,7 +419,7 @@ namespace PowerGridEditor
                     {
                         ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance),
                         ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio),
-                        ("G", "G, См", branch.Data.ActiveConductivity)
+                        ("G", "G, См", branch.Data.ActiveConductivity), ("Imax", "Iдоп, А", branch.Data.PermissibleCurrent)
                     }, filter, hasFilter);
 
                 AddSectionRow("Шунты");
@@ -703,6 +703,7 @@ namespace PowerGridEditor
             if (key == "B") return data.ReactiveConductivity;
             if (key == "Ktr") return data.TransformationRatio;
             if (key == "G") return data.ActiveConductivity;
+            if (key == "Imax") return data.PermissibleCurrent;
             return 0;
         }
 
@@ -721,6 +722,7 @@ namespace PowerGridEditor
             else if (key == "B") data.ReactiveConductivity = value;
             else if (key == "Ktr") data.TransformationRatio = value;
             else if (key == "G") data.ActiveConductivity = value;
+            else if (key == "Imax") data.PermissibleCurrent = value;
         }
 
         private async System.Threading.Tasks.Task<bool> PingHostAsync(string ip)

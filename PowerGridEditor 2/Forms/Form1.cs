@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using NModbus;
 
@@ -399,7 +400,7 @@ namespace PowerGridEditor
 
             AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity) });
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity), ("Imax", "Iдоп, А", branch.Data.PermissibleCurrent) });
 
             AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
@@ -527,6 +528,7 @@ namespace PowerGridEditor
             if (key == "B") return data.ReactiveConductivity;
             if (key == "Ktr") return data.TransformationRatio;
             if (key == "G") return data.ActiveConductivity;
+            if (key == "Imax") return data.PermissibleCurrent;
             return 0;
         }
 
@@ -561,6 +563,7 @@ namespace PowerGridEditor
             else if (key == "B") data.ReactiveConductivity = value;
             else if (key == "Ktr") data.TransformationRatio = value;
             else if (key == "G") data.ActiveConductivity = value;
+            else if (key == "Imax") data.PermissibleCurrent = value;
         }
 
         private void SetupCanvas()
@@ -962,6 +965,7 @@ namespace PowerGridEditor
                 graphicBranch.Data.ReactiveConductivity = form.MyBranch.ReactiveConductivity;
                 graphicBranch.Data.TransformationRatio = form.MyBranch.TransformationRatio;
                 graphicBranch.Data.ActiveConductivity = form.MyBranch.ActiveConductivity;
+                graphicBranch.Data.PermissibleCurrent = form.MyBranch.PermissibleCurrent;
                 panel2.Invalidate();
             };
             form.Show(this);
@@ -1851,7 +1855,7 @@ namespace PowerGridEditor
         private void WriteBranches(StreamWriter writer)
         {
             writer.WriteLine("ВЕТВИ:");
-            writer.WriteLine("0301 0  НачУз  КонУз   Rакт    Xреакт     Bреакт    Kтрансф  Gакт");
+            writer.WriteLine("0301 0  НачУз  КонУз   Rакт    Xреакт     Bреакт    Kтрансф  Gакт   Iдоп");
 
             foreach (var branch in graphicBranches)
             {
@@ -1861,7 +1865,8 @@ namespace PowerGridEditor
                              $"{branch.Data.ReactiveResistance,7:F2}   " +
                              $"{branch.Data.ReactiveConductivity,8:F1}   " +
                              $"{branch.Data.TransformationRatio,4}   " +
-                             $"{branch.Data.ActiveConductivity,4}";
+                             $"{branch.Data.ActiveConductivity,4}   " +
+                             $"{branch.Data.PermissibleCurrent,6:F1}";
 
                 writer.WriteLine(line);
             }
@@ -2128,6 +2133,7 @@ namespace PowerGridEditor
                 double b = ParseDouble(parts[6]);
                 double k = ParseDouble(parts[7]);
                 double g = ParseDouble(parts[8]);
+                double iMax = (parts.Length == 10 || parts.Length > 11) ? ParseDouble(parts[parts.Length - 1]) : 600;
 
                 object startObj = FindNodeByNumber(startNode);
                 object endObj = FindNodeByNumber(endNode);
@@ -2140,7 +2146,8 @@ namespace PowerGridEditor
                     ReactiveResistance = x,
                     ReactiveConductivity = b,
                     TransformationRatio = k,
-                    ActiveConductivity = g
+                    ActiveConductivity = g,
+                    PermissibleCurrent = iMax
                 };
                 graphicBranches.Add(new GraphicBranch(branch, startObj, endObj));
             }
@@ -2231,12 +2238,172 @@ namespace PowerGridEditor
 
         private void buttonOpenReport_Click(object sender, EventArgs e)
         {
+            ApplyBranchLoadingColorsFromCurrentResult();
+
             var reportForm = new ReportForm();
             reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
             RegisterOpenedWindow(reportForm);
             reportForm.StartPosition = FormStartPosition.Manual;
             reportForm.Location = GetNextChildWindowLocation();
             reportForm.Show(this);
+        }
+
+
+        private void ApplyBranchLoadingColorsFromCurrentResult()
+        {
+            var lossesText = RunCurrentLossesCalculation();
+            if (string.IsNullOrWhiteSpace(lossesText))
+            {
+                return;
+            }
+
+            var currents = ParseBranchCurrentsFromLosses(lossesText);
+            foreach (var branch in graphicBranches)
+            {
+                var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
+                {
+                    branch.Data.CalculatedActiveCurrent = 0;
+                    branch.Data.CalculatedReactiveCurrent = 0;
+                    branch.Data.CalculatedCurrent = 0;
+                    branch.Data.LoadingPercent = 0;
+                    branch.LoadColor = Color.Black;
+                    continue;
+                }
+
+                branch.Data.CalculatedActiveCurrent = c.Active;
+                branch.Data.CalculatedReactiveCurrent = c.Reactive;
+                branch.Data.CalculatedCurrent = Math.Sqrt(c.Active * c.Active + c.Reactive * c.Reactive);
+                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+            }
+
+            panel2.Invalidate();
+            RefreshElementsGrid();
+        }
+
+        private string RunCurrentLossesCalculation()
+        {
+            var cduLines = BuildCduLinesForEngine();
+            var engine = new ConsoleApplicationEngine(cduLines, CalculationOptions.Precision, CalculationOptions.MaxIterations);
+            var result = engine.Run();
+            return result.LossesRez;
+        }
+
+        private List<string> BuildCduLinesForEngine()
+        {
+            var lines = new List<string>();
+
+            var baseNodeNumbers = new HashSet<int>(graphicElements.OfType<GraphicBaseNode>().Select(x => x.Data.Number));
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (baseNodeNumbers.Contains(node.Data.Number))
+                {
+                    continue;
+                }
+
+                lines.Add($"0201 0   {node.Data.Number,3}  {node.Data.InitialVoltage,3}     " +
+                          $"{FormatInt(node.Data.NominalActivePower),4}  {FormatInt(node.Data.NominalReactivePower),3}  " +
+                          $"{FormatInt(node.Data.ActivePowerGeneration),1} {FormatInt(node.Data.ReactivePowerGeneration),1}  " +
+                          $"{FormatInt(node.Data.FixedVoltageModule),3} {FormatInt(node.Data.MinReactivePower),1} {FormatInt(node.Data.MaxReactivePower),1}");
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                lines.Add($"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
+                          $"{FormatInt(baseNode.Data.NominalActivePower),1}    " +
+                          $"{FormatInt(baseNode.Data.NominalReactivePower),1}  " +
+                          $"{FormatInt(baseNode.Data.ActivePowerGeneration),1} {FormatInt(baseNode.Data.ReactivePowerGeneration),1}   " +
+                          $"{FormatInt(baseNode.Data.FixedVoltageModule),1} " +
+                          $"{FormatInt(baseNode.Data.MinReactivePower),1} " +
+                          $"{FormatInt(baseNode.Data.MaxReactivePower),1}");
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                lines.Add($"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                          $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                          $"{FormatDouble(shunt.Data.ReactiveResistance),5}");
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                lines.Add($"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                          $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                          $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                          $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                          $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0");
+            }
+
+            return lines;
+        }
+
+        private Dictionary<(int Start, int End), (double Active, double Reactive)> ParseBranchCurrentsFromLosses(string lossesText)
+        {
+            var result = new Dictionary<(int Start, int End), (double Active, double Reactive)>();
+            var lines = lossesText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            bool inBranchTable = false;
+
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("Ветвь Нач.", StringComparison.OrdinalIgnoreCase))
+                {
+                    inBranchTable = true;
+                    continue;
+                }
+
+                if (!inBranchTable || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                if (!char.IsDigit(line[0]))
+                {
+                    if (line.StartsWith("Задающие токи узлов", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                    continue;
+                }
+
+                var tokens = Regex.Split(line, @"\s+");
+                if (tokens.Length < 5)
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(tokens[0], out int start) || !int.TryParse(tokens[1], out int end))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(tokens[2], NumberStyles.Any, CultureInfo.InvariantCulture, out double active))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(tokens[3], NumberStyles.Any, CultureInfo.InvariantCulture, out double reactive))
+                {
+                    continue;
+                }
+
+                result[(start, end)] = (active, reactive);
+            }
+
+            return result;
+        }
+
+        private Color GetBranchLoadColor(double loadingPercent)
+        {
+            if (loadingPercent <= 50) return Color.Blue;
+            if (loadingPercent <= 80) return Color.Green;
+            if (loadingPercent <= 95) return Color.Yellow;
+            if (loadingPercent <= 100) return Color.Orange;
+            return Color.Red;
         }
 
         private void ApplyTheme()

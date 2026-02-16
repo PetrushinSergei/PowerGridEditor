@@ -9,7 +9,7 @@ namespace PowerGridEditor
     public partial class BranchForm : Form
     {
         public Branch MyBranch { get; private set; }
-        private readonly string[] keys = { "Start", "End", "R", "X", "B", "Ktr", "G" };
+        private readonly string[] keys = { "Start", "End", "R", "X", "B", "Ktr", "G", "Imax" };
         private NumericUpDown numericMeasurementInterval;
         private Timer modelSyncTimer;
         private TextBox[] incrementStepBoxes;
@@ -23,6 +23,14 @@ namespace PowerGridEditor
         public TextBox ReactiveConductivityTextBox => paramBoxes[4];
         public TextBox TransformationRatioTextBox => paramBoxes[5];
         public TextBox ActiveConductivityTextBox => paramBoxes[6];
+        public TextBox PermissibleCurrentTextBox => paramBoxes[7];
+
+
+        public void BindModel(Branch branch)
+        {
+            MyBranch = branch;
+            LoadData();
+        }
 
 
         public void BindModel(Branch branch)
@@ -68,15 +76,15 @@ namespace PowerGridEditor
 
         private void SetupParameterIncrementEditors()
         {
-            incrementStepBoxes = new TextBox[7];
-            incrementIntervalBoxes = new TextBox[7];
-            incrementToggleButtons = new Button[7];
+            incrementStepBoxes = new TextBox[8];
+            incrementIntervalBoxes = new TextBox[8];
+            incrementToggleButtons = new Button[8];
 
             tabParams.Controls.Add(new Label { Text = "Шаг:", Location = new Point(520, 2), Size = new Size(45, 18) });
             tabParams.Controls.Add(new Label { Text = "Инт.,с:", Location = new Point(585, 2), Size = new Size(55, 18) });
             tabParams.Controls.Add(new Label { Text = "Авто изм.", Location = new Point(650, 2), Size = new Size(80, 18) });
 
-            for (int i = 2; i < 7; i++)
+            for (int i = 2; i < 8; i++)
             {
                 var stepBox = new TextBox { Size = new Size(55, 23), Text = "1" };
                 var intervalBox = new TextBox { Size = new Size(50, 23), Text = "2" };
@@ -114,8 +122,9 @@ namespace PowerGridEditor
             paramBoxes[4].Text = MyBranch.ReactiveConductivity.ToString(inv);
             paramBoxes[5].Text = MyBranch.TransformationRatio.ToString(inv);
             paramBoxes[6].Text = MyBranch.ActiveConductivity.ToString(inv);
+            paramBoxes[7].Text = MyBranch.PermissibleCurrent.ToString(inv);
 
-            for (int i = 2; i < 7; i++)
+            for (int i = 2; i < 8; i++)
             {
                 if (MyBranch.ParamAutoModes.ContainsKey(keys[i])) paramChecks[i].Checked = MyBranch.ParamAutoModes[keys[i]];
                 if (MyBranch.ParamRegisters.ContainsKey(keys[i])) addrBoxes[i].Text = MyBranch.ParamRegisters[keys[i]];
@@ -127,7 +136,7 @@ namespace PowerGridEditor
             comboBoxProtocol.SelectedItem = MyBranch.Protocol;
             if (comboBoxProtocol.SelectedIndex < 0) comboBoxProtocol.SelectedIndex = 0;
             numericMeasurementInterval.Value = MyBranch.MeasurementIntervalSeconds;
-            for (int i = 2; i < 7; i++)
+            for (int i = 2; i < 8; i++)
             {
                 if (MyBranch.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyBranch.ParamIncrementSteps[keys[i]].ToString(inv);
                 if (MyBranch.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyBranch.ParamIncrementIntervals[keys[i]].ToString(inv);
@@ -174,6 +183,7 @@ namespace PowerGridEditor
             if (index == 4) return MyBranch.ReactiveConductivity;
             if (index == 5) return MyBranch.TransformationRatio;
             if (index == 6) return MyBranch.ActiveConductivity;
+            if (index == 7) return MyBranch.PermissibleCurrent;
             return 0;
         }
 
@@ -184,6 +194,7 @@ namespace PowerGridEditor
             else if (index == 4) MyBranch.ReactiveConductivity = value;
             else if (index == 5) MyBranch.TransformationRatio = value;
             else if (index == 6) MyBranch.ActiveConductivity = value;
+            else if (index == 7) MyBranch.PermissibleCurrent = value;
             paramBoxes[index].Text = value.ToString(CultureInfo.InvariantCulture);
         }
 
@@ -215,8 +226,9 @@ namespace PowerGridEditor
                 MyBranch.ReactiveConductivity = double.Parse(paramBoxes[4].Text.Replace(',', '.'), inv);
                 MyBranch.TransformationRatio = double.Parse(paramBoxes[5].Text.Replace(',', '.'), inv);
                 MyBranch.ActiveConductivity = double.Parse(paramBoxes[6].Text.Replace(',', '.'), inv);
+                MyBranch.PermissibleCurrent = double.Parse(paramBoxes[7].Text.Replace(',', '.'), inv);
 
-                for (int i = 2; i < 7; i++)
+                for (int i = 2; i < 8; i++)
                 {
                     MyBranch.ParamAutoModes[keys[i]] = paramChecks[i].Checked;
                     MyBranch.ParamRegisters[keys[i]] = addrBoxes[i].Text;
@@ -227,7 +239,7 @@ namespace PowerGridEditor
                 MyBranch.Port = textBoxPort.Text;
                 MyBranch.DeviceID = textBoxID.Text;
                 MyBranch.MeasurementIntervalSeconds = (int)numericMeasurementInterval.Value;
-                for (int i = 2; i < 7; i++)
+                for (int i = 2; i < 8; i++)
                 {
                     if (double.TryParse(incrementStepBoxes[i].Text.Replace(',', '.'), NumberStyles.Any, inv, out double step))
                         MyBranch.ParamIncrementSteps[keys[i]] = step;

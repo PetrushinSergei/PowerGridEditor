@@ -25,9 +25,9 @@
             this.tabParams = new System.Windows.Forms.TabPage { Text = "Параметры ветви" };
             this.tabSettings = new System.Windows.Forms.TabPage { Text = "Настройки связи" };
 
-            this.paramBoxes = new System.Windows.Forms.TextBox[7];
-            this.paramChecks = new System.Windows.Forms.CheckBox[7];
-            this.addrBoxes = new System.Windows.Forms.TextBox[7];
+            this.paramBoxes = new System.Windows.Forms.TextBox[8];
+            this.paramChecks = new System.Windows.Forms.CheckBox[8];
+            this.addrBoxes = new System.Windows.Forms.TextBox[8];
 
             this.buttonSave = new System.Windows.Forms.Button { Text = "Сохранить", Size = new System.Drawing.Size(100, 32) };
             this.buttonCancel = new System.Windows.Forms.Button { Text = "Отмена", Size = new System.Drawing.Size(100, 32) };
@@ -46,11 +46,12 @@
                 "Реактивное сопротивление X (Ом):",
                 "Реактивная проводимость B (См):",
                 "Коэф. трансформации K (о.е.):",
-                "Активная проводимость G (См):"
+                "Активная проводимость G (См):",
+                "Допустимый ток Iдоп (А):"
             };
 
             int y = 20;
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < 8; i++)
             {
                 var lblName = new System.Windows.Forms.Label
                 {
