@@ -168,6 +168,11 @@ namespace PowerGridEditor
             }
         }
 
+        public void RefreshFromModel()
+        {
+            LoadData();
+        }
+
         private void LoadData()
         {
             var inv = CultureInfo.InvariantCulture;
