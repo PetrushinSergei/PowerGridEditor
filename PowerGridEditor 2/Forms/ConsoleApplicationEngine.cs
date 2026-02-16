@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace PowerGridEditor
@@ -9,6 +8,7 @@ namespace PowerGridEditor
 internal sealed class EngineResult
 {
     public string NetworkCdu;
+    public string NetworkErr;
     public string NetworkOut;
     public string NetworkRez;
     public string NetworkRip;
@@ -44,9 +44,7 @@ internal sealed class ConsoleApplicationEngine
     private const int kkk = 100;
     private const int kk = 10;
 
-    private readonly List<ReportNodeSnapshot> sourceNodes;
-    private readonly List<GraphicBranch> sourceBranches;
-    private readonly List<GraphicShunt> sourceShunts;
+    private readonly List<string> sourceCduLines;
     private readonly double precision;
     private readonly int iteraz;
 
@@ -102,11 +100,9 @@ internal sealed class ConsoleApplicationEngine
 
     private static readonly CultureInfo C = CultureInfo.InvariantCulture;
 
-    public ConsoleApplicationEngine(List<ReportNodeSnapshot> nodes, List<GraphicBranch> branches, List<GraphicShunt> shunts, double precision, int iteraz)
+    public ConsoleApplicationEngine(List<string> cduLines, double precision, int iteraz)
     {
-        sourceNodes = nodes;
-        sourceBranches = branches;
-        sourceShunts = shunts;
+        sourceCduLines = cduLines;
         this.precision = precision;
         this.iteraz = iteraz;
     }
@@ -116,7 +112,8 @@ internal sealed class ConsoleApplicationEngine
         var result = new EngineResult();
         if (!Preparation())
         {
-            result.NetworkCdu = "Ошибка подготовки данных – расчёт невозможен.";
+            result.NetworkCdu = BuildNetworkCdu();
+            result.NetworkErr = BuildNetworkErr();
             result.NetworkOut = "Ошибка подготовки данных – расчёт невозможен.";
             result.NetworkRez = "Ошибка подготовки данных – расчёт невозможен.";
             result.NetworkRip = "Ошибка подготовки данных – расчёт невозможен.";
@@ -155,80 +152,130 @@ internal sealed class ConsoleApplicationEngine
         }
 
         result.NetworkCdu = BuildNetworkCdu();
+        result.NetworkErr = BuildNetworkErr();
         return result;
     }
 
     private bool Preparation()
     {
         Array.Clear(nus, 0, nus.Length);
-        var orderedNodes = new List<ReportNodeSnapshot>(sourceNodes.Count);
-        var slack = sourceNodes.FirstOrDefault(x => x.Type == 3);
-        if (slack.Number != 0)
-        {
-            orderedNodes.Add(slack);
-        }
-        orderedNodes.AddRange(sourceNodes.Where(x => x.Number != slack.Number));
-        if (orderedNodes.Count == 0)
-        {
-            return false;
-        }
-        if (orderedNodes[0].Type != 3)
-        {
-            var s = orderedNodes[0];
-            s.Type = 3;
-            orderedNodes[0] = s;
-        }
-
         int j = 0;
-        for (int i = 0; i < orderedNodes.Count; i++)
-        {
-            var node = orderedNodes[i];
-            nn[j] = node.Number;
-            nk[j] = node.Type;
-            unom[j] = node.U;
-            p0[j] = node.PLoad;
-            q0[j] = node.QLoad;
-            g[j] = 0;
-            b[j] = 0;
-            Raion(nn[j]);
-            j++;
-        }
-
-        n = j - 1;
-        if (n < 0) return false;
-
-        var indexByNumber = new Dictionary<int, int>();
-        for (int i = 0; i <= n; i++)
-        {
-            indexByNumber[nn[i]] = i;
-        }
-
         int br = 0;
-        foreach (var gb in sourceBranches)
+
+        foreach (var raw in sourceCduLines)
         {
-            br++;
-            if (br >= imm) break;
-            var brd = gb.Data;
-            nm[1, br] = brd.StartNodeNumber;
-            nm[2, br] = brd.EndNodeNumber;
-            r[br] = brd.ActiveResistance;
-            x[br] = brd.ReactiveResistance;
-            by[br] = -brd.ReactiveConductivity;
-            kt[br] = brd.TransformationRatio;
-            if (Math.Abs(x[br]) < 1.001) x[br] = 1.01;
-            if (kt[br] < 0.001) kt[br] = 1;
-            gy[br] = 0;
+            var line = raw.Trim();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var t = line.Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            if (t.Length < 2) continue;
+            int code;
+            if (!int.TryParse(t[0], NumberStyles.Integer, C, out code)) continue;
+
+            if (code == 102 || code == 0102)
+            {
+                if (t.Length < 6) continue;
+                nn[0] = ParseI(t[2]);
+                unom[0] = ParseD(t[3]);
+                p0[0] = ParseD(t[4]);
+                q0[0] = ParseD(t[5]);
+                nk[0] = 3;
+                g[0] = b[0] = 0;
+                Raion(nn[0]);
+            }
+            else if (code == 201 || code == 0201)
+            {
+                if (t.Length < 6) continue;
+                j++;
+                nn[j] = ParseI(t[2]);
+                unom[j] = ParseD(t[3]);
+                p0[j] = ParseD(t[4]);
+                q0[j] = ParseD(t[5]);
+                nk[j] = 1;
+                g[j] = b[j] = 0;
+                if (t.Length > 8)
+                {
+                    double uv = ParseD(t[8]);
+                    if (uv > 0.1)
+                    {
+                        unom[j] = uv;
+                        nk[j] = 2;
+                    }
+                }
+                Raion(nn[j]);
+            }
+            else if (code == 301 || code == 0301)
+            {
+                if (t.Length < 4) continue;
+                br++;
+                nm[1, br] = ParseI(t[2]);
+                nm[2, br] = ParseI(t[3]);
+
+                if (nm[2, br] == 0)
+                {
+                    g[br] = t.Length > 4 ? ParseD(t[4]) : 0;
+                    b[br] = t.Length > 5 ? ParseD(t[5]) : 0;
+                    for (int l = 1; l <= j; l++)
+                    {
+                        if (nn[l] == nm[1, br])
+                        {
+                            b[l] = -b[br];
+                            b[br] = 0;
+                        }
+                    }
+                    br--;
+                }
+                else
+                {
+                    if (t.Length < 7) { br--; continue; }
+                    r[br] = ParseD(t[4]);
+                    x[br] = ParseD(t[5]);
+                    by[br] = -ParseD(t[6]);
+                    kt[br] = t.Length > 7 ? ParseD(t[7]) : 0;
+                    if (Math.Abs(x[br]) < 1.001) x[br] = 1.01;
+                    if (kt[br] < 0.001) kt[br] = 1;
+                    gy[br] = 0;
+                }
+            }
         }
 
-        foreach (var sh in sourceShunts)
-        {
-            int idx;
-            if (!indexByNumber.TryGetValue(sh.Data.StartNodeNumber, out idx)) continue;
-            b[idx] = -sh.Data.ReactiveResistance;
-        }
-
+        n = j;
         m = br;
-        if (m <= 0) return false;
+
+        var err = new StringBuilder();
+        bool ok = n > 0 && m > 0;
+
+        for (int i = 1; i <= n; i++)
+        {
+            bool linked = false;
+            for (int b1 = 1; b1 <= m; b1++)
+            {
+                if (nn[i] == nm[1, b1] || nn[i] == nm[2, b1]) { linked = true; break; }
+            }
+            if (!linked)
+            {
+                ok = false;
+                err.AppendLine($"Нет ветвей для узла {nn[i]}");
+            }
+        }
+
+        for (int b1 = 1; b1 <= m; b1++)
+        {
+            bool n1 = false;
+            bool n2 = false;
+            for (int i = 0; i <= n; i++)
+            {
+                if (nm[1, b1] == nn[i]) n1 = true;
+                if (nm[2, b1] == nn[i]) n2 = true;
+            }
+            if (!(n1 && n2))
+            {
+                ok = false;
+                err.AppendLine($"Ошибка связи ветви {nm[1, b1]}-{nm[2, b1]}");
+            }
+        }
+
+        networkErr = err.ToString();
+        if (!ok) return false;
 
         for (int i = 0; i <= n; i++)
         {
@@ -243,18 +290,18 @@ internal sealed class ConsoleApplicationEngine
 
         for (int i = 1; i <= m; i++)
         {
-            int id1;
-            int id2;
-            if (!indexByNumber.TryGetValue(nm[1, i], out id1) || !indexByNumber.TryGetValue(nm[2, i], out id2))
+            for (int j1 = 0; j1 <= n; j1++)
             {
-                return false;
+                if (nm[1, i] == nn[j1]) nm1[1, i] = j1;
+                if (nm[2, i] == nn[j1]) nm1[2, i] = j1;
             }
-            nm1[1, i] = id1;
-            nm1[2, i] = id2;
         }
 
         return true;
     }
+
+    private static int ParseI(string s) => int.Parse(s.Replace(',', '.'), NumberStyles.Integer, C);
+    private static double ParseD(string s) => double.Parse(s.Replace(',', '.'), NumberStyles.Float, C);
 
     private void Raion(int nnn)
     {
@@ -551,6 +598,7 @@ internal sealed class ConsoleApplicationEngine
     }
 
     private string lastNetworkRip = "";
+    private string networkErr = "";
 
     private string BuildNetworkRip()
     {
@@ -775,19 +823,17 @@ internal sealed class ConsoleApplicationEngine
 
     private string BuildNetworkCdu()
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("network.cdu");
-        sb.AppendLine("Узлы:");
-        for (int i = 0; i <= n; i++)
+        if (sourceCduLines == null || sourceCduLines.Count == 0)
         {
-            sb.AppendLine($"{nn[i]} type={nk[i]} U={Flex(unom[i], 3)} P={Flex(p0[i], 3)} Q={Flex(q0[i], 3)}");
+            return string.Empty;
         }
-        sb.AppendLine("Ветви:");
-        for (int j = 1; j <= m; j++)
-        {
-            sb.AppendLine($"{nm[1, j]} {nm[2, j]} r={Flex(r[j], 3)} x={Flex(x[j], 3)} b={Flex(by[j], 7)} kt={Flex(kt[j], 3)}");
-        }
-        return sb.ToString();
+
+        return string.Join(Environment.NewLine, sourceCduLines) + Environment.NewLine;
+    }
+
+    private string BuildNetworkErr()
+    {
+        return networkErr;
     }
 
     private static string F2(double v) => Math.Round(v, 2, MidpointRounding.AwayFromZero).ToString("0.00", C);
