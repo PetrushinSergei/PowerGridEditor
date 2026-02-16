@@ -10,6 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using System.Net.Sockets;
 using NModbus;
 
@@ -49,11 +50,11 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
-        private static readonly Color ThemePageBackground = Color.FromArgb(241, 247, 255);
+        private static readonly Color ThemePageBackground = Color.FromArgb(245, 250, 255);
         private static readonly Color ThemePanelBackground = Color.White;
-        private static readonly Color ThemeAccentBlue = Color.FromArgb(37, 99, 235);
-        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(59, 130, 246);
-        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(29, 78, 216);
+        private static readonly Color ThemeAccentBlue = Color.FromArgb(219, 234, 254);
+        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(191, 219, 254);
+        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(147, 197, 253);
         private static readonly Color ThemeBorderBlue = Color.FromArgb(96, 165, 250);
         private static readonly Color ThemeTextBlack = Color.Black;
 
@@ -76,7 +77,7 @@ namespace PowerGridEditor
             this.MouseWheel += Form1_MouseWheel; // зум колесом
             BackColor = ThemePageBackground;
             ForeColor = ThemeTextBlack;
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             ConfigureToolbarStyle();
             AddDynamicControls();
             ApplyTheme();
@@ -112,10 +113,10 @@ namespace PowerGridEditor
             grid.EnableHeadersVisualStyles = false;
             grid.DefaultCellStyle.BackColor = Color.White;
             grid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
             grid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
-            grid.GridColor = Color.FromArgb(191, 219, 254);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+            grid.GridColor = Color.FromArgb(219, 234, 254);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
@@ -158,39 +159,39 @@ namespace PowerGridEditor
 
             labelAdapter.Parent = contentPanel;
             labelAdapter.Location = new Point(22, 52);
-            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
             comboBoxAdapters.Size = new Size(670, 28);
-            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelIp.Parent = contentPanel;
             labelIp.Location = new Point(22, 95);
-            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxStaticIp.Parent = contentPanel;
             textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
-            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelMask.Parent = contentPanel;
             labelMask.Location = new Point(305, 95);
-            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxMask.Parent = contentPanel;
             textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
-            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelGateway.Parent = contentPanel;
             labelGateway.Location = new Point(530, 95);
-            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxGateway.Parent = contentPanel;
             textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
-            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
@@ -291,7 +292,12 @@ namespace PowerGridEditor
                 () => graphicElements,
                 () => graphicBranches,
                 () => graphicShunts,
-                () => panel2.Invalidate());
+                () =>
+                {
+                    panel2.Invalidate();
+                    RefreshElementsGrid();
+                    RefreshOpenedEditorForms();
+                });
             RegisterOpenedWindow(telemetryEditorForm);
             telemetryEditorForm.StartPosition = FormStartPosition.Manual;
             telemetryEditorForm.Location = GetNextChildWindowLocation();
@@ -386,19 +392,19 @@ namespace PowerGridEditor
 
             AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение", node.Data.InitialVoltage), ("P", "P нагрузка", node.Data.NominalActivePower), ("Q", "Q нагрузка", node.Data.NominalReactivePower), ("Pg", "P генерация", node.Data.ActivePowerGeneration), ("Qg", "Q генерация", node.Data.ReactivePowerGeneration), ("Uf", "U фикс.", node.Data.FixedVoltageModule), ("Qmin", "Q мин", node.Data.MinReactivePower), ("Qmax", "Q макс", node.Data.MaxReactivePower) });
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение, кВ", node.Data.InitialVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower) });
 
             AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение", baseNode.Data.InitialVoltage), ("P", "P нагрузка", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка", baseNode.Data.NominalReactivePower), ("Pg", "P генерация", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс.", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин", baseNode.Data.MinReactivePower), ("Qmax", "Q макс", baseNode.Data.MaxReactivePower) });
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение, кВ", baseNode.Data.InitialVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower) });
 
             AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R", branch.Data.ActiveResistance), ("X", "X", branch.Data.ReactiveResistance), ("B", "B", branch.Data.ReactiveConductivity), ("Ktr", "K трансф.", branch.Data.TransformationRatio), ("G", "G", branch.Data.ActiveConductivity) });
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity), ("Imax", "Iдоп, А", branch.Data.PermissibleCurrent) });
 
             AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
-                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R", shunt.Data.ActiveResistance), ("X", "X", shunt.Data.ReactiveResistance) });
+                AddRowsForNode("Шунт", $"Sh{shunt.Data.StartNodeNumber}", shunt.Data, shunt, new[] { ("R", "R, Ом", shunt.Data.ActiveResistance), ("X", "X, Ом", shunt.Data.ReactiveResistance) });
         }
 
         private void AddSectionRow(string title)
@@ -522,6 +528,7 @@ namespace PowerGridEditor
             if (key == "B") return data.ReactiveConductivity;
             if (key == "Ktr") return data.TransformationRatio;
             if (key == "G") return data.ActiveConductivity;
+            if (key == "Imax") return data.PermissibleCurrent;
             return 0;
         }
 
@@ -556,11 +563,12 @@ namespace PowerGridEditor
             else if (key == "B") data.ReactiveConductivity = value;
             else if (key == "Ktr") data.TransformationRatio = value;
             else if (key == "G") data.ActiveConductivity = value;
+            else if (key == "Imax") data.PermissibleCurrent = value;
         }
 
         private void SetupCanvas()
         {
-            panel2.BackColor = ThemePageBackground;
+            panel2.BackColor = Color.White;
             panel2.BorderStyle = BorderStyle.FixedSingle;
             panel2.GetType().GetProperty("DoubleBuffered", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)?.SetValue(panel2, true, null);
             this.SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint, true);
@@ -599,6 +607,7 @@ namespace PowerGridEditor
             foreach (var branch in graphicBranches)
             {
                 branch.Draw(e.Graphics);
+                DrawBranchCurrentInfo(e.Graphics, branch);
             }
 
             // 3. Затем рисуем прямоугольники шунтов
@@ -629,6 +638,81 @@ namespace PowerGridEditor
                     e.Graphics.DrawRectangle(pen, rect);
                 }
             }
+
+            DrawBranchLegend(e.Graphics);
+        }
+
+        private void DrawBranchCurrentInfo(Graphics g, GraphicBranch branch)
+        {
+            if (branch == null || branch.StartNode == null || branch.EndNode == null)
+            {
+                return;
+            }
+
+            Point start = NodeGraphicsHelper.GetNodeCenter(branch.StartNode);
+            Point end = NodeGraphicsHelper.GetNodeCenter(branch.EndNode);
+            Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
+
+            double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+            double ir = branch.Data.CalculatedCurrent;
+            double loading = branch.Data.LoadingPercent;
+            double reserve = 100.0 - loading;
+
+            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Запас={reserve:F2}%";
+            var size = g.MeasureString(info, Font);
+            var rect = new RectangleF(middle.X - size.Width / 2f - 4f, middle.Y - 25f, size.Width + 8f, size.Height + 2f);
+
+            using (var bg = new SolidBrush(Color.FromArgb(225, Color.White)))
+            using (var textBrush = new SolidBrush(Color.Black))
+            using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            {
+                g.FillRectangle(bg, rect);
+                g.DrawString(info, font, textBrush, rect.X + 4f, rect.Y + 1f);
+            }
+        }
+
+        private void DrawBranchLegend(Graphics g)
+        {
+            var state = g.Save();
+            g.ResetTransform();
+
+            int x = Math.Max(6, panel2.ClientSize.Width - 365);
+            int y = Math.Max(6, panel2.ClientSize.Height - 170);
+            int rowH = 24;
+            int legendW = 350;
+            int legendH = 155;
+
+            using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
+            using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
+            using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            {
+                g.FillRectangle(bg, x, y, legendW, legendH);
+                g.DrawRectangle(border, x, y, legendW, legendH);
+                g.DrawString("Легенда загрузки ветвей", font, Brushes.Black, x + 8, y + 6);
+
+                var rows = new[]
+                {
+                    (Color.Blue, "0% - 50%", "Линия недогружена (холодная)"),
+                    (Color.Green, "50% - 80%", "Оптимальный режим"),
+                    (Color.Yellow, "80% - 95%", "Внимание! Близко к пределу"),
+                    (Color.Orange, "95% - 100%", "Предупреждение"),
+                    (Color.Red, "> 100%", "ПЕРЕГРУЗКА! Риск повреждения")
+                };
+
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    int ry = y + 30 + i * rowH;
+                    using (var colorBrush = new SolidBrush(rows[i].Item1))
+                    {
+                        g.FillRectangle(colorBrush, x + 8, ry + 4, 18, 12);
+                    }
+
+                    g.DrawRectangle(Pens.Black, x + 8, ry + 4, 18, 12);
+                    g.DrawString($"{rows[i].Item2}: {rows[i].Item3}", font, Brushes.Black, x + 34, ry + 1);
+                }
+            }
+
+            g.Restore(state);
         }
 
         private Rectangle GetMarqueeRectangle()
@@ -705,7 +789,10 @@ namespace PowerGridEditor
             {
                 if (ctrlPressed)
                 {
-                    ToggleSelection(hitElement);
+                    if (!selectedElements.Contains(hitElement))
+                    {
+                        SelectElement(hitElement);
+                    }
                 }
                 else
                 {
@@ -914,13 +1001,7 @@ namespace PowerGridEditor
         private void EditBranch(GraphicBranch graphicBranch)
         {
             BranchForm form = new BranchForm();
-            form.StartNodeTextBox.Text = graphicBranch.GetStartNodeNumber().ToString();
-            form.EndNodeTextBox.Text = graphicBranch.GetEndNodeNumber().ToString();
-            form.ActiveResistanceTextBox.Text = graphicBranch.Data.ActiveResistance.ToString("F1");
-            form.ReactiveResistanceTextBox.Text = graphicBranch.Data.ReactiveResistance.ToString("F2");
-            form.ReactiveConductivityTextBox.Text = graphicBranch.Data.ReactiveConductivity.ToString("F1");
-            form.TransformationRatioTextBox.Text = graphicBranch.Data.TransformationRatio.ToString();
-            form.ActiveConductivityTextBox.Text = graphicBranch.Data.ActiveConductivity.ToString();
+            form.BindBranchModel(graphicBranch.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -960,6 +1041,7 @@ namespace PowerGridEditor
                 graphicBranch.Data.ReactiveConductivity = form.MyBranch.ReactiveConductivity;
                 graphicBranch.Data.TransformationRatio = form.MyBranch.TransformationRatio;
                 graphicBranch.Data.ActiveConductivity = form.MyBranch.ActiveConductivity;
+                graphicBranch.Data.PermissibleCurrent = form.MyBranch.PermissibleCurrent;
                 panel2.Invalidate();
             };
             form.Show(this);
@@ -1074,7 +1156,7 @@ namespace PowerGridEditor
 
         private void EditNode(GraphicNode graphicNode)
         {
-            NodeForm form = new NodeForm(selectedNode.Data);
+            NodeForm form = new NodeForm(graphicNode.Data);
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
             form.Location = GetNextChildWindowLocation();
@@ -1105,15 +1187,7 @@ namespace PowerGridEditor
         private void EditBaseNode(GraphicBaseNode graphicBaseNode)
         {
             BaseNodeForm form = new BaseNodeForm();
-            form.NodeNumberTextBox.Text = graphicBaseNode.Data.Number.ToString();
-            form.InitialVoltageTextBox.Text = graphicBaseNode.Data.InitialVoltage.ToString("F2");
-            form.NominalActivePowerTextBox.Text = graphicBaseNode.Data.NominalActivePower.ToString("F2");
-            form.NominalReactivePowerTextBox.Text = graphicBaseNode.Data.NominalReactivePower.ToString("F2");
-            form.ActivePowerGenerationTextBox.Text = graphicBaseNode.Data.ActivePowerGeneration.ToString("F2");
-            form.ReactivePowerGenerationTextBox.Text = graphicBaseNode.Data.ReactivePowerGeneration.ToString("F2");
-            form.FixedVoltageModuleTextBox.Text = graphicBaseNode.Data.FixedVoltageModule.ToString("F2");
-            form.MinReactivePowerTextBox.Text = graphicBaseNode.Data.MinReactivePower.ToString("F2");
-            form.MaxReactivePowerTextBox.Text = graphicBaseNode.Data.MaxReactivePower.ToString("F2");
+            form.BindModel(graphicBaseNode.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1537,9 +1611,7 @@ namespace PowerGridEditor
         private void EditShunt(GraphicShunt graphicShunt)
         {
             ShuntForm form = new ShuntForm();
-            form.StartNodeTextBox.Text = graphicShunt.Data.StartNodeNumber.ToString();
-            form.ActiveResistanceTextBox.Text = graphicShunt.Data.ActiveResistance.ToString("F1");
-            form.ReactiveResistanceTextBox.Text = graphicShunt.Data.ReactiveResistance.ToString();
+            form.BindModel(graphicShunt.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1567,6 +1639,23 @@ namespace PowerGridEditor
                 panel2.Invalidate();
             };
             form.Show(this);
+        }
+
+
+        private void RefreshOpenedEditorForms()
+        {
+            foreach (var list in openedEditorWindows.Values)
+            {
+                foreach (var form in list.ToList())
+                {
+                    if (form == null || form.IsDisposed) continue;
+
+                    if (form is NodeForm nodeForm) nodeForm.RefreshFromModel();
+                    else if (form is BaseNodeForm baseNodeForm) baseNodeForm.RefreshFromModel();
+                    else if (form is BranchForm branchForm) branchForm.RefreshFromModel();
+                    else if (form is ShuntForm shuntForm) shuntForm.RefreshFromModel();
+                }
+            }
         }
 
         // Метод проверки существования узла с таким номером
@@ -1842,7 +1931,7 @@ namespace PowerGridEditor
         private void WriteBranches(StreamWriter writer)
         {
             writer.WriteLine("ВЕТВИ:");
-            writer.WriteLine("0301 0  НачУз  КонУз   Rакт    Xреакт     Bреакт    Kтрансф  Gакт");
+            writer.WriteLine("0301 0  НачУз  КонУз   Rакт    Xреакт     Bреакт    Kтрансф  Gакт   Iдоп");
 
             foreach (var branch in graphicBranches)
             {
@@ -1852,7 +1941,8 @@ namespace PowerGridEditor
                              $"{branch.Data.ReactiveResistance,7:F2}   " +
                              $"{branch.Data.ReactiveConductivity,8:F1}   " +
                              $"{branch.Data.TransformationRatio,4}   " +
-                             $"{branch.Data.ActiveConductivity,4}";
+                             $"{branch.Data.ActiveConductivity,4}   " +
+                             $"{branch.Data.PermissibleCurrent,6:F1}";
 
                 writer.WriteLine(line);
             }
@@ -2119,6 +2209,7 @@ namespace PowerGridEditor
                 double b = ParseDouble(parts[6]);
                 double k = ParseDouble(parts[7]);
                 double g = ParseDouble(parts[8]);
+                double iMax = (parts.Length == 10 || parts.Length > 11) ? ParseDouble(parts[parts.Length - 1]) : 600;
 
                 object startObj = FindNodeByNumber(startNode);
                 object endObj = FindNodeByNumber(endNode);
@@ -2131,7 +2222,8 @@ namespace PowerGridEditor
                     ReactiveResistance = x,
                     ReactiveConductivity = b,
                     TransformationRatio = k,
-                    ActiveConductivity = g
+                    ActiveConductivity = g,
+                    PermissibleCurrent = iMax
                 };
                 graphicBranches.Add(new GraphicBranch(branch, startObj, endObj));
             }
@@ -2222,6 +2314,8 @@ namespace PowerGridEditor
 
         private void buttonOpenReport_Click(object sender, EventArgs e)
         {
+            ApplyBranchLoadingColorsFromCurrentResult();
+
             var reportForm = new ReportForm();
             reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
             RegisterOpenedWindow(reportForm);
@@ -2230,12 +2324,201 @@ namespace PowerGridEditor
             reportForm.Show(this);
         }
 
+
+        private void ApplyBranchLoadingColorsFromCurrentResult()
+        {
+            var lossesText = RunCurrentLossesCalculation();
+            if (string.IsNullOrWhiteSpace(lossesText))
+            {
+                return;
+            }
+
+            var currents = ParseBranchCurrentsFromLosses(lossesText);
+            foreach (var branch in graphicBranches)
+            {
+                var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
+                {
+                    branch.Data.CalculatedActiveCurrent = 0;
+                    branch.Data.CalculatedReactiveCurrent = 0;
+                    branch.Data.CalculatedCurrent = 0;
+                    branch.Data.LoadingPercent = 0;
+                    branch.LoadColor = Color.Black;
+                    continue;
+                }
+
+                branch.Data.CalculatedActiveCurrent = c.Active;
+                branch.Data.CalculatedReactiveCurrent = c.Reactive;
+                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
+                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                bool overloaded;
+                branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
+                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+            }
+
+            panel2.Invalidate();
+            RefreshElementsGrid();
+        }
+
+        private double GetNodeNominalVoltageKv(int nodeNumber)
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node && node.Data.Number == nodeNumber)
+                {
+                    return node.Data.InitialVoltage > 0 ? node.Data.InitialVoltage : 110;
+                }
+
+                if (element is GraphicBaseNode baseNode && baseNode.Data.Number == nodeNumber)
+                {
+                    return baseNode.Data.InitialVoltage > 0 ? baseNode.Data.InitialVoltage : 110;
+                }
+            }
+
+            return 110;
+        }
+
+        // Перевод тока из network.tok в Амперы по заданной формуле.
+        private double ConvertTokToAmperes(double re, double im, double uNomKv, double iMax, out bool overloaded)
+        {
+            double iPu = Math.Sqrt(re * re + im * im);
+            const double sBase = 1000.0;
+            double u = uNomKv <= 0 ? 110.0 : uNomKv;
+            double iAmp = (iPu * sBase) / (Math.Sqrt(3.0) * u) * 1000.0;
+            overloaded = iAmp > iMax;
+            return iAmp;
+        }
+
+        private string RunCurrentLossesCalculation()
+        {
+            var cduLines = BuildCduLinesForEngine();
+            var engine = new ConsoleApplicationEngine(cduLines, CalculationOptions.Precision, CalculationOptions.MaxIterations);
+            var result = engine.Run();
+            return result.LossesRez;
+        }
+
+        private List<string> BuildCduLinesForEngine()
+        {
+            var lines = new List<string>();
+
+            var baseNodeNumbers = new HashSet<int>(graphicElements.OfType<GraphicBaseNode>().Select(x => x.Data.Number));
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (baseNodeNumbers.Contains(node.Data.Number))
+                {
+                    continue;
+                }
+
+                lines.Add($"0201 0   {node.Data.Number,3}  {node.Data.InitialVoltage,3}     " +
+                          $"{FormatInt(node.Data.NominalActivePower),4}  {FormatInt(node.Data.NominalReactivePower),3}  " +
+                          $"{FormatInt(node.Data.ActivePowerGeneration),1} {FormatInt(node.Data.ReactivePowerGeneration),1}  " +
+                          $"{FormatInt(node.Data.FixedVoltageModule),3} {FormatInt(node.Data.MinReactivePower),1} {FormatInt(node.Data.MaxReactivePower),1}");
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                lines.Add($"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
+                          $"{FormatInt(baseNode.Data.NominalActivePower),1}    " +
+                          $"{FormatInt(baseNode.Data.NominalReactivePower),1}  " +
+                          $"{FormatInt(baseNode.Data.ActivePowerGeneration),1} {FormatInt(baseNode.Data.ReactivePowerGeneration),1}   " +
+                          $"{FormatInt(baseNode.Data.FixedVoltageModule),1} " +
+                          $"{FormatInt(baseNode.Data.MinReactivePower),1} " +
+                          $"{FormatInt(baseNode.Data.MaxReactivePower),1}");
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                lines.Add($"0301 0   {shunt.Data.StartNodeNumber,3}      {shunt.Data.EndNodeNumber,2}    " +
+                          $"{FormatDouble(shunt.Data.ActiveResistance),4}   " +
+                          $"{FormatDouble(shunt.Data.ReactiveResistance),5}");
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                lines.Add($"0301 0   {branch.Data.StartNodeNumber,3}      {branch.Data.EndNodeNumber,2}    " +
+                          $"{FormatDouble(branch.Data.ActiveResistance),4}   " +
+                          $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
+                          $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
+                          $"{FormatDouble(branch.Data.TransformationRatio),5} " +
+                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0");
+            }
+
+            return lines;
+        }
+
+        private Dictionary<(int Start, int End), (double Active, double Reactive)> ParseBranchCurrentsFromLosses(string lossesText)
+        {
+            var result = new Dictionary<(int Start, int End), (double Active, double Reactive)>();
+            var lines = lossesText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            bool inBranchTable = false;
+
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("Ветвь Нач.", StringComparison.OrdinalIgnoreCase))
+                {
+                    inBranchTable = true;
+                    continue;
+                }
+
+                if (!inBranchTable || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                if (!char.IsDigit(line[0]))
+                {
+                    if (line.StartsWith("Задающие токи узлов", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                    continue;
+                }
+
+                var tokens = Regex.Split(line, @"\s+");
+                if (tokens.Length < 5)
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(tokens[0], out int start) || !int.TryParse(tokens[1], out int end))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(tokens[2], NumberStyles.Any, CultureInfo.InvariantCulture, out double active))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(tokens[3], NumberStyles.Any, CultureInfo.InvariantCulture, out double reactive))
+                {
+                    continue;
+                }
+
+                result[(start, end)] = (active, reactive);
+            }
+
+            return result;
+        }
+
+        private Color GetBranchLoadColor(double loadingPercent)
+        {
+            if (loadingPercent <= 50) return Color.Blue;
+            if (loadingPercent <= 80) return Color.Green;
+            if (loadingPercent <= 95) return Color.Yellow;
+            if (loadingPercent <= 100) return Color.Orange;
+            return Color.Red;
+        }
+
         private void ApplyTheme()
         {
             this.BackColor = ThemePageBackground;
             this.ForeColor = ThemeTextBlack;
             panel1.BackColor = ThemePanelBackground;
-            panel2.BackColor = ThemePageBackground;
+            panel2.BackColor = Color.White;
 
             foreach (Control ctrl in panel1.Controls)
             {
@@ -2248,6 +2531,7 @@ namespace PowerGridEditor
                     btn.FlatAppearance.BorderSize = 1;
                     btn.FlatAppearance.MouseOverBackColor = ThemeAccentBlueHover;
                     btn.FlatAppearance.MouseDownBackColor = ThemeAccentBluePressed;
+                    btn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
                 }
             }
 
@@ -2258,15 +2542,26 @@ namespace PowerGridEditor
                 elementsGrid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
                 elementsGrid.DefaultCellStyle.BackColor = Color.White;
                 elementsGrid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(191, 219, 254);
+                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
                 elementsGrid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
-                elementsGrid.GridColor = Color.FromArgb(191, 219, 254);
+                elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+                elementsGrid.GridColor = Color.FromArgb(219, 234, 254);
             }
 
             telemetryEditorForm?.ApplyTheme();
+            ApplyBoldFontsRecursive(this);
             RefreshElementsGrid();
             panel2.Invalidate();
+        }
+
+        private void ApplyBoldFontsRecursive(Control root)
+        {
+            if (root == null) return;
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control child in root.Controls)
+            {
+                ApplyBoldFontsRecursive(child);
+            }
         }
 
         private void ConfigureToolbarStyle()
@@ -2284,7 +2579,7 @@ namespace PowerGridEditor
                     btn.FlatAppearance.BorderSize = 1;
                     btn.FlatAppearance.MouseOverBackColor = ThemeAccentBlueHover;
                     btn.FlatAppearance.MouseDownBackColor = ThemeAccentBluePressed;
-                    btn.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+                    btn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
                     btn.Size = new Size(124, 34);
                 }
             }
