@@ -51,10 +51,10 @@ namespace PowerGridEditor
 
         private static readonly Color ThemePageBackground = Color.FromArgb(241, 247, 255);
         private static readonly Color ThemePanelBackground = Color.White;
-        private static readonly Color ThemeAccentBlue = Color.FromArgb(37, 99, 235);
-        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(59, 130, 246);
-        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(29, 78, 216);
-        private static readonly Color ThemeBorderBlue = Color.FromArgb(96, 165, 250);
+        private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
+        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
+        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(74, 222, 128);
+        private static readonly Color ThemeBorderBlue = Color.FromArgb(34, 197, 94);
         private static readonly Color ThemeTextBlack = Color.Black;
 
         private sealed class AdapterEntry
@@ -76,7 +76,7 @@ namespace PowerGridEditor
             this.MouseWheel += Form1_MouseWheel; // зум колесом
             BackColor = ThemePageBackground;
             ForeColor = ThemeTextBlack;
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             ConfigureToolbarStyle();
             AddDynamicControls();
             ApplyTheme();
@@ -158,39 +158,39 @@ namespace PowerGridEditor
 
             labelAdapter.Parent = contentPanel;
             labelAdapter.Location = new Point(22, 52);
-            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelAdapter.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             comboBoxAdapters.Parent = contentPanel;
             comboBoxAdapters.Location = new Point(130, 50);
             comboBoxAdapters.Size = new Size(670, 28);
-            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            comboBoxAdapters.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelIp.Parent = contentPanel;
             labelIp.Location = new Point(22, 95);
-            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxStaticIp.Parent = contentPanel;
             textBoxStaticIp.Location = new Point(60, 92);
             textBoxStaticIp.Size = new Size(230, 29);
-            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxStaticIp.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelMask.Parent = contentPanel;
             labelMask.Location = new Point(305, 95);
-            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxMask.Parent = contentPanel;
             textBoxMask.Location = new Point(370, 92);
             textBoxMask.Size = new Size(150, 29);
-            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxMask.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             labelGateway.Parent = contentPanel;
             labelGateway.Location = new Point(530, 95);
-            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            labelGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             textBoxGateway.Parent = contentPanel;
             textBoxGateway.Location = new Point(595, 92);
             textBoxGateway.Size = new Size(150, 29);
-            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Regular);
+            textBoxGateway.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
 
             buttonApplyStaticIp.Parent = contentPanel;
             buttonApplyStaticIp.Text = "Применить\r\nIP";
@@ -2271,8 +2271,19 @@ namespace PowerGridEditor
             }
 
             telemetryEditorForm?.ApplyTheme();
+            ApplyBoldFontsRecursive(this);
             RefreshElementsGrid();
             panel2.Invalidate();
+        }
+
+        private void ApplyBoldFontsRecursive(Control root)
+        {
+            if (root == null) return;
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control child in root.Controls)
+            {
+                ApplyBoldFontsRecursive(child);
+            }
         }
 
         private void ConfigureToolbarStyle()

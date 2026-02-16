@@ -13,6 +13,7 @@ namespace PowerGridEditor
         private NumericUpDown numericMeasurementInterval;
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
+        private Button[] incrementToggleButtons;
 
         public TextBox StartNodeTextBox => paramBoxes[0];
         public TextBox EndNodeTextBox => paramBoxes[1];
@@ -39,6 +40,7 @@ namespace PowerGridEditor
             btnCheckIP.Click += async (s, e) => await RunPing();
 
             SetupParameterIncrementEditors();
+            ApplyBoldFonts(this);
 
             LoadData();
         }
@@ -55,9 +57,11 @@ namespace PowerGridEditor
         {
             incrementStepBoxes = new TextBox[7];
             incrementIntervalBoxes = new TextBox[7];
+            incrementToggleButtons = new Button[7];
 
             tabParams.Controls.Add(new Label { Text = "Шаг:", Location = new Point(520, 2), Size = new Size(45, 18) });
             tabParams.Controls.Add(new Label { Text = "Инт.,с:", Location = new Point(585, 2), Size = new Size(55, 18) });
+            tabParams.Controls.Add(new Label { Text = "Авто изм.", Location = new Point(650, 2), Size = new Size(80, 18) });
 
             for (int i = 2; i < 7; i++)
             {
@@ -68,10 +72,17 @@ namespace PowerGridEditor
                     stepBox.Location = new Point(addrBoxes[i].Right + 10, addrBoxes[i].Top);
                     intervalBox.Location = new Point(stepBox.Right + 8, addrBoxes[i].Top);
                 }
+                var toggleButton = new Button { Size = new Size(75, 23), Text = "Старт" };
+                toggleButton.Location = new Point(intervalBox.Right + 8, addrBoxes[i].Top);
+                int idx = i;
+                toggleButton.Click += (s, e) => ToggleIncrement(idx);
+
                 incrementStepBoxes[i] = stepBox;
                 incrementIntervalBoxes[i] = intervalBox;
+                incrementToggleButtons[i] = toggleButton;
                 tabParams.Controls.Add(stepBox);
                 tabParams.Controls.Add(intervalBox);
+                tabParams.Controls.Add(toggleButton);
             }
         }
 
@@ -107,7 +118,76 @@ namespace PowerGridEditor
             {
                 if (MyBranch.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyBranch.ParamIncrementSteps[keys[i]].ToString(inv);
                 if (MyBranch.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyBranch.ParamIncrementIntervals[keys[i]].ToString(inv);
+                UpdateIncrementButtonState(i);
             }
+        }
+
+
+        private void ToggleIncrement(int index)
+        {
+            var inv = CultureInfo.InvariantCulture;
+            double step = 1;
+            int interval = 2;
+            if (double.TryParse(incrementStepBoxes[index].Text.Replace(',', '.'), NumberStyles.Any, inv, out double parsedStep)) step = parsedStep;
+            if (int.TryParse(incrementIntervalBoxes[index].Text, out int parsedInterval)) interval = Math.Max(1, parsedInterval);
+
+            MyBranch.ParamIncrementSteps[keys[index]] = step;
+            MyBranch.ParamIncrementIntervals[keys[index]] = interval;
+
+            string id = ParameterAutoChangeService.BuildId(MyBranch, keys[index]);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+            bool enable = !running;
+
+            ParameterAutoChangeService.Configure(
+                id,
+                step,
+                interval,
+                enable,
+                () => GetParamValue(index),
+                value => SetParamValue(index, value),
+                () => BeginInvoke(new Action(() =>
+                {
+                    paramBoxes[index].Text = GetParamValue(index).ToString(inv);
+                    UpdateIncrementButtonState(index);
+                })));
+
+            UpdateIncrementButtonState(index);
+        }
+
+        private double GetParamValue(int index)
+        {
+            if (index == 2) return MyBranch.ActiveResistance;
+            if (index == 3) return MyBranch.ReactiveResistance;
+            if (index == 4) return MyBranch.ReactiveConductivity;
+            if (index == 5) return MyBranch.TransformationRatio;
+            if (index == 6) return MyBranch.ActiveConductivity;
+            return 0;
+        }
+
+        private void SetParamValue(int index, double value)
+        {
+            if (index == 2) MyBranch.ActiveResistance = value;
+            else if (index == 3) MyBranch.ReactiveResistance = value;
+            else if (index == 4) MyBranch.ReactiveConductivity = value;
+            else if (index == 5) MyBranch.TransformationRatio = value;
+            else if (index == 6) MyBranch.ActiveConductivity = value;
+            paramBoxes[index].Text = value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private void UpdateIncrementButtonState(int index)
+        {
+            if (incrementToggleButtons == null || incrementToggleButtons[index] == null) return;
+            string id = ParameterAutoChangeService.BuildId(MyBranch, keys[index]);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+            incrementToggleButtons[index].Text = running ? "Стоп" : "Старт";
+            incrementToggleButtons[index].BackColor = running ? Color.LightCoral : Color.LightGreen;
+            incrementToggleButtons[index].Font = new Font(incrementToggleButtons[index].Font, FontStyle.Bold);
+        }
+
+        private void ApplyBoldFonts(Control root)
+        {
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control c in root.Controls) ApplyBoldFonts(c);
         }
 
         private void SaveData()
