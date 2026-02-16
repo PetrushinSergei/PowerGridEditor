@@ -43,7 +43,7 @@ namespace PowerGridEditor
         private readonly HashSet<string> expandedGroups = new HashSet<string>();
         private bool suppressGridEvents;
 
-        private static readonly Color ThemePageBackground = Color.FromArgb(236, 253, 245);
+        private static readonly Color ThemePageBackground = Color.FromArgb(245, 250, 255);
         private static readonly Color ThemePanelBackground = Color.White;
         private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
         private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
@@ -208,7 +208,7 @@ namespace PowerGridEditor
             grid.DefaultCellStyle.ForeColor = ThemeTextBlack;
             grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
             grid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
             grid.GridColor = Color.FromArgb(187, 247, 208);
 
             ApplyBoldFontsRecursive(this);
@@ -241,10 +241,12 @@ namespace PowerGridEditor
             table.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
             table.DefaultCellStyle.BackColor = Color.White;
             table.DefaultCellStyle.ForeColor = ThemeTextBlack;
+            table.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            table.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             table.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
             table.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
             table.GridColor = Color.FromArgb(187, 247, 208);
-            table.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
+            table.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(239, 246, 255);
             table.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             table.EnableHeadersVisualStyles = false;
 
@@ -263,6 +265,12 @@ namespace PowerGridEditor
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "IncStep", HeaderText = "Шаг", Width = 70 });
             table.Columns.Add(new DataGridViewTextBoxColumn { Name = "IncInterval", HeaderText = "Инт.,с", Width = 70 });
             table.Columns.Add(new DataGridViewButtonColumn { Name = "AutoChange", HeaderText = "Авто изм.", Text = "Старт", UseColumnTextForButtonValue = false, Width = 90 });
+
+            foreach (DataGridViewColumn col in table.Columns)
+            {
+                col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                col.HeaderCell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            }
 
             table.CellEndEdit += Grid_CellChanged;
             table.CellValueChanged += Grid_CellChanged;
@@ -476,18 +484,18 @@ namespace PowerGridEditor
             var cell = row.Cells["AutoChange"];
             if (running)
             {
-                cell.Style.BackColor = ThemeAccentBlue;
-                cell.Style.ForeColor = ThemeTextBlack;
+                cell.Style.BackColor = Color.FromArgb(252, 165, 165);
+                cell.Style.ForeColor = Color.Black;
                 cell.Style.SelectionBackColor = Color.FromArgb(187, 247, 208);
                 cell.Style.SelectionForeColor = ThemeTextBlack;
                 cell.Value = "Стоп";
             }
             else
             {
-                cell.Style.BackColor = Color.Empty;
-                cell.Style.ForeColor = Color.Empty;
-                cell.Style.SelectionBackColor = Color.Empty;
-                cell.Style.SelectionForeColor = Color.Empty;
+                cell.Style.BackColor = Color.FromArgb(191, 219, 254);
+                cell.Style.ForeColor = Color.Black;
+                cell.Style.SelectionBackColor = Color.FromArgb(147, 197, 253);
+                cell.Style.SelectionForeColor = Color.Black;
                 cell.Value = "Старт";
             }
         }

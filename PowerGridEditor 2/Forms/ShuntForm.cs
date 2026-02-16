@@ -11,6 +11,7 @@ namespace PowerGridEditor
         public Shunt MyShunt { get; private set; }
         private readonly string[] keys = { "Start", "R", "X" };
         private NumericUpDown numericMeasurementInterval;
+        private Timer modelSyncTimer;
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
         private Button[] incrementToggleButtons;
@@ -29,9 +30,9 @@ namespace PowerGridEditor
         public ShuntForm()
         {
             InitializeComponent();
-            BackColor = Color.FromArgb(236, 253, 245);
-            tabParams.BackColor = Color.FromArgb(236, 253, 245);
-            tabSettings.BackColor = Color.FromArgb(236, 253, 245);
+            BackColor = Color.FromArgb(245, 250, 255);
+            tabParams.BackColor = Color.FromArgb(245, 250, 255);
+            tabSettings.BackColor = Color.FromArgb(245, 250, 255);
             MyShunt = new Shunt(0);
 
             buttonSave.Click += (s, e) => SaveData();
@@ -40,6 +41,15 @@ namespace PowerGridEditor
 
             SetupParameterIncrementEditors();
             ApplyBoldFonts(this);
+
+            modelSyncTimer = new Timer { Interval = 700 };
+            modelSyncTimer.Tick += (s, e) =>
+            {
+                if (ContainsFocus && ActiveControl is TextBox) return;
+                RefreshFromModel();
+            };
+            modelSyncTimer.Start();
+            FormClosing += (s, e) => modelSyncTimer.Stop();
 
             LoadData();
         }
@@ -169,7 +179,7 @@ namespace PowerGridEditor
             string id = ParameterAutoChangeService.BuildId(MyShunt, keys[index]);
             bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
             incrementToggleButtons[index].Text = running ? "Стоп" : "Старт";
-            incrementToggleButtons[index].BackColor = running ? Color.LightCoral : Color.LightGreen;
+            incrementToggleButtons[index].BackColor = running ? Color.FromArgb(252, 165, 165) : Color.FromArgb(191, 219, 254);
             incrementToggleButtons[index].Font = new Font(incrementToggleButtons[index].Font, FontStyle.Bold);
         }
 

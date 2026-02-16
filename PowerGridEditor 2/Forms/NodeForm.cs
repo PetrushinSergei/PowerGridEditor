@@ -15,6 +15,7 @@ namespace PowerGridEditor
     {
         public Node MyNode { get; private set; }
         private Timer liveTimer;
+        private Timer modelSyncTimer;
         private string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
         private NumericUpDown numericMeasurementInterval;
         private TextBox[] incrementStepBoxes;
@@ -27,20 +28,28 @@ namespace PowerGridEditor
         public NodeForm(Node node)
         {
             InitializeComponent(); // Все контроллеры создаются здесь (в Designer.cs)
-            BackColor = Color.FromArgb(236, 253, 245);
-            tabParams.BackColor = Color.FromArgb(236, 253, 245);
-            tabSettings.BackColor = Color.FromArgb(236, 253, 245);
+            BackColor = Color.FromArgb(245, 250, 255);
+            tabParams.BackColor = Color.FromArgb(245, 250, 255);
+            tabSettings.BackColor = Color.FromArgb(245, 250, 255);
             MyNode = node;
 
             liveTimer = new Timer { Interval = 2000 };
             liveTimer.Tick += async (s, e) => await PollModbusTask();
             liveTimer.Start();
 
+            modelSyncTimer = new Timer { Interval = 700 };
+            modelSyncTimer.Tick += (s, e) =>
+            {
+                if (ContainsFocus && ActiveControl is TextBox) return;
+                RefreshFromModel();
+            };
+            modelSyncTimer.Start();
+
             // Привязка событий (контроллеры берутся из Designer)
             btnCheckIP.Click += async (s, e) => await RunPing();
             buttonSave.Click += (s, e) => SaveData();
             buttonCancel.Click += (s, e) => this.Close();
-            this.FormClosing += (s, e) => liveTimer.Stop();
+            this.FormClosing += (s, e) => { liveTimer.Stop(); modelSyncTimer.Stop(); };
 
             SetupParameterIncrementEditors();
             CaptureFixedParamLayout();
@@ -300,7 +309,7 @@ namespace PowerGridEditor
             string id = ParameterAutoChangeService.BuildId(MyNode, keys[index]);
             bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
             incrementToggleButtons[index].Text = running ? "Стоп" : "Старт";
-            incrementToggleButtons[index].BackColor = running ? Color.LightCoral : Color.LightGreen;
+            incrementToggleButtons[index].BackColor = running ? Color.FromArgb(252, 165, 165) : Color.FromArgb(191, 219, 254);
             incrementToggleButtons[index].Font = new Font(incrementToggleButtons[index].Font, FontStyle.Bold);
         }
 

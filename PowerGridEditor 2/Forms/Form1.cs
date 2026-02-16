@@ -49,12 +49,12 @@ namespace PowerGridEditor
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
         private GraphicNode selectedNode => selectedElement as GraphicNode;
 
-        private static readonly Color ThemePageBackground = Color.FromArgb(236, 253, 245);
+        private static readonly Color ThemePageBackground = Color.FromArgb(245, 250, 255);
         private static readonly Color ThemePanelBackground = Color.White;
-        private static readonly Color ThemeAccentBlue = Color.FromArgb(187, 247, 208);
-        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(134, 239, 172);
-        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(74, 222, 128);
-        private static readonly Color ThemeBorderBlue = Color.FromArgb(34, 197, 94);
+        private static readonly Color ThemeAccentBlue = Color.FromArgb(219, 234, 254);
+        private static readonly Color ThemeAccentBlueHover = Color.FromArgb(191, 219, 254);
+        private static readonly Color ThemeAccentBluePressed = Color.FromArgb(147, 197, 253);
+        private static readonly Color ThemeBorderBlue = Color.FromArgb(96, 165, 250);
         private static readonly Color ThemeTextBlack = Color.Black;
 
         private sealed class AdapterEntry
@@ -112,10 +112,10 @@ namespace PowerGridEditor
             grid.EnableHeadersVisualStyles = false;
             grid.DefaultCellStyle.BackColor = Color.White;
             grid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
+            grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
             grid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
             grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
-            grid.GridColor = Color.FromArgb(187, 247, 208);
+            grid.GridColor = Color.FromArgb(219, 234, 254);
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Тип", ReadOnly = true, Width = 120 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Element", HeaderText = "Элемент", ReadOnly = true, Width = 110 });
@@ -2257,6 +2257,7 @@ namespace PowerGridEditor
                     btn.FlatAppearance.BorderSize = 1;
                     btn.FlatAppearance.MouseOverBackColor = ThemeAccentBlueHover;
                     btn.FlatAppearance.MouseDownBackColor = ThemeAccentBluePressed;
+                    btn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
                 }
             }
 
@@ -2267,10 +2268,10 @@ namespace PowerGridEditor
                 elementsGrid.ColumnHeadersDefaultCellStyle.ForeColor = ThemeTextBlack;
                 elementsGrid.DefaultCellStyle.BackColor = Color.White;
                 elementsGrid.DefaultCellStyle.ForeColor = ThemeTextBlack;
-                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(187, 247, 208);
+                elementsGrid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
                 elementsGrid.DefaultCellStyle.SelectionForeColor = ThemeTextBlack;
                 elementsGrid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(220, 252, 231);
-                elementsGrid.GridColor = Color.FromArgb(187, 247, 208);
+                elementsGrid.GridColor = Color.FromArgb(219, 234, 254);
             }
 
             telemetryEditorForm?.ApplyTheme();
@@ -2304,7 +2305,7 @@ namespace PowerGridEditor
                     btn.FlatAppearance.BorderSize = 1;
                     btn.FlatAppearance.MouseOverBackColor = ThemeAccentBlueHover;
                     btn.FlatAppearance.MouseDownBackColor = ThemeAccentBluePressed;
-                    btn.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold);
+                    btn.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
                     btn.Size = new Size(124, 34);
                 }
             }
