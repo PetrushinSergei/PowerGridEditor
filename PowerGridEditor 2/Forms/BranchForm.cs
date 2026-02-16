@@ -32,6 +32,13 @@ namespace PowerGridEditor
             LoadData();
         }
 
+
+        public void BindModel(Branch branch)
+        {
+            MyBranch = branch;
+            LoadData();
+        }
+
         public BranchForm()
         {
             InitializeComponent();
