@@ -5,11 +5,13 @@ namespace PowerGridEditor
         private System.ComponentModel.IContainer components = null;
         private System.Windows.Forms.TabControl tabControl1;
         private System.Windows.Forms.TabPage tabOverview;
+        private System.Windows.Forms.TabPage tabErr;
         private System.Windows.Forms.TabPage tabInput;
         private System.Windows.Forms.TabPage tabResults;
         private System.Windows.Forms.TabPage tabLoss;
         private System.Windows.Forms.TabPage tabBreakdown;
         private System.Windows.Forms.TextBox txtOverview;
+        private System.Windows.Forms.TextBox txtErr;
         private System.Windows.Forms.TextBox txtInput;
         private System.Windows.Forms.TextBox txtResults;
         private System.Windows.Forms.TextBox txtLoss;
@@ -29,6 +31,8 @@ namespace PowerGridEditor
             this.tabControl1 = new System.Windows.Forms.TabControl();
             this.tabOverview = new System.Windows.Forms.TabPage();
             this.txtOverview = new System.Windows.Forms.TextBox();
+            this.tabErr = new System.Windows.Forms.TabPage();
+            this.txtErr = new System.Windows.Forms.TextBox();
             this.tabInput = new System.Windows.Forms.TabPage();
             this.txtInput = new System.Windows.Forms.TextBox();
             this.tabResults = new System.Windows.Forms.TabPage();
@@ -39,6 +43,7 @@ namespace PowerGridEditor
             this.txtBreakdown = new System.Windows.Forms.TextBox();
             this.tabControl1.SuspendLayout();
             this.tabOverview.SuspendLayout();
+            this.tabErr.SuspendLayout();
             this.tabInput.SuspendLayout();
             this.tabResults.SuspendLayout();
             this.tabLoss.SuspendLayout();
@@ -48,6 +53,7 @@ namespace PowerGridEditor
             // tabControl1
             // 
             this.tabControl1.Controls.Add(this.tabOverview);
+            this.tabControl1.Controls.Add(this.tabErr);
             this.tabControl1.Controls.Add(this.tabInput);
             this.tabControl1.Controls.Add(this.tabResults);
             this.tabControl1.Controls.Add(this.tabLoss);
@@ -83,6 +89,30 @@ namespace PowerGridEditor
             this.txtOverview.TabIndex = 0;
             this.txtOverview.WordWrap = false;
             // 
+            // tabErr
+            // 
+            this.tabErr.Controls.Add(this.txtErr);
+            this.tabErr.Location = new System.Drawing.Point(4, 22);
+            this.tabErr.Name = "tabErr";
+            this.tabErr.Padding = new System.Windows.Forms.Padding(3);
+            this.tabErr.Size = new System.Drawing.Size(892, 624);
+            this.tabErr.TabIndex = 1;
+            this.tabErr.Text = "network.err";
+            this.tabErr.UseVisualStyleBackColor = true;
+            // 
+            // txtErr
+            // 
+            this.txtErr.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.txtErr.Font = new System.Drawing.Font("Consolas", 10F);
+            this.txtErr.Location = new System.Drawing.Point(3, 3);
+            this.txtErr.Multiline = true;
+            this.txtErr.Name = "txtErr";
+            this.txtErr.ReadOnly = true;
+            this.txtErr.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.txtErr.Size = new System.Drawing.Size(886, 618);
+            this.txtErr.TabIndex = 0;
+            this.txtErr.WordWrap = false;
+            // 
             // tabInput
             // 
             this.tabInput.Controls.Add(this.txtInput);
@@ -90,7 +120,7 @@ namespace PowerGridEditor
             this.tabInput.Name = "tabInput";
             this.tabInput.Padding = new System.Windows.Forms.Padding(3);
             this.tabInput.Size = new System.Drawing.Size(892, 624);
-            this.tabInput.TabIndex = 1;
+            this.tabInput.TabIndex = 2;
             this.tabInput.Text = "Исх. данные";
             this.tabInput.UseVisualStyleBackColor = true;
             // 
@@ -114,7 +144,7 @@ namespace PowerGridEditor
             this.tabResults.Name = "tabResults";
             this.tabResults.Padding = new System.Windows.Forms.Padding(3);
             this.tabResults.Size = new System.Drawing.Size(892, 624);
-            this.tabResults.TabIndex = 2;
+            this.tabResults.TabIndex = 3;
             this.tabResults.Text = "Результаты";
             this.tabResults.UseVisualStyleBackColor = true;
             // 
@@ -137,7 +167,7 @@ namespace PowerGridEditor
             this.tabLoss.Location = new System.Drawing.Point(4, 22);
             this.tabLoss.Name = "tabLoss";
             this.tabLoss.Size = new System.Drawing.Size(892, 624);
-            this.tabLoss.TabIndex = 3;
+            this.tabLoss.TabIndex = 4;
             this.tabLoss.Text = "Анализ потерь";
             this.tabLoss.UseVisualStyleBackColor = true;
             // 
@@ -160,7 +190,7 @@ namespace PowerGridEditor
             this.tabBreakdown.Location = new System.Drawing.Point(4, 22);
             this.tabBreakdown.Name = "tabBreakdown";
             this.tabBreakdown.Size = new System.Drawing.Size(892, 624);
-            this.tabBreakdown.TabIndex = 4;
+            this.tabBreakdown.TabIndex = 5;
             this.tabBreakdown.Text = "Составляющие потерь";
             this.tabBreakdown.UseVisualStyleBackColor = true;
             // 
@@ -188,6 +218,8 @@ namespace PowerGridEditor
             this.tabControl1.ResumeLayout(false);
             this.tabOverview.ResumeLayout(false);
             this.tabOverview.PerformLayout();
+            this.tabErr.ResumeLayout(false);
+            this.tabErr.PerformLayout();
             this.tabInput.ResumeLayout(false);
             this.tabInput.PerformLayout();
             this.tabResults.ResumeLayout(false);
