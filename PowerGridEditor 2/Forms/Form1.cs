@@ -149,7 +149,7 @@ namespace PowerGridEditor
                 Dock = DockStyle.Top,
                 Height = 140,
                 Padding = new Padding(12),
-                BackColor = Color.FromArgb(219, 234, 254)
+                BackColor = Color.FromArgb(187, 247, 208)
             };
 
             labelTopClock.Parent = contentPanel;
@@ -412,7 +412,7 @@ namespace PowerGridEditor
             int index = elementsGrid.Rows.Add(title, "", "", "", false, "", "", "", "", "", "", "", "");
             var row = elementsGrid.Rows[index];
             row.ReadOnly = true;
-            row.DefaultCellStyle.BackColor = Color.FromArgb(219, 234, 254);
+            row.DefaultCellStyle.BackColor = Color.FromArgb(187, 247, 208);
             row.DefaultCellStyle.ForeColor = ThemeTextBlack;
             row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             row.Tag = null;

@@ -204,6 +204,15 @@ namespace PowerGridEditor
                 {
                     baseNodeNumbers.Add(baseNode.Data.Number);
                 }
+
+                string line = $"0102 0   {baseNode.Data.Number,3}  {baseNode.Data.InitialVoltage,3}       " +
+                              $"{FormatInt(baseNode.Data.NominalActivePower),1}    " +
+                              $"{FormatInt(baseNode.Data.NominalReactivePower),1}  " +
+                              $"{FormatInt(baseNode.Data.ActivePowerGeneration),1} {FormatInt(baseNode.Data.ReactivePowerGeneration),1}   " +
+                              $"{FormatInt(baseNode.Data.FixedVoltageModule),1} " +
+                              $"{FormatInt(baseNode.Data.MinReactivePower),1} " +
+                              $"{FormatInt(baseNode.Data.MaxReactivePower),1}";
+                lines.Add(line);
             }
 
             foreach (var element in _elements)
