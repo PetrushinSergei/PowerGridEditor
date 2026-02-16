@@ -15,10 +15,12 @@ namespace PowerGridEditor
     {
         public Node MyNode { get; private set; }
         private Timer liveTimer;
+        private Timer modelSyncTimer;
         private string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
         private NumericUpDown numericMeasurementInterval;
         private TextBox[] incrementStepBoxes;
         private TextBox[] incrementIntervalBoxes;
+        private Button[] incrementToggleButtons;
         private bool suppressTelemetryUiEvents;
         private readonly System.Collections.Generic.Dictionary<Control, Point> fixedParamLocations = new System.Collections.Generic.Dictionary<Control, Point>();
         public event EventHandler TelemetryUpdated;
@@ -26,22 +28,34 @@ namespace PowerGridEditor
         public NodeForm(Node node)
         {
             InitializeComponent(); // Все контроллеры создаются здесь (в Designer.cs)
+            BackColor = Color.FromArgb(245, 250, 255);
+            tabParams.BackColor = Color.FromArgb(245, 250, 255);
+            tabSettings.BackColor = Color.FromArgb(245, 250, 255);
             MyNode = node;
 
             liveTimer = new Timer { Interval = 2000 };
             liveTimer.Tick += async (s, e) => await PollModbusTask();
             liveTimer.Start();
 
+            modelSyncTimer = new Timer { Interval = 700 };
+            modelSyncTimer.Tick += (s, e) =>
+            {
+                if (ContainsFocus && ActiveControl is TextBox) return;
+                RefreshFromModel();
+            };
+            modelSyncTimer.Start();
+
             // Привязка событий (контроллеры берутся из Designer)
             btnCheckIP.Click += async (s, e) => await RunPing();
             buttonSave.Click += (s, e) => SaveData();
             buttonCancel.Click += (s, e) => this.Close();
-            this.FormClosing += (s, e) => liveTimer.Stop();
+            this.FormClosing += (s, e) => { liveTimer.Stop(); modelSyncTimer.Stop(); };
 
             SetupParameterIncrementEditors();
             CaptureFixedParamLayout();
             WireTelemetryCheckboxes();
             WireNumericInputGuards();
+            ApplyBoldFonts(this);
 
             LoadData();
         }
@@ -148,9 +162,11 @@ namespace PowerGridEditor
         {
             incrementStepBoxes = new TextBox[9];
             incrementIntervalBoxes = new TextBox[9];
+            incrementToggleButtons = new Button[9];
 
             tabParams.Controls.Add(new Label { Text = "Шаг:", Location = new Point(520, 2), Size = new Size(45, 18) });
             tabParams.Controls.Add(new Label { Text = "Инт.,с:", Location = new Point(585, 2), Size = new Size(55, 18) });
+            tabParams.Controls.Add(new Label { Text = "Авто изм.", Location = new Point(650, 2), Size = new Size(80, 18) });
 
             for (int i = 1; i < 9; i++)
             {
@@ -161,11 +177,23 @@ namespace PowerGridEditor
                     stepBox.Location = new Point(addrBoxes[i].Right + 10, addrBoxes[i].Top);
                     intervalBox.Location = new Point(stepBox.Right + 8, addrBoxes[i].Top);
                 }
+                var toggleButton = new Button { Size = new Size(75, 23), Text = "Старт" };
+                toggleButton.Location = new Point(intervalBox.Right + 8, addrBoxes[i].Top);
+                int idx = i;
+                toggleButton.Click += (s, e) => ToggleIncrement(idx);
+
                 incrementStepBoxes[i] = stepBox;
                 incrementIntervalBoxes[i] = intervalBox;
+                incrementToggleButtons[i] = toggleButton;
                 tabParams.Controls.Add(stepBox);
                 tabParams.Controls.Add(intervalBox);
+                tabParams.Controls.Add(toggleButton);
             }
+        }
+
+        public void RefreshFromModel()
+        {
+            LoadData();
         }
 
         private void LoadData()
@@ -213,7 +241,82 @@ namespace PowerGridEditor
             {
                 if (MyNode.ParamIncrementSteps.ContainsKey(keys[i])) incrementStepBoxes[i].Text = MyNode.ParamIncrementSteps[keys[i]].ToString(inv);
                 if (MyNode.ParamIncrementIntervals.ContainsKey(keys[i])) incrementIntervalBoxes[i].Text = MyNode.ParamIncrementIntervals[keys[i]].ToString(inv);
+                UpdateIncrementButtonState(i);
             }
+        }
+
+
+        private void ToggleIncrement(int index)
+        {
+            var inv = CultureInfo.InvariantCulture;
+            double step = 1;
+            int interval = 2;
+            if (double.TryParse(incrementStepBoxes[index].Text.Replace(',', '.'), NumberStyles.Any, inv, out double parsedStep)) step = parsedStep;
+            if (int.TryParse(incrementIntervalBoxes[index].Text, out int parsedInterval)) interval = Math.Max(1, parsedInterval);
+
+            MyNode.ParamIncrementSteps[keys[index]] = step;
+            MyNode.ParamIncrementIntervals[keys[index]] = interval;
+
+            string id = ParameterAutoChangeService.BuildId(MyNode, keys[index]);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+            bool enable = !running;
+
+            ParameterAutoChangeService.Configure(
+                id,
+                step,
+                interval,
+                enable,
+                () => GetParamValue(index),
+                value => SetParamValue(index, value),
+                () => BeginInvoke(new Action(() =>
+                {
+                    paramBoxes[index].Text = GetParamValue(index).ToString(inv);
+                    UpdateIncrementButtonState(index);
+                })));
+
+            UpdateIncrementButtonState(index);
+        }
+
+        private double GetParamValue(int index)
+        {
+            if (index == 1) return MyNode.InitialVoltage;
+            if (index == 2) return MyNode.NominalActivePower;
+            if (index == 3) return MyNode.NominalReactivePower;
+            if (index == 4) return MyNode.ActivePowerGeneration;
+            if (index == 5) return MyNode.ReactivePowerGeneration;
+            if (index == 6) return MyNode.FixedVoltageModule;
+            if (index == 7) return MyNode.MinReactivePower;
+            if (index == 8) return MyNode.MaxReactivePower;
+            return 0;
+        }
+
+        private void SetParamValue(int index, double value)
+        {
+            if (index == 1) MyNode.InitialVoltage = value;
+            else if (index == 2) MyNode.NominalActivePower = value;
+            else if (index == 3) MyNode.NominalReactivePower = value;
+            else if (index == 4) MyNode.ActivePowerGeneration = value;
+            else if (index == 5) MyNode.ReactivePowerGeneration = value;
+            else if (index == 6) MyNode.FixedVoltageModule = value;
+            else if (index == 7) MyNode.MinReactivePower = value;
+            else if (index == 8) MyNode.MaxReactivePower = value;
+            paramBoxes[index].Text = value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private void UpdateIncrementButtonState(int index)
+        {
+            if (incrementToggleButtons == null || incrementToggleButtons[index] == null) return;
+            string id = ParameterAutoChangeService.BuildId(MyNode, keys[index]);
+            bool running = ParameterAutoChangeService.TryGet(id, out _, out _, out bool isRunning) && isRunning;
+            incrementToggleButtons[index].Text = running ? "Стоп" : "Старт";
+            incrementToggleButtons[index].BackColor = running ? Color.FromArgb(252, 165, 165) : Color.FromArgb(191, 219, 254);
+            incrementToggleButtons[index].Font = new Font(incrementToggleButtons[index].Font, FontStyle.Bold);
+        }
+
+        private void ApplyBoldFonts(Control root)
+        {
+            root.Font = new Font(root.Font, FontStyle.Bold);
+            foreach (Control c in root.Controls) ApplyBoldFonts(c);
         }
 
         private async Task PollModbusTask()

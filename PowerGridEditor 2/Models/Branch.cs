@@ -12,6 +12,11 @@ namespace PowerGridEditor
         public double ReactiveConductivity { get; set; }
         public double TransformationRatio { get; set; }
         public double ActiveConductivity { get; set; }
+        public double PermissibleCurrent { get; set; } = 600;
+        public double CalculatedActiveCurrent { get; set; }
+        public double CalculatedReactiveCurrent { get; set; }
+        public double CalculatedCurrent { get; set; }
+        public double LoadingPercent { get; set; }
         public int Zero1 { get; set; } = 0;
         public int Zero2 { get; set; } = 0;
 
@@ -32,7 +37,7 @@ namespace PowerGridEditor
             StartNodeNumber = startNode;
             EndNodeNumber = endNode;
 
-            string[] keys = { "R", "X", "B", "Ktr", "G" };
+            string[] keys = { "R", "X", "B", "Ktr", "G", "Imax" };
             foreach (var key in keys)
             {
                 ParamRegisters[key] = "0";
@@ -44,7 +49,7 @@ namespace PowerGridEditor
 
         public string ToFileString()
         {
-            return $"{Code} {StartNodeNumber} {EndNodeNumber} {ActiveResistance:F1} {ReactiveResistance:F2} {ReactiveConductivity:F1} {TransformationRatio} {ActiveConductivity} {Zero1} {Zero2}";
+            return $"{Code} {StartNodeNumber} {EndNodeNumber} {ActiveResistance:F1} {ReactiveResistance:F2} {ReactiveConductivity:F1} {TransformationRatio} {ActiveConductivity} {Zero1} {Zero2} {PermissibleCurrent:F1}";
         }
     }
 }
