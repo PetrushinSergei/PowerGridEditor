@@ -36,8 +36,6 @@ namespace PowerGridEditor
 
             // ЛИНИЯ БОЛЬШЕ НЕ РИСУЕТСЯ ЗДЕСЬ - она рисуется отдельно в Panel2_Paint
 
-            // Рисуем параметры шунта
-            DrawShuntInfo(g);
         }
 
         private void DrawShuntInfo(Graphics g)

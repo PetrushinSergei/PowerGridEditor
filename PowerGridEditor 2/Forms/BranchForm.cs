@@ -22,6 +22,13 @@ namespace PowerGridEditor
         public TextBox TransformationRatioTextBox => paramBoxes[5];
         public TextBox ActiveConductivityTextBox => paramBoxes[6];
 
+
+        public void BindModel(Branch branch)
+        {
+            MyBranch = branch;
+            LoadData();
+        }
+
         public BranchForm()
         {
             InitializeComponent();
@@ -66,6 +73,11 @@ namespace PowerGridEditor
                 tabParams.Controls.Add(stepBox);
                 tabParams.Controls.Add(intervalBox);
             }
+        }
+
+        public void RefreshFromModel()
+        {
+            LoadData();
         }
 
         private void LoadData()

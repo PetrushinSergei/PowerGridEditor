@@ -24,6 +24,13 @@ namespace PowerGridEditor
         public TextBox MinReactivePowerTextBox => paramBoxes[7];
         public TextBox MaxReactivePowerTextBox => paramBoxes[8];
 
+
+        public void BindModel(BaseNode baseNode)
+        {
+            MyBaseNode = baseNode;
+            LoadData();
+        }
+
         public BaseNodeForm()
         {
             InitializeComponent();
@@ -68,6 +75,11 @@ namespace PowerGridEditor
                 tabParams.Controls.Add(stepBox);
                 tabParams.Controls.Add(intervalBox);
             }
+        }
+
+        public void RefreshFromModel()
+        {
+            LoadData();
         }
 
         private void LoadData()

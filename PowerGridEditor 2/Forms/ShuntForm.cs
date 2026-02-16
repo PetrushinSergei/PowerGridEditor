@@ -18,6 +18,13 @@ namespace PowerGridEditor
         public TextBox ActiveResistanceTextBox => paramBoxes[1];
         public TextBox ReactiveResistanceTextBox => paramBoxes[2];
 
+
+        public void BindModel(Shunt shunt)
+        {
+            MyShunt = shunt;
+            LoadData();
+        }
+
         public ShuntForm()
         {
             InitializeComponent();
@@ -62,6 +69,11 @@ namespace PowerGridEditor
                 tabParams.Controls.Add(stepBox);
                 tabParams.Controls.Add(intervalBox);
             }
+        }
+
+        public void RefreshFromModel()
+        {
+            LoadData();
         }
 
         private void LoadData()
