@@ -26,14 +26,7 @@ namespace PowerGridEditor
         public TextBox PermissibleCurrentTextBox => paramBoxes[7];
 
 
-        public void BindModel(Branch branch)
-        {
-            MyBranch = branch;
-            LoadData();
-        }
-
-
-        public void BindModel(Branch branch)
+        public void BindBranchModel(Branch branch)
         {
             MyBranch = branch;
             LoadData();

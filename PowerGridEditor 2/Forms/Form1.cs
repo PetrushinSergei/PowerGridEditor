@@ -925,7 +925,7 @@ namespace PowerGridEditor
         private void EditBranch(GraphicBranch graphicBranch)
         {
             BranchForm form = new BranchForm();
-            form.BindModel(graphicBranch.Data);
+            form.BindBranchModel(graphicBranch.Data);
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
