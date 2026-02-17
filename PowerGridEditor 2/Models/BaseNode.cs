@@ -33,7 +33,7 @@ namespace PowerGridEditor
             Number = number;
             InitialVoltage = 525.0;
 
-            string[] keys = { "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+            string[] keys = { "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax", "Imax" };
             foreach (var key in keys)
             {
                 ParamRegisters[key] = "0";
