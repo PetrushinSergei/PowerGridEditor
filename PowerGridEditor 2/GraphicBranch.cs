@@ -9,6 +9,7 @@ namespace PowerGridEditor
         public object StartNode { get; set; }
         public object EndNode { get; set; }
         public bool IsSelected { get; set; }
+        public Color LoadColor { get; set; } = Color.Black;
 
         public GraphicBranch(Branch data, object startNode, object endNode)
         {
@@ -26,14 +27,12 @@ namespace PowerGridEditor
             Point endCenter = NodeGraphicsHelper.GetNodeCenter(EndNode);
 
             // Выбираем цвет в зависимости от выделения
-            Pen pen = IsSelected ? new Pen(Color.Red, 3) : new Pen(Color.Black, 2);
+            Pen pen = IsSelected ? new Pen(Color.Red, 3) : new Pen(LoadColor, 2);
 
             // Рисуем линию от центра к центру
             g.DrawLine(pen, startCenter, endCenter);
             pen.Dispose();
 
-            // Рисуем параметры ветви
-            DrawBranchInfo(g, startCenter, endCenter);
         }
 
 
