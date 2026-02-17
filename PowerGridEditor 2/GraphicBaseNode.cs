@@ -15,12 +15,12 @@ namespace PowerGridEditor
             Data = data;
             Location = location;
             IsSelected = false;
-            VoltageColor = Color.Gold;
+            VoltageColor = Color.FromArgb(216, 191, 255);
         }
 
         public void Draw(Graphics g)
         {
-            // Базисный узел рисуем желтым цветом
+            // Базисный узел рисуем светло-фиолетовым цветом
             using (Brush fillBrush = new SolidBrush(IsSelected ? Color.LightGreen : VoltageColor))
             {
                 g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));

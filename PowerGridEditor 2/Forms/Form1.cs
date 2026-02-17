@@ -47,6 +47,9 @@ namespace PowerGridEditor
         private bool rightMouseMoved;
         private bool hasConvergenceStatus;
         private bool isLastModeConverged;
+        private readonly ToolTip hoverToolTip = new ToolTip();
+        private object hoveredElement;
+        private readonly Dictionary<int, double> lastCalculatedNodeVoltages = new Dictionary<int, double>();
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -580,6 +583,7 @@ namespace PowerGridEditor
             panel2.MouseMove += Panel2_MouseMove;
             panel2.MouseUp += Panel2_MouseUp;
             panel2.DoubleClick += Panel2_DoubleClick;
+            panel2.MouseLeave += (s, e) => UpdateHoverTooltip(null, Point.Empty);
         }
 
         private void SetupContextMenu()
@@ -643,6 +647,7 @@ namespace PowerGridEditor
 
             DrawBranchLegend(e.Graphics);
             DrawConvergenceStatus(e.Graphics);
+            DrawVoltageGostLegend(e.Graphics);
         }
 
         private void DrawBranchCurrentInfo(Graphics g, GraphicBranch branch)
@@ -748,6 +753,47 @@ namespace PowerGridEditor
                     g.DrawRectangle(border, x, y, width, height);
                     g.DrawString(title, font, Brushes.Black, x + 10, y + 7);
                     g.DrawString(value, font, valueBrush, x + 14 + titleSize.Width, y + 7);
+                }
+            }
+
+            g.Restore(state);
+        }
+
+        private void DrawVoltageGostLegend(Graphics g)
+        {
+            var state = g.Save();
+            g.ResetTransform();
+
+            int legendW = 310;
+            int legendH = 120;
+            int x = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
+            int y = 46;
+
+            using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
+            using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
+            using (var font = new Font("Segoe UI", 8.5f, FontStyle.Bold))
+            {
+                g.FillRectangle(bg, x, y, legendW, legendH);
+                g.DrawRectangle(border, x, y, legendW, legendH);
+                g.DrawString("ГОСТ 32144-2013", font, Brushes.Black, x + 8, y + 6);
+
+                var rows = new[]
+                {
+                    (Color.LightGreen, "|ΔU| ≤ 5%", "Норма"),
+                    (Color.Yellow, "5% < |ΔU| ≤ 10%", "Предупреждение"),
+                    (Color.IndianRed, "|ΔU| > 10%", "Критическое")
+                };
+
+                for (int i = 0; i < rows.Length; i++)
+                {
+                    int ry = y + 30 + i * 26;
+                    using (var colorBrush = new SolidBrush(rows[i].Item1))
+                    {
+                        g.FillRectangle(colorBrush, x + 8, ry + 4, 18, 12);
+                    }
+
+                    g.DrawRectangle(Pens.Black, x + 8, ry + 4, 18, 12);
+                    g.DrawString($"{rows[i].Item2}: {rows[i].Item3}", font, Brushes.Black, x + 34, ry + 1);
                 }
             }
 
@@ -927,8 +973,11 @@ namespace PowerGridEditor
 
         private void Panel2_MouseMove(object sender, MouseEventArgs e)
         {
+            var modelPoint = Point.Round(ScreenToModel(e.Location));
+
             if (panning)
             {
+                UpdateHoverTooltip(null, e.Location);
                 int dx = e.X - lastPanPos.X;
                 int dy = e.Y - lastPanPos.Y;
                 if (Math.Abs(e.X - rightMouseDownPoint.X) > 3 || Math.Abs(e.Y - rightMouseDownPoint.Y) > 3)
@@ -944,6 +993,7 @@ namespace PowerGridEditor
 
             if (isMarqueeSelecting)
             {
+                UpdateHoverTooltip(null, e.Location);
                 marqueeCurrentModel = Point.Round(ScreenToModel(e.Location));
                 ApplyMarqueeSelection();
                 panel2.Invalidate();
@@ -952,6 +1002,7 @@ namespace PowerGridEditor
 
             if (isDragging && selectedElement != null)
             {
+                UpdateHoverTooltip(null, e.Location);
                 int dx = (int)((e.X - lastMousePosition.X) / scale);
                 int dy = (int)((e.Y - lastMousePosition.Y) / scale);
 
@@ -975,6 +1026,12 @@ namespace PowerGridEditor
 
                 lastMousePosition = e.Location;
                 panel2.Invalidate();
+            }
+
+            if (!isDragging && !isMarqueeSelecting && !panning)
+            {
+                var hitForTooltip = HitTest(modelPoint);
+                UpdateHoverTooltip(hitForTooltip, e.Location);
             }
         }
 
@@ -2418,6 +2475,11 @@ namespace PowerGridEditor
         private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
         {
             var voltages = ParseNodeVoltagesFromNetworkRez(networkRez);
+            lastCalculatedNodeVoltages.Clear();
+            foreach (var kv in voltages)
+            {
+                lastCalculatedNodeVoltages[kv.Key] = kv.Value;
+            }
 
             foreach (var node in graphicElements.OfType<GraphicNode>())
             {
@@ -2435,12 +2497,11 @@ namespace PowerGridEditor
             {
                 if (!voltages.TryGetValue(baseNode.Data.Number, out var uFact))
                 {
-                    baseNode.VoltageColor = Color.Gold;
+                    baseNode.VoltageColor = Color.FromArgb(216, 191, 255);
                     continue;
                 }
 
-                var uNom = baseNode.Data.InitialVoltage;
-                baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                baseNode.VoltageColor = Color.FromArgb(216, 191, 255);
             }
         }
 
@@ -2517,6 +2578,77 @@ namespace PowerGridEditor
             }
 
             return Color.IndianRed;
+        }
+
+        private void UpdateHoverTooltip(object element, Point screenPoint)
+        {
+            if (!ReferenceEquals(hoveredElement, element))
+            {
+                hoverToolTip.Hide(panel2);
+                hoveredElement = element;
+            }
+
+            if (element == null)
+            {
+                return;
+            }
+
+            string text = BuildHoverTooltipText(element);
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            hoverToolTip.Show(text, panel2, screenPoint.X + 16, screenPoint.Y + 16, 1200);
+        }
+
+        private string BuildHoverTooltipText(object element)
+        {
+            if (element is GraphicNode node)
+            {
+                return BuildNodeHoverText(node.Data.Number, node.Data.InitialVoltage, false);
+            }
+
+            if (element is GraphicBaseNode baseNode)
+            {
+                return BuildNodeHoverText(baseNode.Data.Number, baseNode.Data.InitialVoltage, true);
+            }
+
+            if (element is GraphicBranch branch)
+            {
+                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
+                double iaAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedActiveCurrent, uNomKv);
+                double irAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedReactiveCurrent, uNomKv);
+                double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}\n" +
+                       $"Iакт={iaAmp:F2} A\n" +
+                       $"Iреакт={irAmp:F2} A\n" +
+                       $"Iдоп={iMax:F2} A\n" +
+                       $"Загрузка={branch.Data.LoadingPercent:F2}%";
+            }
+
+            return null;
+        }
+
+        private string BuildNodeHoverText(int nodeNumber, double uNom, bool isBaseNode)
+        {
+            if (!lastCalculatedNodeVoltages.TryGetValue(nodeNumber, out var uFact))
+            {
+                return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\nUном={uNom:F2} кВ\nUрасч=нет данных";
+            }
+
+            double delta = uNom == 0 ? 0 : ((uFact - uNom) / uNom) * 100.0;
+            return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\n" +
+                   $"Uном={uNom:F2} кВ\n" +
+                   $"Uрасч={uFact:F2} кВ\n" +
+                   $"ΔU={delta:F2}%";
+        }
+
+        private double ConvertPuCurrentComponentToAmperes(double componentPu, double uNomKv)
+        {
+            const double sBase = 1000.0;
+            double u = uNomKv <= 0 ? 110.0 : uNomKv;
+            return (componentPu * sBase) / (Math.Sqrt(3.0) * u) * 1000.0;
         }
 
         private double GetNodeNominalVoltageKv(int nodeNumber)
