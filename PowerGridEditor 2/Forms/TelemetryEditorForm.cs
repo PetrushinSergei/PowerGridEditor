@@ -400,8 +400,7 @@ namespace PowerGridEditor
                         ("U", "Напряжение, кВ", node.Data.InitialVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower),
                         ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration),
                         ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule),
-                        ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower),
-                        ("Imax", "Iдоп, А", node.Data.PermissibleCurrent)
+                        ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower)
                     }, filter, hasFilter);
 
                 AddSectionRow("Базисный узел");
@@ -411,8 +410,7 @@ namespace PowerGridEditor
                         ("U", "Напряжение, кВ", baseNode.Data.InitialVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower),
                         ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration),
                         ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule),
-                        ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower),
-                        ("Imax", "Iдоп, А", baseNode.Data.PermissibleCurrent)
+                        ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower)
                     }, filter, hasFilter);
 
                 AddSectionRow("Ветви");

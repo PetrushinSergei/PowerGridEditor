@@ -45,6 +45,8 @@ namespace PowerGridEditor
         private ClientSettingsForm clientSettingsForm;
         private Point rightMouseDownPoint;
         private bool rightMouseMoved;
+        private bool hasConvergenceStatus;
+        private bool isLastModeConverged;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -640,6 +642,7 @@ namespace PowerGridEditor
             }
 
             DrawBranchLegend(e.Graphics);
+            DrawConvergenceStatus(e.Graphics);
         }
 
         private void DrawBranchCurrentInfo(Graphics g, GraphicBranch branch)
@@ -656,9 +659,8 @@ namespace PowerGridEditor
             double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
             double ir = branch.Data.CalculatedCurrent;
             double loading = branch.Data.LoadingPercent;
-            double reserve = 100.0 - loading;
 
-            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Запас={reserve:F2}%";
+            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Загрузка={loading:F2}%";
             var size = g.MeasureString(info, Font);
             var rect = new RectangleF(middle.X - size.Width / 2f - 4f, middle.Y - 25f, size.Width + 8f, size.Height + 2f);
 
@@ -709,6 +711,43 @@ namespace PowerGridEditor
 
                     g.DrawRectangle(Pens.Black, x + 8, ry + 4, 18, 12);
                     g.DrawString($"{rows[i].Item2}: {rows[i].Item3}", font, Brushes.Black, x + 34, ry + 1);
+                }
+            }
+
+            g.Restore(state);
+        }
+
+        private void DrawConvergenceStatus(Graphics g)
+        {
+            var state = g.Save();
+            g.ResetTransform();
+
+            string title = "Режим:";
+            string value = hasConvergenceStatus
+                ? (isLastModeConverged ? "СХОДИТСЯ" : "НЕ СХОДИТСЯ")
+                : "не рассчитан";
+
+            Color statusColor = hasConvergenceStatus
+                ? (isLastModeConverged ? Color.FromArgb(22, 163, 74) : Color.FromArgb(220, 38, 38))
+                : Color.FromArgb(107, 114, 128);
+
+            using (var font = new Font("Segoe UI", 9F, FontStyle.Bold))
+            {
+                var titleSize = g.MeasureString(title, font);
+                var valueSize = g.MeasureString(value, font);
+                int width = (int)Math.Ceiling(titleSize.Width + valueSize.Width + 30);
+                int height = 30;
+                int x = Math.Max(6, panel2.ClientSize.Width - width - 10);
+                int y = 8;
+
+                using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
+                using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
+                using (var valueBrush = new SolidBrush(statusColor))
+                {
+                    g.FillRectangle(bg, x, y, width, height);
+                    g.DrawRectangle(border, x, y, width, height);
+                    g.DrawString(title, font, Brushes.Black, x + 10, y + 7);
+                    g.DrawString(value, font, valueBrush, x + 14 + titleSize.Width, y + 7);
                 }
             }
 
@@ -2327,9 +2366,21 @@ namespace PowerGridEditor
 
         private void ApplyBranchLoadingColorsFromCurrentResult()
         {
-            var lossesText = RunCurrentLossesCalculation();
+            var result = RunCurrentLossesCalculation();
+            if (result == null)
+            {
+                hasConvergenceStatus = false;
+                panel2.Invalidate();
+                return;
+            }
+
+            isLastModeConverged = !(result.NetworkRez ?? string.Empty).Contains("НЕ сошелся");
+            hasConvergenceStatus = true;
+
+            var lossesText = result.LossesRez;
             if (string.IsNullOrWhiteSpace(lossesText))
             {
+                panel2.Invalidate();
                 return;
             }
 
@@ -2390,12 +2441,11 @@ namespace PowerGridEditor
             return iAmp;
         }
 
-        private string RunCurrentLossesCalculation()
+        private EngineResult RunCurrentLossesCalculation()
         {
             var cduLines = BuildCduLinesForEngine();
             var engine = new ConsoleApplicationEngine(cduLines, CalculationOptions.Precision, CalculationOptions.MaxIterations);
-            var result = engine.Run();
-            return result.LossesRez;
+            return engine.Run();
         }
 
         private List<string> BuildCduLinesForEngine()
