@@ -12,6 +12,7 @@ namespace PowerGridEditor
         private System.Windows.Forms.TabPage tabBreakdown;
         private System.Windows.Forms.TabPage tabLoadCurrent;
         private System.Windows.Forms.TabPage tabLoadCurrentAmp;
+        private System.Windows.Forms.TabPage tabVoltageAnalysis;
         private System.Windows.Forms.TextBox txtOverview;
         private System.Windows.Forms.TextBox txtErr;
         private System.Windows.Forms.TextBox txtInput;
@@ -20,6 +21,7 @@ namespace PowerGridEditor
         private System.Windows.Forms.TextBox txtBreakdown;
         private System.Windows.Forms.TextBox txtLoadCurrent;
         private System.Windows.Forms.TextBox txtLoadCurrentAmp;
+        private System.Windows.Forms.TextBox txtVoltageAnalysis;
 
         protected override void Dispose(bool disposing)
         {
@@ -49,6 +51,8 @@ namespace PowerGridEditor
             this.txtLoadCurrent = new System.Windows.Forms.TextBox();
             this.tabLoadCurrentAmp = new System.Windows.Forms.TabPage();
             this.txtLoadCurrentAmp = new System.Windows.Forms.TextBox();
+            this.tabVoltageAnalysis = new System.Windows.Forms.TabPage();
+            this.txtVoltageAnalysis = new System.Windows.Forms.TextBox();
             this.tabControl1.SuspendLayout();
             this.tabOverview.SuspendLayout();
             this.tabErr.SuspendLayout();
@@ -58,6 +62,7 @@ namespace PowerGridEditor
             this.tabBreakdown.SuspendLayout();
             this.tabLoadCurrent.SuspendLayout();
             this.tabLoadCurrentAmp.SuspendLayout();
+            this.tabVoltageAnalysis.SuspendLayout();
             this.SuspendLayout();
             //
             // tabControl1
@@ -70,6 +75,7 @@ namespace PowerGridEditor
             this.tabControl1.Controls.Add(this.tabBreakdown);
             this.tabControl1.Controls.Add(this.tabLoadCurrent);
             this.tabControl1.Controls.Add(this.tabLoadCurrentAmp);
+            this.tabControl1.Controls.Add(this.tabVoltageAnalysis);
             this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabControl1.Location = new System.Drawing.Point(0, 0);
             this.tabControl1.Name = "tabControl1";
@@ -265,6 +271,29 @@ namespace PowerGridEditor
             this.txtLoadCurrentAmp.TabIndex = 0;
             this.txtLoadCurrentAmp.WordWrap = false;
             //
+            // tabVoltageAnalysis
+            //
+            this.tabVoltageAnalysis.Controls.Add(this.txtVoltageAnalysis);
+            this.tabVoltageAnalysis.Location = new System.Drawing.Point(4, 22);
+            this.tabVoltageAnalysis.Name = "tabVoltageAnalysis";
+            this.tabVoltageAnalysis.Size = new System.Drawing.Size(892, 624);
+            this.tabVoltageAnalysis.TabIndex = 8;
+            this.tabVoltageAnalysis.Text = "Анализ напряжения";
+            this.tabVoltageAnalysis.UseVisualStyleBackColor = true;
+            //
+            // txtVoltageAnalysis
+            //
+            this.txtVoltageAnalysis.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.txtVoltageAnalysis.Font = new System.Drawing.Font("Consolas", 10F);
+            this.txtVoltageAnalysis.Location = new System.Drawing.Point(0, 0);
+            this.txtVoltageAnalysis.Multiline = true;
+            this.txtVoltageAnalysis.Name = "txtVoltageAnalysis";
+            this.txtVoltageAnalysis.ReadOnly = true;
+            this.txtVoltageAnalysis.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.txtVoltageAnalysis.Size = new System.Drawing.Size(892, 624);
+            this.txtVoltageAnalysis.TabIndex = 0;
+            this.txtVoltageAnalysis.WordWrap = false;
+            //
             // ReportForm
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -290,6 +319,8 @@ namespace PowerGridEditor
             this.tabLoadCurrent.PerformLayout();
             this.tabLoadCurrentAmp.ResumeLayout(false);
             this.tabLoadCurrentAmp.PerformLayout();
+            this.tabVoltageAnalysis.ResumeLayout(false);
+            this.tabVoltageAnalysis.PerformLayout();
             this.ResumeLayout(false);
         }
     }

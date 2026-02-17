@@ -2408,8 +2408,115 @@ namespace PowerGridEditor
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
+            ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+
             panel2.Invalidate();
             RefreshElementsGrid();
+        }
+
+
+        private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
+        {
+            var voltages = ParseNodeVoltagesFromNetworkRez(networkRez);
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (!voltages.TryGetValue(node.Data.Number, out var uFact))
+                {
+                    node.VoltageColor = Color.LightBlue;
+                    continue;
+                }
+
+                var uNom = node.Data.InitialVoltage;
+                node.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (!voltages.TryGetValue(baseNode.Data.Number, out var uFact))
+                {
+                    baseNode.VoltageColor = Color.Gold;
+                    continue;
+                }
+
+                var uNom = baseNode.Data.InitialVoltage;
+                baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+            }
+        }
+
+        private Dictionary<int, double> ParseNodeVoltagesFromNetworkRez(string networkRez)
+        {
+            var result = new Dictionary<int, double>();
+            if (string.IsNullOrWhiteSpace(networkRez))
+            {
+                return result;
+            }
+
+            bool inNodesSection = false;
+            var lines = networkRez.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var rawLine in lines)
+            {
+                var line = rawLine.Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("Результаты расчета по узлам", StringComparison.OrdinalIgnoreCase))
+                {
+                    inNodesSection = true;
+                    continue;
+                }
+
+                if (!inNodesSection)
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith("Баланс", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                var parts = Regex.Split(line, @"\s+");
+                if (parts.Length < 2)
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(parts[0], out var nodeNumber))
+                {
+                    continue;
+                }
+
+                if (double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var uFact))
+                {
+                    result[nodeNumber] = uFact;
+                }
+            }
+
+            return result;
+        }
+
+        private Color GetNodeVoltageColor(double uNom, double uFact)
+        {
+            if (uNom <= 0)
+            {
+                return Color.LightBlue;
+            }
+
+            var delta = Math.Abs(((uFact - uNom) / uNom) * 100.0);
+            if (delta <= 5.0)
+            {
+                return Color.LightGreen;
+            }
+
+            if (delta <= 10.0)
+            {
+                return Color.Yellow;
+            }
+
+            return Color.IndianRed;
         }
 
         private double GetNodeNominalVoltageKv(int nodeNumber)

@@ -8,19 +8,23 @@ namespace PowerGridEditor
         public Point Location { get; set; }
         public static readonly Size NodeSize = new Size(60, 60);
         public bool IsSelected { get; set; }
+        public Color VoltageColor { get; set; }
 
         public GraphicNode(Node data, Point location)
         {
             Data = data;
             Location = location;
             IsSelected = false;
+            VoltageColor = Color.LightBlue;
         }
 
         public void Draw(Graphics g)
         {
             // Рисуем узел
-            Brush fillBrush = IsSelected ? Brushes.LightGreen : Brushes.LightBlue;
-            g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));
+            using (Brush fillBrush = new SolidBrush(IsSelected ? Color.LightGreen : VoltageColor))
+            {
+                g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));
+            }
             g.DrawEllipse(Pens.Black, new Rectangle(Location, NodeSize));
 
             // Рисуем номер узла

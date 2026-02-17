@@ -50,6 +50,7 @@ namespace PowerGridEditor
             txtBreakdown.Text = result.LossesRez;
             txtLoadCurrent.Text = BuildCurrentLoadingReport(result.LossesRez);
             txtLoadCurrentAmp.Text = BuildCurrentLoadingAmpReport(result.LossesRez);
+            txtVoltageAnalysis.Text = BuildVoltageAnalysisReport(result.NetworkRez);
         }
 
         private sealed class BranchCurrentRow
@@ -62,6 +63,154 @@ namespace PowerGridEditor
         {
             public string Color;
             public string Description;
+        }
+
+
+        private sealed class NodeVoltageRow
+        {
+            public int Number;
+            public double UNom;
+            public double UFact;
+        }
+
+        private string BuildVoltageAnalysisReport(string networkRez)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Анализ напряжения");
+            sb.AppendLine("Формула:");
+            sb.AppendLine("delta = ((u_fact - u_nom) / u_nom) * 100%");
+            sb.AppendLine();
+            sb.AppendLine("Узел      Uном,кВ   Uфакт,кВ   delta,%    Цвет      Статус");
+
+            var factVoltages = ParseNodeFactVoltages(networkRez);
+            foreach (var row in BuildNodeVoltageRows(factVoltages).OrderBy(x => x.Number))
+            {
+                double delta = row.UNom == 0 ? 0 : ((row.UFact - row.UNom) / row.UNom) * 100.0;
+                var absDelta = Math.Abs(delta);
+
+                string color;
+                string status;
+                if (absDelta <= 5.0)
+                {
+                    color = "Зеленый";
+                    status = "Норма (±5%)";
+                }
+                else if (absDelta <= 10.0)
+                {
+                    color = "Желтый";
+                    status = "Предупреждение (5-10%)";
+                }
+                else
+                {
+                    color = "Красный";
+                    status = "Критическое по ГОСТ (>10%)";
+                }
+
+                sb.AppendLine(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "{0,4}    {1,8:F2}  {2,9:F2}  {3,8:F2}%  {4,-8}  {5}",
+                    row.Number,
+                    row.UNom,
+                    row.UFact,
+                    delta,
+                    color,
+                    status));
+            }
+
+            sb.AppendLine();
+            sb.AppendLine("Пороговые зоны:");
+            sb.AppendLine("|delta| <= 5%     : Зеленый (Норма)");
+            sb.AppendLine("5% < |delta| <=10%: Желтый (Предупреждение)");
+            sb.AppendLine("|delta| > 10%     : Красный (Критическое по ГОСТ)");
+            return sb.ToString();
+        }
+
+        private Dictionary<int, double> ParseNodeFactVoltages(string networkRez)
+        {
+            var result = new Dictionary<int, double>();
+            if (string.IsNullOrWhiteSpace(networkRez))
+            {
+                return result;
+            }
+
+            bool inNodesSection = false;
+            var lines = networkRez.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("Результаты расчета по узлам", StringComparison.OrdinalIgnoreCase))
+                {
+                    inNodesSection = true;
+                    continue;
+                }
+
+                if (!inNodesSection)
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith("Баланс", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                var parts = line.Split(new[] { ' ', '	' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2)
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int node))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double uFact))
+                {
+                    continue;
+                }
+
+                result[node] = uFact;
+            }
+
+            return result;
+        }
+
+        private List<NodeVoltageRow> BuildNodeVoltageRows(Dictionary<int, double> factVoltages)
+        {
+            var rows = new List<NodeVoltageRow>();
+            foreach (var element in _elements)
+            {
+                var node = element as GraphicNode;
+                if (node != null && factVoltages.TryGetValue(node.Data.Number, out double factNode))
+                {
+                    rows.Add(new NodeVoltageRow
+                    {
+                        Number = node.Data.Number,
+                        UNom = node.Data.InitialVoltage,
+                        UFact = factNode
+                    });
+                    continue;
+                }
+
+                var baseNode = element as GraphicBaseNode;
+                if (baseNode != null && factVoltages.TryGetValue(baseNode.Data.Number, out double factBaseNode))
+                {
+                    rows.Add(new NodeVoltageRow
+                    {
+                        Number = baseNode.Data.Number,
+                        UNom = baseNode.Data.InitialVoltage,
+                        UFact = factBaseNode
+                    });
+                }
+            }
+
+            return rows;
         }
 
         private string BuildCurrentLoadingReport(string lossesRez)
