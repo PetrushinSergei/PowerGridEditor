@@ -25,9 +25,9 @@
             this.tabParams = new System.Windows.Forms.TabPage { Text = "Параметры базисного узла" };
             this.tabSettings = new System.Windows.Forms.TabPage { Text = "Настройки связи" };
 
-            this.paramBoxes = new System.Windows.Forms.TextBox[9];
-            this.paramChecks = new System.Windows.Forms.CheckBox[9];
-            this.addrBoxes = new System.Windows.Forms.TextBox[9];
+            this.paramBoxes = new System.Windows.Forms.TextBox[11];
+            this.paramChecks = new System.Windows.Forms.CheckBox[11];
+            this.addrBoxes = new System.Windows.Forms.TextBox[11];
 
             this.buttonSave = new System.Windows.Forms.Button { Text = "Сохранить", Size = new System.Drawing.Size(100, 32) };
             this.buttonCancel = new System.Windows.Forms.Button { Text = "Отмена", Size = new System.Drawing.Size(100, 32) };
@@ -35,13 +35,15 @@
             this.SuspendLayout();
 
             this.tabControl.Location = new System.Drawing.Point(12, 12);
-            this.tabControl.Size = new System.Drawing.Size(760, 400);
+            this.tabControl.Size = new System.Drawing.Size(760, 470);
             this.tabControl.Controls.Add(tabParams);
             this.tabControl.Controls.Add(tabSettings);
 
             string[] names = {
                 "Номер узла:",
-                "Напряжение (кВ):",
+                "Номинальное напряжение (кВ):",
+                "Фактическое напряжение (кВ):",
+                "Расчётное напряжение (кВ):",
                 "Активная мощность (МВт):",
                 "Реактивная мощность (Мвар):",
                 "Генерация P (МВт):",
@@ -52,7 +54,7 @@
             };
 
             int y = 20;
-            for (int i = 0; i < 9; i++)
+            for (int i = 0; i < names.Length; i++)
             {
                 var lblName = new System.Windows.Forms.Label
                 {
@@ -102,10 +104,10 @@
 
             SetupSettingsTab();
 
-            this.buttonSave.Location = new System.Drawing.Point(530, 425);
-            this.buttonCancel.Location = new System.Drawing.Point(645, 425);
+            this.buttonSave.Location = new System.Drawing.Point(530, 500);
+            this.buttonCancel.Location = new System.Drawing.Point(645, 500);
 
-            this.ClientSize = new System.Drawing.Size(784, 475);
+            this.ClientSize = new System.Drawing.Size(784, 550);
             this.Controls.AddRange(new System.Windows.Forms.Control[] { tabControl, buttonSave, buttonCancel });
             this.Text = "Редактор базисного узла";
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
