@@ -91,6 +91,7 @@ namespace PowerGridEditor
         private sealed class NodeVoltageRow
         {
             public int Number;
+            public double UNom;
             public double UFact;
             public double UCalc;
         }
@@ -100,29 +101,29 @@ namespace PowerGridEditor
             var sb = new StringBuilder();
             sb.AppendLine("Анализ напряжения");
             sb.AppendLine("Формула:");
-            sb.AppendLine("ΔU = Uрасч - Uфакт");
+            sb.AppendLine("ΔU = Uном - Uфакт");
             sb.AppendLine();
-            sb.AppendLine("Узел      Uфакт,кВ   Uрасч,кВ      ΔU,кВ     ΔU,%      Статус");
+            sb.AppendLine("Узел      Uном,кВ    Uфакт,кВ      ΔU,кВ     ΔU,%      Статус");
 
             foreach (var row in BuildNodeVoltageRows().OrderBy(x => x.Number))
             {
-                double deltaKv = row.UCalc - row.UFact;
-                double deltaPercent = Math.Abs(row.UFact) < 1e-9 ? 0 : (deltaKv / row.UFact) * 100.0;
+                double deltaKv = row.UNom - row.UFact;
+                double deltaPercent = Math.Abs(row.UNom) < 1e-9 ? 0 : (deltaKv / row.UNom) * 100.0;
                 string status = Math.Abs(deltaPercent) > 10.0 ? "Критическое (>10%)" : "Допустимое";
 
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,
                     "{0,4}    {1,9:F2}  {2,9:F2}  {3,10:F2}  {4,7:F2}%  {5}",
                     row.Number,
+                    row.UNom,
                     row.UFact,
-                    row.UCalc,
                     deltaKv,
                     deltaPercent,
                     status));
             }
 
             sb.AppendLine();
-            sb.AppendLine("Критерий: |ΔU|/Uфакт > 10% — критическое отклонение.");
+            sb.AppendLine("Критерий: |ΔU|/Uном > 10% — критическое отклонение.");
             return sb.ToString();
         }
 
@@ -137,6 +138,7 @@ namespace PowerGridEditor
                     rows.Add(new NodeVoltageRow
                     {
                         Number = node.Data.Number,
+                        UNom = node.Data.InitialVoltage,
                         UFact = node.Data.ActualVoltage,
                         UCalc = node.Data.CalculatedVoltage
                     });
@@ -149,6 +151,7 @@ namespace PowerGridEditor
                     rows.Add(new NodeVoltageRow
                     {
                         Number = baseNode.Data.Number,
+                        UNom = baseNode.Data.InitialVoltage,
                         UFact = baseNode.Data.ActualVoltage,
                         UCalc = baseNode.Data.CalculatedVoltage
                     });
