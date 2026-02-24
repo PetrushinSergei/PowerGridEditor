@@ -85,6 +85,15 @@ namespace PowerGridEditor
         private bool burdeningStartValueKnown;
         private bool divergenceNotificationShown;
         private string lastStopDetails = string.Empty;
+        private readonly List<BurdeningTrackedParameter> burdeningTrackedParameters = new List<BurdeningTrackedParameter>();
+
+        private sealed class BurdeningTrackedParameter
+        {
+            public string Description { get; set; }
+            public dynamic Data { get; set; }
+            public string Key { get; set; }
+            public double StartValue { get; set; }
+        }
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -1984,6 +1993,9 @@ namespace PowerGridEditor
 
                         // 4. Координаты элементов (0901 0)
                         WriteLayout(writer);
+
+                        // 5. Расширенное состояние (легенды, телеметрия и инкременты)
+                        WriteExtendedState(writer);
                     }
 
                     MessageBox.Show($"Файл успешно создан!\nРасположение: {filePath}", "Экспорт завершен");
@@ -2007,6 +2019,31 @@ namespace PowerGridEditor
                 {
                     writer.WriteLine($"0901 0 {baseNode.Data.Number} {baseNode.Location.X} {baseNode.Location.Y}");
                 }
+            }
+        }
+
+        private void WriteExtendedState(StreamWriter writer)
+        {
+            writer.WriteLine($"0991 0 {Convert.ToInt32(legendsLocked)} {branchLegendOffset.X} {branchLegendOffset.Y} {voltageLegendOffset.X} {voltageLegendOffset.Y}");
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                writer.WriteLine($"0992 0 {node.Data.Number} {BuildExtendedDataPayload(node.Data, isNode: true)}");
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                writer.WriteLine($"0995 0 {baseNode.Data.Number} {BuildExtendedDataPayload(baseNode.Data, isNode: false)}");
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                writer.WriteLine($"0993 0 {branch.Data.StartNodeNumber} {branch.Data.EndNodeNumber} {BuildExtendedDataPayload(branch.Data, isNode: false)}");
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                writer.WriteLine($"0994 0 {shunt.Data.StartNodeNumber} {BuildExtendedDataPayload(shunt.Data, isNode: false)}");
             }
         }
 
@@ -2089,7 +2126,7 @@ namespace PowerGridEditor
                                     $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
                                     $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
                                     $"{FormatDouble(branch.Data.TransformationRatio),5} " +
-                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0";
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrent)}";
                 writer.WriteLine(branchLine);
             }
         }
@@ -2324,11 +2361,32 @@ namespace PowerGridEditor
                     case "0901 0":                // координаты узла
                         ParseLayoutLine(parts, savedLayout);
                         break;
+
+                    case "0991 0":
+                        ParseLegendStateLine(parts);
+                        break;
+
+                    case "0992 0":
+                        ParseNodeExtendedStateLine(parts, false);
+                        break;
+
+                    case "0995 0":
+                        ParseNodeExtendedStateLine(parts, true);
+                        break;
+
+                    case "0993 0":
+                        ParseBranchExtendedStateLine(parts);
+                        break;
+
+                    case "0994 0":
+                        ParseShuntExtendedStateLine(parts);
+                        break;
                 }
             }
 
             ApplySavedLayout(savedLayout);
             panel2.Invalidate();
+            RefreshElementsGrid();
         }
         private void ParseNodeLine(string[] parts, bool isBaseNode, int index)
         {
@@ -2466,6 +2524,240 @@ namespace PowerGridEditor
             foreach (var shunt in graphicShunts)
             {
                 shunt.UpdatePosition();
+            }
+        }
+
+        private string BuildExtendedDataPayload(dynamic data, bool isNode)
+        {
+            string deviceId = isNode ? Convert.ToString(data.NodeID) : Convert.ToString(data.DeviceID);
+            string body = string.Join("|", new[]
+            {
+                Convert.ToString(data.IPAddress),
+                Convert.ToString(data.Port),
+                deviceId,
+                Convert.ToString(data.Protocol),
+                Convert.ToString(data.MeasurementIntervalSeconds, CultureInfo.InvariantCulture),
+                SerializeDictionary((Dictionary<string, string>)data.ParamRegisters, v => v),
+                SerializeDictionary((Dictionary<string, bool>)data.ParamAutoModes, v => v ? "1" : "0"),
+                SerializeDictionary((Dictionary<string, double>)data.ParamIncrementSteps, v => v.ToString("R", CultureInfo.InvariantCulture)),
+                SerializeDictionary((Dictionary<string, int>)data.ParamIncrementIntervals, v => v.ToString(CultureInfo.InvariantCulture))
+            });
+
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(body));
+        }
+
+        private string SerializeDictionary<T>(Dictionary<string, T> dict, Func<T, string> valueSelector)
+        {
+            if (dict == null || dict.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(",", dict.Select(kv =>
+                $"{Convert.ToBase64String(Encoding.UTF8.GetBytes(kv.Key))}:{Convert.ToBase64String(Encoding.UTF8.GetBytes(valueSelector(kv.Value) ?? string.Empty))}"));
+        }
+
+        private Dictionary<string, string> DeserializeDictionaryString(string payload)
+        {
+            var result = new Dictionary<string, string>();
+            foreach (var item in SplitSerializedDictionary(payload))
+            {
+                result[item.Key] = item.Value;
+            }
+            return result;
+        }
+
+        private Dictionary<string, bool> DeserializeDictionaryBool(string payload)
+        {
+            var result = new Dictionary<string, bool>();
+            foreach (var item in SplitSerializedDictionary(payload))
+            {
+                result[item.Key] = item.Value == "1" || item.Value.Equals("true", StringComparison.OrdinalIgnoreCase);
+            }
+            return result;
+        }
+
+        private Dictionary<string, double> DeserializeDictionaryDouble(string payload)
+        {
+            var result = new Dictionary<string, double>();
+            foreach (var item in SplitSerializedDictionary(payload))
+            {
+                if (double.TryParse(item.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+                {
+                    result[item.Key] = parsed;
+                }
+            }
+            return result;
+        }
+
+        private Dictionary<string, int> DeserializeDictionaryInt(string payload)
+        {
+            var result = new Dictionary<string, int>();
+            foreach (var item in SplitSerializedDictionary(payload))
+            {
+                if (int.TryParse(item.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+                {
+                    result[item.Key] = parsed;
+                }
+            }
+            return result;
+        }
+
+        private IEnumerable<KeyValuePair<string, string>> SplitSerializedDictionary(string payload)
+        {
+            if (string.IsNullOrWhiteSpace(payload))
+            {
+                yield break;
+            }
+
+            foreach (var token in payload.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = token.Split(':');
+                if (parts.Length != 2)
+                {
+                    continue;
+                }
+
+                string key = Encoding.UTF8.GetString(Convert.FromBase64String(parts[0]));
+                string value = Encoding.UTF8.GetString(Convert.FromBase64String(parts[1]));
+                yield return new KeyValuePair<string, string>(key, value);
+            }
+        }
+
+        private void ApplyExtendedStatePayload(dynamic data, string payload, bool isNode)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(payload))
+            {
+                return;
+            }
+
+            try
+            {
+                string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(payload));
+                string[] parts = decoded.Split('|');
+                if (parts.Length < 9)
+                {
+                    return;
+                }
+
+                data.IPAddress = parts[0];
+                data.Port = parts[1];
+                if (isNode)
+                {
+                    data.NodeID = parts[2];
+                }
+                else
+                {
+                    data.DeviceID = parts[2];
+                }
+
+                data.Protocol = parts[3];
+                if (int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var interval))
+                {
+                    data.MeasurementIntervalSeconds = interval;
+                }
+
+                MergeDictionary((Dictionary<string, string>)data.ParamRegisters, DeserializeDictionaryString(parts[5]));
+                MergeDictionary((Dictionary<string, bool>)data.ParamAutoModes, DeserializeDictionaryBool(parts[6]));
+                MergeDictionary((Dictionary<string, double>)data.ParamIncrementSteps, DeserializeDictionaryDouble(parts[7]));
+                MergeDictionary((Dictionary<string, int>)data.ParamIncrementIntervals, DeserializeDictionaryInt(parts[8]));
+            }
+            catch
+            {
+            }
+        }
+
+        private void MergeDictionary<T>(Dictionary<string, T> target, Dictionary<string, T> source)
+        {
+            if (target == null || source == null)
+            {
+                return;
+            }
+
+            foreach (var kv in source)
+            {
+                target[kv.Key] = kv.Value;
+            }
+        }
+
+        private void ParseLegendStateLine(string[] parts)
+        {
+            if (parts.Length < 7)
+            {
+                return;
+            }
+
+            if (int.TryParse(parts[2], out var locked))
+            {
+                legendsLocked = locked != 0;
+                if (checkBoxLockLegends != null)
+                {
+                    checkBoxLockLegends.Checked = legendsLocked;
+                }
+            }
+
+            if (int.TryParse(parts[3], out var branchX) && int.TryParse(parts[4], out var branchY))
+            {
+                branchLegendOffset = new Point(branchX, branchY);
+            }
+
+            if (int.TryParse(parts[5], out var voltageX) && int.TryParse(parts[6], out var voltageY))
+            {
+                voltageLegendOffset = new Point(voltageX, voltageY);
+            }
+        }
+
+        private void ParseNodeExtendedStateLine(string[] parts, bool isBaseNode)
+        {
+            if (parts.Length < 4 || !int.TryParse(parts[2], out var number))
+            {
+                return;
+            }
+
+            string payload = parts[3];
+            if (isBaseNode)
+            {
+                var baseNode = graphicElements.OfType<GraphicBaseNode>().FirstOrDefault(x => x.Data.Number == number);
+                if (baseNode != null)
+                {
+                    ApplyExtendedStatePayload(baseNode.Data, payload, false);
+                }
+
+                return;
+            }
+
+            var node = graphicElements.OfType<GraphicNode>().FirstOrDefault(x => x.Data.Number == number);
+            if (node != null)
+            {
+                ApplyExtendedStatePayload(node.Data, payload, true);
+            }
+        }
+
+        private void ParseBranchExtendedStateLine(string[] parts)
+        {
+            if (parts.Length < 5 || !int.TryParse(parts[2], out var startNode) || !int.TryParse(parts[3], out var endNode))
+            {
+                return;
+            }
+
+            var branch = graphicBranches.FirstOrDefault(x => x.Data.StartNodeNumber == startNode && x.Data.EndNodeNumber == endNode);
+            if (branch != null)
+            {
+                ApplyExtendedStatePayload(branch.Data, parts[4], false);
+            }
+        }
+
+        private void ParseShuntExtendedStateLine(string[] parts)
+        {
+            if (parts.Length < 4 || !int.TryParse(parts[2], out var startNode))
+            {
+                return;
+            }
+
+            var shunt = graphicShunts.FirstOrDefault(x => x.Data.StartNodeNumber == startNode);
+            if (shunt != null)
+            {
+                ApplyExtendedStatePayload(shunt.Data, parts[3], false);
             }
         }
 
@@ -2634,69 +2926,50 @@ namespace PowerGridEditor
             burdeningStartValueKnown = false;
             burdeningTrackedData = null;
             burdeningTrackedKey = null;
+            burdeningTrackedParameters.Clear();
 
             foreach (var element in graphicElements)
             {
-                if (element is GraphicNode node && TryCaptureBurdeningInfo("Узел", node.Data.Number, node.Data, out var desc, out var value, out var key))
+                if (element is GraphicNode node)
                 {
-                    burdeningParameterDescription = desc;
-                    burdeningStartValue = value;
-                    burdeningStartValueKnown = true;
-                    burdeningTrackedData = node.Data;
-                    burdeningTrackedKey = key;
-                    burdeningIterationLog.Add($"Узел №{node.Data.Number} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
-                    return;
+                    CaptureBurdeningInfos("Узел", node.Data.Number, node.Data);
                 }
-
-                if (element is GraphicBaseNode baseNode && TryCaptureBurdeningInfo("Базисный узел", baseNode.Data.Number, baseNode.Data, out desc, out value, out key))
+                else if (element is GraphicBaseNode baseNode)
                 {
-                    burdeningParameterDescription = desc;
-                    burdeningStartValue = value;
-                    burdeningStartValueKnown = true;
-                    burdeningTrackedData = baseNode.Data;
-                    burdeningTrackedKey = key;
-                    burdeningIterationLog.Add($"Базисный узел №{baseNode.Data.Number} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
-                    return;
+                    CaptureBurdeningInfos("Базисный узел", baseNode.Data.Number, baseNode.Data);
                 }
             }
 
             foreach (var branch in graphicBranches)
             {
-                if (TryCaptureBurdeningInfo($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", 0, branch.Data, out var desc, out var value, out var key))
-                {
-                    burdeningParameterDescription = desc;
-                    burdeningStartValue = value;
-                    burdeningStartValueKnown = true;
-                    burdeningTrackedData = branch.Data;
-                    burdeningTrackedKey = key;
-                    burdeningIterationLog.Add($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
-                    return;
-                }
+                CaptureBurdeningInfos($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", 0, branch.Data);
             }
 
             foreach (var shunt in graphicShunts)
             {
-                if (TryCaptureBurdeningInfo($"Шунт {shunt.Data.StartNodeNumber}", 0, shunt.Data, out var desc, out var value, out var key))
-                {
-                    burdeningParameterDescription = desc;
-                    burdeningStartValue = value;
-                    burdeningStartValueKnown = true;
-                    burdeningTrackedData = shunt.Data;
-                    burdeningTrackedKey = key;
-                    burdeningIterationLog.Add($"Шунт {shunt.Data.StartNodeNumber} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
-                    return;
-                }
+                CaptureBurdeningInfos($"Шунт {shunt.Data.StartNodeNumber}", 0, shunt.Data);
+            }
+
+            if (burdeningTrackedParameters.Count > 0)
+            {
+                var first = burdeningTrackedParameters[0];
+                burdeningStartValueKnown = true;
+                burdeningTrackedData = first.Data;
+                burdeningTrackedKey = first.Key;
+                burdeningStartValue = first.StartValue;
+
+                string suffix = burdeningTrackedParameters.Count > 1
+                    ? $" (+ ещё {burdeningTrackedParameters.Count - 1})"
+                    : string.Empty;
+                burdeningParameterDescription = $"{first.Description}{suffix}";
             }
         }
 
-        private bool TryCaptureBurdeningInfo(string prefix, int number, dynamic data, out string description, out double startValue, out string key)
+        private void CaptureBurdeningInfos(string prefix, int number, dynamic data)
         {
-            description = null;
-            startValue = 0;
-            key = null;
             if (data == null || data.ParamAutoModes == null)
             {
-                return false;
+                return;
             }
 
             foreach (var kv in ((Dictionary<string, bool>)data.ParamAutoModes))
@@ -2707,13 +2980,19 @@ namespace PowerGridEditor
                 }
 
                 string label = ConvertParamKeyToLabel(kv.Key);
-                description = number > 0 ? $"{prefix} {number}: {label} ({kv.Key})" : $"{prefix}: {label} ({kv.Key})";
-                startValue = GetParamValue(data, kv.Key);
-                key = kv.Key;
-                return true;
-            }
+                string description = number > 0 ? $"{prefix} {number}: {label} ({kv.Key})" : $"{prefix}: {label} ({kv.Key})";
+                double startValue = GetParamValue(data, kv.Key);
 
-            return false;
+                burdeningTrackedParameters.Add(new BurdeningTrackedParameter
+                {
+                    Description = description,
+                    Data = data,
+                    Key = kv.Key,
+                    StartValue = startValue
+                });
+
+                burdeningIterationLog.Add($"{description} | Начальное значение: {startValue.ToString("F4", CultureInfo.InvariantCulture)}");
+            }
         }
 
         private string ConvertParamKeyToLabel(string key)
@@ -2785,16 +3064,19 @@ namespace PowerGridEditor
 
         private void AppendBurdeningIterationLog(int iterationNumber)
         {
-            if (!burdeningStartValueKnown || burdeningTrackedData == null || string.IsNullOrWhiteSpace(burdeningTrackedKey))
+            if (burdeningTrackedParameters.Count == 0)
             {
                 return;
             }
 
-            double currentValue = GetParamValue(burdeningTrackedData, burdeningTrackedKey);
-            double absDelta = currentValue - burdeningStartValue;
-            double percent = Math.Abs(burdeningStartValue) < 1e-9 ? 0 : (absDelta / burdeningStartValue) * 100.0;
-            string label = ConvertParamKeyToLabel(burdeningTrackedKey);
-            burdeningIterationLog.Add($"Итерация {iterationNumber}: {label} = {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%)");
+            burdeningIterationLog.Add($"--- Итерация {iterationNumber} ---");
+            foreach (var tracked in burdeningTrackedParameters)
+            {
+                double currentValue = GetParamValue(tracked.Data, tracked.Key);
+                double absDelta = currentValue - tracked.StartValue;
+                double percent = Math.Abs(tracked.StartValue) < 1e-9 ? 0 : (absDelta / tracked.StartValue) * 100.0;
+                burdeningIterationLog.Add($"{tracked.Description}: {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%)");
+            }
         }
 
         private bool TryBuildControlStopReason(int stepNumber, out string reason, out string details)
@@ -3003,27 +3285,6 @@ namespace PowerGridEditor
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
             convergedModeCounter++;
-            SaveLastConvergedState();
-
-            if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
-            {
-                divergedModeNumber = convergedModeCounter + 1;
-                lastStopReason = stopReason;
-                lastStopDetails = stopDetails;
-
-                if (hasLastConvergedSnapshot)
-                {
-                    RestoreLastConvergedState();
-                }
-
-                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                StopCalculationLoopInternal();
-                panel2.Invalidate();
-                RefreshElementsGrid();
-                return;
-            }
-
-            convergedModeCounter++;
             AppendBurdeningIterationLog(convergedModeCounter);
             SaveLastConvergedState();
 
@@ -3044,10 +3305,6 @@ namespace PowerGridEditor
                 RefreshElementsGrid();
                 return;
             }
-
-            convergedModeCounter++;
-            AppendBurdeningIterationLog(convergedModeCounter);
-            SaveLastConvergedState();
 
             panel2.Invalidate();
             RefreshElementsGrid();
