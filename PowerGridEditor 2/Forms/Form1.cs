@@ -71,13 +71,13 @@ namespace PowerGridEditor
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedBaseNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, double> lastConvergedCalculatedNodeVoltages = new Dictionary<int, double>();
- Временные переменные для обратной совместимости
+        // Временные переменные для обратной совместимости
         private int convergedModeCounter;
         private int? divergedModeNumber;
         private string burdeningParameterDescription = "нет данных";
         private double burdeningStartValue;
         private bool burdeningStartValueKnown;
-
+        private bool divergenceNotificationShown;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -2725,6 +2725,7 @@ namespace PowerGridEditor
             isCalculationRunning = true;
             convergedModeCounter = 0;
             divergedModeNumber = null;
+            divergenceNotificationShown = false;
             UpdateBurdeningStartInfo();
             UpdateCalculationButtonUi();
 
@@ -2807,6 +2808,12 @@ namespace PowerGridEditor
                 if (hasLastConvergedSnapshot)
                 {
                     RestoreLastConvergedState();
+                }
+
+                if (!divergenceNotificationShown)
+                {
+                    divergenceNotificationShown = true;
+                    MessageBox.Show(this, $"Режим не сошёлся (режим № {divergedModeNumber}). Расчёт остановлен.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
 
                 StopCalculationLoopInternal();
