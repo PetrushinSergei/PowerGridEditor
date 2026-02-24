@@ -3000,6 +3000,8 @@ namespace PowerGridEditor
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            convergedModeCounter++;
+            SaveLastConvergedState();
 
             if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
             {
