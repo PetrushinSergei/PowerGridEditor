@@ -3065,7 +3065,7 @@ namespace PowerGridEditor
             sb.AppendLine("Пороги комплексного контроля:");
             sb.AppendLine("- Несходимость итераций");
             sb.AppendLine("- Перегрузка ветви > 100%");
-            sb.AppendLine("- Отклонение напряжения узла |ΔU| > 10% (ΔU% = (Uрасч - Uфакт)/Uфакт)");
+            sb.AppendLine("- Отклонение напряжения узла |ΔU| > 10% (ΔU% = (Uном - Uфакт)/Uном)");
             return sb.ToString();
         }
 
@@ -3096,13 +3096,14 @@ namespace PowerGridEditor
             var criticalNodes = new List<string>();
             foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
-                if (uFact <= 0 || node.Data.CalculatedVoltage <= 0)
+                double uNom = node.Data.InitialVoltage;
+                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.CalculatedVoltage;
+                if (uNom <= 0 || uFact <= 0)
                 {
                     continue;
                 }
 
-                double delta = Math.Abs(CalculateVoltageDeviationPercent(uFact, node.Data.CalculatedVoltage));
+                double delta = Math.Abs(CalculateVoltageDeviationPercent(uNom, uFact));
                 if (delta > 10.0)
                 {
                     criticalNodes.Add($"{node.Data.Number} ({delta:F1}%)");
@@ -3111,13 +3112,14 @@ namespace PowerGridEditor
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
             {
-                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
-                if (uFact <= 0 || baseNode.Data.CalculatedVoltage <= 0)
+                double uNom = baseNode.Data.InitialVoltage;
+                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.CalculatedVoltage;
+                if (uNom <= 0 || uFact <= 0)
                 {
                     continue;
                 }
 
-                double delta = Math.Abs(CalculateVoltageDeviationPercent(uFact, baseNode.Data.CalculatedVoltage));
+                double delta = Math.Abs(CalculateVoltageDeviationPercent(uNom, uFact));
                 if (delta > 10.0)
                 {
                     criticalNodes.Add($"{baseNode.Data.Number} ({delta:F1}%)");
@@ -3416,7 +3418,7 @@ namespace PowerGridEditor
                 }
 
                 double uFactForColor = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uFact;
-                node.VoltageColor = GetNodeVoltageColor(uFactForColor, node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFactForColor);
+                node.VoltageColor = GetNodeVoltageColor(node.Data.InitialVoltage, uFactForColor);
             }
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
@@ -3436,7 +3438,7 @@ namespace PowerGridEditor
                 }
 
                 double uFactForColor = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uFact;
-                baseNode.VoltageColor = GetNodeVoltageColor(uFactForColor, baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFactForColor);
+                baseNode.VoltageColor = GetNodeVoltageColor(baseNode.Data.InitialVoltage, uFactForColor);
             }
         }
 
@@ -3512,12 +3514,12 @@ namespace PowerGridEditor
 
         private Color GetNodeVoltageColor(double uFact, double uCalc)
         {
-            if (uFact <= 0 || uCalc <= 0)
+            if (uNom <= 0 || uFact <= 0)
             {
                 return Color.LightBlue;
             }
 
-            double deltaPercent = CalculateVoltageDeviationPercent(uFact, uCalc);
+            double deltaPercent = CalculateVoltageDeviationPercent(uNom, uFact);
             double absDelta = Math.Abs(deltaPercent);
             if (absDelta <= 5.0)
             {
@@ -3532,14 +3534,14 @@ namespace PowerGridEditor
             return Color.IndianRed;
         }
 
-        private double CalculateVoltageDeviationPercent(double uFact, double uCalc)
+        private double CalculateVoltageDeviationPercent(double uNom, double uFact)
         {
-            if (Math.Abs(uFact) < 1e-9)
+            if (Math.Abs(uNom) < 1e-9)
             {
                 return 0;
             }
 
-            return ((uCalc - uFact) / uFact) * 100.0;
+            return ((uNom - uFact) / uNom) * 100.0;
         }
 
         private void UpdateHoverTooltip(object element, Point screenPoint)
@@ -3616,7 +3618,7 @@ namespace PowerGridEditor
                 return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\nНоминальное напряжение={uNom:F2} кВ\nФактическое напряжение=нет данных\nРасчётное напряжение=нет данных";
             }
 
-            double delta = calculatedU > 0 ? CalculateVoltageDeviationPercent(uFact, calculatedU) : 0;
+            double delta = uNom > 0 ? CalculateVoltageDeviationPercent(uNom, uFact) : 0;
             string calcText = calculatedU > 0 ? $"{calculatedU:F2} кВ" : "нет данных";
             return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\n" +
                    $"Номинальное напряжение={uNom:F2} кВ\n" +
@@ -4163,8 +4165,9 @@ namespace PowerGridEditor
 
             foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
-                if (uFact > 0)
+                double uNom = node.Data.InitialVoltage;
+                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uNom;
+                if (uNom > 0 && uFact > 0)
                 {
                     double uCalc = node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFact;
                     node.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
@@ -4173,8 +4176,9 @@ namespace PowerGridEditor
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
             {
-                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
-                if (uFact > 0)
+                double uNom = baseNode.Data.InitialVoltage;
+                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uNom;
+                if (uNom > 0 && uFact > 0)
                 {
                     double uCalc = baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFact;
                     baseNode.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
