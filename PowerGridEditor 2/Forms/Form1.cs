@@ -71,6 +71,12 @@ namespace PowerGridEditor
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedBaseNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, double> lastConvergedCalculatedNodeVoltages = new Dictionary<int, double>();
+ Временные переменные для обратной совместимости
+        private int convergedModeCounter;
+        private int? divergedModeNumber;
+        private string burdeningParameterDescription = "нет данных";
+        private double burdeningStartValue;
+        private bool burdeningStartValueKnown;
 
 
         // Временные переменные для обратной совместимости
@@ -108,6 +114,7 @@ namespace PowerGridEditor
             ConfigureToolbarStyle();
             AddDynamicControls();
             buttonOpenReport.MouseDoubleClick += buttonOpenReport_MouseDoubleClick;
+            buttonOpenReport.MouseUp += buttonOpenReport_MouseUp;
             ApplyTheme();
         }
 
@@ -2578,18 +2585,134 @@ namespace PowerGridEditor
             OpenCalculationReportWindow();
         }
 
+        private void buttonOpenReport_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                OpenCalculationReportWindow();
+            }
+        }
+
         private void OpenCalculationReportWindow()
         {
             ApplyBranchLoadingColorsFromCurrentResult();
 
-        private void UpdateCalculationButtonState()
+            var reportForm = new ReportForm();
+            reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
+            reportForm.SetModeBurdeningInfo(BuildModeBurdeningReport());
+            RegisterOpenedWindow(reportForm);
+            reportForm.StartPosition = FormStartPosition.Manual;
+            reportForm.Location = GetNextChildWindowLocation();
+            reportForm.Show(this);
+        }
+
+        private void UpdateBurdeningStartInfo()
         {
-            buttonOpenReport.Text = isCalculationRunning ? "Стоп расчёт" : "Расчёт";
-            buttonOpenReport.BackColor = isCalculationRunning ? Color.FromArgb(220, 38, 38) : ThemeAccentBlue;
-            buttonOpenReport.ForeColor = isCalculationRunning ? Color.White : ThemeTextBlack;
-            buttonOpenReport.FlatAppearance.BorderColor = isCalculationRunning ? Color.FromArgb(127, 29, 29) : ThemeBorderBlue;
-            buttonOpenReport.FlatAppearance.BorderSize = 2;
-            buttonOpenReport.Invalidate();
+            burdeningParameterDescription = "нет данных";
+            burdeningStartValueKnown = false;
+
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node && TryCaptureBurdeningInfo("Узел", node.Data.Number, node.Data, out var desc, out var value))
+                {
+                    burdeningParameterDescription = desc;
+                    burdeningStartValue = value;
+                    burdeningStartValueKnown = true;
+                    return;
+                }
+
+                if (element is GraphicBaseNode baseNode && TryCaptureBurdeningInfo("Базисный узел", baseNode.Data.Number, baseNode.Data, out desc, out value))
+                {
+                    burdeningParameterDescription = desc;
+                    burdeningStartValue = value;
+                    burdeningStartValueKnown = true;
+                    return;
+                }
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                if (TryCaptureBurdeningInfo($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", 0, branch.Data, out var desc, out var value))
+                {
+                    burdeningParameterDescription = desc;
+                    burdeningStartValue = value;
+                    burdeningStartValueKnown = true;
+                    return;
+                }
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                if (TryCaptureBurdeningInfo($"Шунт {shunt.Data.StartNodeNumber}", 0, shunt.Data, out var desc, out var value))
+                {
+                    burdeningParameterDescription = desc;
+                    burdeningStartValue = value;
+                    burdeningStartValueKnown = true;
+                    return;
+                }
+            }
+        }
+
+        private bool TryCaptureBurdeningInfo(string prefix, int number, dynamic data, out string description, out double startValue)
+        {
+            description = null;
+            startValue = 0;
+            if (data == null || data.ParamAutoModes == null)
+            {
+                return false;
+            }
+
+            foreach (var kv in ((Dictionary<string, bool>)data.ParamAutoModes))
+            {
+                if (!kv.Value)
+                {
+                    continue;
+                }
+
+                string label = ConvertParamKeyToLabel(kv.Key);
+                description = number > 0 ? $"{prefix} {number}: {label} ({kv.Key})" : $"{prefix}: {label} ({kv.Key})";
+                startValue = GetParamValue(data, kv.Key);
+                return true;
+            }
+
+            return false;
+        }
+
+        private string ConvertParamKeyToLabel(string key)
+        {
+            if (key == "U") return "Номинальное напряжение";
+            if (key == "Ufact") return "Фактическое напряжение";
+            if (key == "Ucalc") return "Расчётное напряжение";
+            if (key == "P") return "P нагрузка";
+            if (key == "Q") return "Q нагрузка";
+            if (key == "Pg") return "P генерация";
+            if (key == "Qg") return "Q генерация";
+            if (key == "Uf") return "U фикс.";
+            if (key == "Qmin") return "Q мин";
+            if (key == "Qmax") return "Q макс";
+            if (key == "R") return "R";
+            if (key == "X") return "X";
+            if (key == "B") return "B";
+            if (key == "Ktr") return "K трансф.";
+            if (key == "G") return "G";
+            if (key == "Imax") return "Iдоп";
+            return key;
+        }
+
+        private string BuildModeBurdeningReport()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Утяжеление режима");
+            sb.AppendLine();
+            sb.AppendLine($"Что утяжеляется: {burdeningParameterDescription}");
+            sb.AppendLine($"С какого значения старт: {(burdeningStartValueKnown ? burdeningStartValue.ToString("F4", CultureInfo.InvariantCulture) : "нет данных")}");
+            sb.AppendLine($"Последний сошедшийся режим: {convergedModeCounter}");
+            sb.AppendLine($"После какого режима началась расходимость: {(divergedModeNumber.HasValue ? divergedModeNumber.Value.ToString(CultureInfo.InvariantCulture) : "нет")}");
+            sb.AppendLine();
+            sb.AppendLine("Примечание:");
+            sb.AppendLine("- фактическое напряжение берется из Modbus (Ufact)");
+            sb.AppendLine("- расчётное напряжение берется из результата расчёта режима (Ucalc)");
+            return sb.ToString();
         }
 
         private void StartCalculationLoopInternal()
@@ -2600,6 +2723,9 @@ namespace PowerGridEditor
             }
 
             isCalculationRunning = true;
+            convergedModeCounter = 0;
+            divergedModeNumber = null;
+            UpdateBurdeningStartInfo();
             UpdateCalculationButtonUi();
 
             if (calculationTimer == null)
@@ -2677,6 +2803,7 @@ namespace PowerGridEditor
 
             if (!isLastModeConverged)
             {
+                divergedModeNumber = convergedModeCounter + 1;
                 if (hasLastConvergedSnapshot)
                 {
                     RestoreLastConvergedState();
@@ -2720,6 +2847,7 @@ namespace PowerGridEditor
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            convergedModeCounter++;
             SaveLastConvergedState();
 
             panel2.Invalidate();
