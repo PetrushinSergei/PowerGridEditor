@@ -93,6 +93,8 @@ namespace PowerGridEditor
             public dynamic Data { get; set; }
             public string Key { get; set; }
             public double StartValue { get; set; }
+            public double Step { get; set; }
+            public int IntervalSeconds { get; set; }
         }
 
         // Временные переменные для обратной совместимости
@@ -2967,31 +2969,35 @@ namespace PowerGridEditor
 
         private void CaptureBurdeningInfos(string prefix, int number, dynamic data)
         {
-            if (data == null || data.ParamAutoModes == null)
+            if (data == null || data.ParamIncrementSteps == null)
             {
                 return;
             }
 
-            foreach (var kv in ((Dictionary<string, bool>)data.ParamAutoModes))
+            foreach (var kv in ((Dictionary<string, double>)data.ParamIncrementSteps))
             {
-                if (!kv.Value)
+                string key = kv.Key;
+                string id = ParameterAutoChangeService.BuildId((object)data, key);
+                if (!ParameterAutoChangeService.TryGet(id, out double step, out int interval, out bool running) || !running)
                 {
                     continue;
                 }
 
-                string label = ConvertParamKeyToLabel(kv.Key);
-                string description = number > 0 ? $"{prefix} {number}: {label} ({kv.Key})" : $"{prefix}: {label} ({kv.Key})";
-                double startValue = GetParamValue(data, kv.Key);
+                string label = ConvertParamKeyToLabel(key);
+                string description = number > 0 ? $"{prefix} {number}: {label}" : $"{prefix}: {label}";
+                double startValue = GetParamValue(data, key);
 
                 burdeningTrackedParameters.Add(new BurdeningTrackedParameter
                 {
                     Description = description,
                     Data = data,
-                    Key = kv.Key,
-                    StartValue = startValue
+                    Key = key,
+                    StartValue = startValue,
+                    Step = step,
+                    IntervalSeconds = interval
                 });
 
-                burdeningIterationLog.Add($"{description} | Начальное значение: {startValue.ToString("F4", CultureInfo.InvariantCulture)}");
+                burdeningIterationLog.Add($"{description} | Старт: {startValue.ToString("F4", CultureInfo.InvariantCulture)} | Шаг: {step.ToString("F4", CultureInfo.InvariantCulture)} каждые {interval} c");
             }
         }
 
@@ -3029,7 +3035,8 @@ namespace PowerGridEditor
             sb.AppendLine("Лог шагов:");
             if (burdeningIterationLog.Count == 0)
             {
-                sb.AppendLine("- шаги отсутствуют");
+                sb.AppendLine("- авто-изменение параметров не запущено");
+                sb.AppendLine("  (в таблице нажмите \"Инкремент\" и включите авто-изменение нужного параметра)");
             }
             else
             {
@@ -3075,7 +3082,7 @@ namespace PowerGridEditor
                 double currentValue = GetParamValue(tracked.Data, tracked.Key);
                 double absDelta = currentValue - tracked.StartValue;
                 double percent = Math.Abs(tracked.StartValue) < 1e-9 ? 0 : (absDelta / tracked.StartValue) * 100.0;
-                burdeningIterationLog.Add($"{tracked.Description}: {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%)");
+                burdeningIterationLog.Add($"{tracked.Description}: {tracked.StartValue.ToString("F4", CultureInfo.InvariantCulture)} -> {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%; шаг {tracked.Step:+0.####;-0.####;0} / {tracked.IntervalSeconds} c)");
             }
         }
 
@@ -3396,7 +3403,7 @@ namespace PowerGridEditor
                 {
                     node.Data.CalculatedVoltage = 0;
                     double uFactTelemetry = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
-                    node.VoltageColor = GetNodeVoltageColor(node.Data.InitialVoltage, uFactTelemetry);
+                    node.VoltageColor = GetNodeVoltageColor(uFactTelemetry, node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFactTelemetry);
                     continue;
                 }
 
@@ -3406,9 +3413,8 @@ namespace PowerGridEditor
                     node.Data.ActualVoltage = node.Data.CalculatedVoltage;
                 }
 
-                var uNom = node.Data.InitialVoltage;
                 double uFactForColor = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uFact;
-                node.VoltageColor = GetNodeVoltageColor(uNom, uFactForColor);
+                node.VoltageColor = GetNodeVoltageColor(uFactForColor, node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFactForColor);
             }
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
@@ -3417,7 +3423,7 @@ namespace PowerGridEditor
                 {
                     baseNode.Data.CalculatedVoltage = 0;
                     double uFactTelemetry = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
-                    baseNode.VoltageColor = GetNodeVoltageColor(baseNode.Data.InitialVoltage, uFactTelemetry);
+                    baseNode.VoltageColor = GetNodeVoltageColor(uFactTelemetry, baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFactTelemetry);
                     continue;
                 }
 
@@ -3427,9 +3433,8 @@ namespace PowerGridEditor
                     baseNode.Data.ActualVoltage = baseNode.Data.CalculatedVoltage;
                 }
 
-                var uNom = baseNode.Data.InitialVoltage;
                 double uFactForColor = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uFact;
-                baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFactForColor);
+                baseNode.VoltageColor = GetNodeVoltageColor(uFactForColor, baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFactForColor);
             }
         }
 
@@ -3503,25 +3508,36 @@ namespace PowerGridEditor
             return result;
         }
 
-        private Color GetNodeVoltageColor(double uNom, double uFact)
+        private Color GetNodeVoltageColor(double uFact, double uCalc)
         {
-            if (uNom <= 0)
+            if (uFact <= 0 || uCalc <= 0)
             {
                 return Color.LightBlue;
             }
 
-            var delta = Math.Abs(((uFact - uNom) / uNom) * 100.0);
-            if (delta <= 5.0)
+            double deltaPercent = CalculateVoltageDeviationPercent(uFact, uCalc);
+            double absDelta = Math.Abs(deltaPercent);
+            if (absDelta <= 5.0)
             {
                 return Color.LightGreen;
             }
 
-            if (delta <= 10.0)
+            if (absDelta <= 10.0)
             {
                 return Color.Yellow;
             }
 
             return Color.IndianRed;
+        }
+
+        private double CalculateVoltageDeviationPercent(double uFact, double uCalc)
+        {
+            if (Math.Abs(uFact) < 1e-9)
+            {
+                return 0;
+            }
+
+            return ((uCalc - uFact) / uFact) * 100.0;
         }
 
         private void UpdateHoverTooltip(object element, Point screenPoint)
@@ -3598,7 +3614,7 @@ namespace PowerGridEditor
                 return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\nНоминальное напряжение={uNom:F2} кВ\nФактическое напряжение=нет данных\nРасчётное напряжение=нет данных";
             }
 
-            double delta = uNom == 0 ? 0 : ((uFact - uNom) / uNom) * 100.0;
+            double delta = calculatedU > 0 ? CalculateVoltageDeviationPercent(uFact, calculatedU) : 0;
             string calcText = calculatedU > 0 ? $"{calculatedU:F2} кВ" : "нет данных";
             return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\n" +
                    $"Номинальное напряжение={uNom:F2} кВ\n" +
@@ -4145,21 +4161,21 @@ namespace PowerGridEditor
 
             foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                double uNom = node.Data.InitialVoltage;
-                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uNom;
+                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
                 if (uFact > 0)
                 {
-                    node.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                    double uCalc = node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFact;
+                    node.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
                 }
             }
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
             {
-                double uNom = baseNode.Data.InitialVoltage;
-                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uNom;
+                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
                 if (uFact > 0)
                 {
-                    baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                    double uCalc = baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFact;
+                    baseNode.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
                 }
             }
 
