@@ -2564,11 +2564,11 @@ namespace PowerGridEditor
 
             if (isCalculationRunning)
             {
-                StopCalculationLoop();
+                StopCalculationLoopInternal();
             }
             else
             {
-                StartCalculationLoop();
+                StartCalculationLoopInternal();
             }
         }
 
@@ -2592,7 +2592,7 @@ namespace PowerGridEditor
             buttonOpenReport.Invalidate();
         }
 
-        private void StartCalculationLoop()
+        private void StartCalculationLoopInternal()
         {
             if (isCalculationRunning)
             {
@@ -2600,7 +2600,7 @@ namespace PowerGridEditor
             }
 
             isCalculationRunning = true;
-            UpdateCalculationButtonState();
+            UpdateCalculationButtonUi();
 
             if (calculationTimer == null)
             {
@@ -2621,36 +2621,7 @@ namespace PowerGridEditor
             _ = RunCalculationCycleAsync();
         }
 
-        private void StartCalculationLoop()
-        {
-            if (isCalculationRunning)
-            {
-                return;
-            }
-
-            isCalculationRunning = true;
-            UpdateCalculationButtonState();
-
-            if (calculationTimer == null)
-            {
-                calculationTimer = new System.Windows.Forms.Timer();
-                calculationTimer.Interval = Math.Max(1000, AppRuntimeSettings.UpdateIntervalSeconds * 1000);
-                calculationTimer.Tick += async (s, e) => await RunCalculationCycleAsync();
-
-                AppRuntimeSettings.UpdateIntervalChanged += seconds =>
-                {
-                    if (calculationTimer != null)
-                    {
-                        calculationTimer.Interval = Math.Max(1, seconds) * 1000;
-                    }
-                };
-            }
-
-            calculationTimer.Start();
-            _ = RunCalculationCycleAsync();
-        }
-
-        private void StopCalculationLoop()
+        private void StopCalculationLoopInternal()
         {
             if (!isCalculationRunning)
             {
@@ -2659,10 +2630,10 @@ namespace PowerGridEditor
 
             isCalculationRunning = false;
             calculationTimer?.Stop();
-            UpdateCalculationButtonState();
+            UpdateCalculationButtonUi();
         }
 
-        private void UpdateCalculationButtonState()
+        private void UpdateCalculationButtonUi()
         {
             buttonOpenReport.Text = isCalculationRunning ? "Стоп расчёт" : "Расчёт";
             buttonOpenReport.BackColor = isCalculationRunning ? Color.FromArgb(220, 38, 38) : ThemeAccentBlue;
@@ -2711,7 +2682,7 @@ namespace PowerGridEditor
                     RestoreLastConvergedState();
                 }
 
-                StopCalculationLoop();
+                StopCalculationLoopInternal();
                 panel2.Invalidate();
                 RefreshElementsGrid();
                 return;
@@ -3591,7 +3562,7 @@ namespace PowerGridEditor
             StartClock();
             StartGlobalTelemetryPolling();
             RefreshElementsGrid();
-            UpdateCalculationButtonState();
+            UpdateCalculationButtonUi();
         }
 
         private void SetLegacyClientControlsVisibility(bool visible)
