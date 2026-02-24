@@ -7,6 +7,8 @@ namespace PowerGridEditor
     {
         public int Number { get; set; }
         public double InitialVoltage { get; set; } = 500.0;
+        public double ActualVoltage { get; set; }
+        public double CalculatedVoltage { get; set; }
         public double NominalActivePower { get; set; }
         public double NominalReactivePower { get; set; }
         public double ActivePowerGeneration { get; set; }
@@ -36,7 +38,7 @@ namespace PowerGridEditor
         public Node(int number)
         {
             Number = number;
-            string[] keys = { "Number", "U", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+            string[] keys = { "Number", "U", "Ufact", "Ucalc", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
             foreach (var key in keys)
             {
                 ParamRegisters[key] = "0";
