@@ -38,7 +38,7 @@ namespace PowerGridEditor
         public Node(int number)
         {
             Number = number;
-            string[] keys = { "Number", "U", "Ufact", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
+            string[] keys = { "Number", "U", "Ufact", "Ucalc", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
             foreach (var key in keys)
             {
                 ParamRegisters[key] = "0";

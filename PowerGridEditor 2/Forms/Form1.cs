@@ -56,6 +56,17 @@ namespace PowerGridEditor
         private System.Windows.Forms.Timer calculationTimer;
         private bool isCalculationRunning;
         private bool calculationInProgress;
+        private System.Windows.Forms.Timer calcClickTimer;
+        private DateTime lastCalcClickAt = DateTime.MinValue;
+        private CheckBox checkBoxLockLegends;
+        private bool legendsLocked = true;
+        private Rectangle branchLegendBounds = Rectangle.Empty;
+        private Rectangle voltageLegendBounds = Rectangle.Empty;
+        private Point branchLegendOffset = Point.Empty;
+        private Point voltageLegendOffset = Point.Empty;
+        private bool isDraggingLegend;
+        private string draggingLegendKey;
+        private Point lastLegendMousePoint;
 
 
         // Временные переменные для обратной совместимости
@@ -299,6 +310,20 @@ namespace PowerGridEditor
                 panel2.Invalidate();
             };
             panel1.Controls.Add(checkBoxShowBranchInfo);
+
+            checkBoxLockLegends = new CheckBox
+            {
+                Name = "checkBoxLockLegends",
+                Text = "Закрепить легенды",
+                AutoSize = true,
+                Left = 730,
+                Top = 54,
+                Checked = true,
+                BackColor = ThemePanelBackground,
+                ForeColor = ThemeTextBlack
+            };
+            checkBoxLockLegends.CheckedChanged += (s, e) => legendsLocked = checkBoxLockLegends.Checked;
+            panel1.Controls.Add(checkBoxLockLegends);
         }
 
         private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
@@ -747,11 +772,14 @@ namespace PowerGridEditor
             var state = g.Save();
             g.ResetTransform();
 
-            int x = Math.Max(6, panel2.ClientSize.Width - 365);
-            int y = Math.Max(6, panel2.ClientSize.Height - 170);
+            int defaultX = Math.Max(6, panel2.ClientSize.Width - 365);
+            int defaultY = Math.Max(6, panel2.ClientSize.Height - 170);
+            int x = Math.Max(6, defaultX + branchLegendOffset.X);
+            int y = Math.Max(6, defaultY + branchLegendOffset.Y);
             int rowH = 24;
             int legendW = 350;
             int legendH = 155;
+            branchLegendBounds = new Rectangle(x, y, legendW, legendH);
 
             using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
             using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
@@ -830,8 +858,11 @@ namespace PowerGridEditor
 
             int legendW = 360;
             int legendH = 120;
-            int x = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
-            int y = 90;
+            int defaultX = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
+            int defaultY = 90;
+            int x = Math.Max(6, defaultX + voltageLegendOffset.X);
+            int y = Math.Max(6, defaultY + voltageLegendOffset.Y);
+            voltageLegendBounds = new Rectangle(x, y, legendW, legendH);
 
             using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
             using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
@@ -929,6 +960,25 @@ namespace PowerGridEditor
             }
 
             if (e.Button != MouseButtons.Left) return;
+
+            if (!legendsLocked)
+            {
+                if (branchLegendBounds.Contains(e.Location))
+                {
+                    isDraggingLegend = true;
+                    draggingLegendKey = "branch";
+                    lastLegendMousePoint = e.Location;
+                    return;
+                }
+
+                if (voltageLegendBounds.Contains(e.Location))
+                {
+                    isDraggingLegend = true;
+                    draggingLegendKey = "voltage";
+                    lastLegendMousePoint = e.Location;
+                    return;
+                }
+            }
 
             Point modelPoint = Point.Round(ScreenToModel(e.Location));
             bool ctrlPressed = (ModifierKeys & Keys.Control) == Keys.Control;
@@ -1039,6 +1089,25 @@ namespace PowerGridEditor
         {
             var modelPoint = Point.Round(ScreenToModel(e.Location));
 
+            if (isDraggingLegend)
+            {
+                int dxLegend = e.X - lastLegendMousePoint.X;
+                int dyLegend = e.Y - lastLegendMousePoint.Y;
+                lastLegendMousePoint = e.Location;
+
+                if (draggingLegendKey == "branch")
+                {
+                    branchLegendOffset = new Point(branchLegendOffset.X + dxLegend, branchLegendOffset.Y + dyLegend);
+                }
+                else if (draggingLegendKey == "voltage")
+                {
+                    voltageLegendOffset = new Point(voltageLegendOffset.X + dxLegend, voltageLegendOffset.Y + dyLegend);
+                }
+
+                panel2.Invalidate();
+                return;
+            }
+
             if (panning)
             {
                 UpdateHoverTooltip(null, e.Location);
@@ -1148,6 +1217,12 @@ namespace PowerGridEditor
             if (e.Button == MouseButtons.Left)
             {
                 isMarqueeSelecting = false;
+                if (isDraggingLegend)
+                {
+                    isDraggingLegend = false;
+                    draggingLegendKey = null;
+                    return;
+                }
             }
 
             isDragging = false;
@@ -2477,14 +2552,49 @@ namespace PowerGridEditor
 
         private void buttonOpenReport_Click(object sender, EventArgs e)
         {
-            if (isCalculationRunning)
+            var now = DateTime.UtcNow;
+            if ((now - lastCalcClickAt).TotalMilliseconds <= 350)
             {
-                StopCalculationLoop();
+                calcClickTimer?.Stop();
+                OpenCalculationReportWindow();
+                lastCalcClickAt = DateTime.MinValue;
+                return;
             }
-            else
+
+            lastCalcClickAt = now;
+            if (calcClickTimer == null)
             {
-                StartCalculationLoop();
+                calcClickTimer = new System.Windows.Forms.Timer { Interval = 360 };
+                calcClickTimer.Tick += (s, args) =>
+                {
+                    calcClickTimer.Stop();
+                    if (isCalculationRunning)
+                    {
+                        StopCalculationLoop();
+                    }
+                    else
+                    {
+                        StartCalculationLoop();
+                    }
+                };
             }
+
+            calcClickTimer.Stop();
+            calcClickTimer.Start();
+        }
+
+        private void OpenCalculationReportWindow()
+        {
+            ApplyBranchLoadingColorsFromCurrentResult();
+
+        private void UpdateCalculationButtonState()
+        {
+            buttonOpenReport.Text = isCalculationRunning ? "Стоп расчёт" : "Расчёт";
+            buttonOpenReport.BackColor = isCalculationRunning ? Color.FromArgb(220, 38, 38) : ThemeAccentBlue;
+            buttonOpenReport.ForeColor = isCalculationRunning ? Color.White : ThemeTextBlack;
+            buttonOpenReport.FlatAppearance.BorderColor = isCalculationRunning ? Color.FromArgb(127, 29, 29) : ThemeBorderBlue;
+            buttonOpenReport.FlatAppearance.BorderSize = 2;
+            buttonOpenReport.Invalidate();
         }
 
         private void StartCalculationLoop()
