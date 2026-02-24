@@ -38,6 +38,8 @@ namespace PowerGridEditor
         public Node(int number)
         {
             Number = number;
+            ActualVoltage = InitialVoltage;
+            CalculatedVoltage = InitialVoltage;
             string[] keys = { "Number", "U", "Ufact", "Ucalc", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax" };
             foreach (var key in keys)
             {

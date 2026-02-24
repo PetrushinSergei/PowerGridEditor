@@ -2791,8 +2791,10 @@ namespace PowerGridEditor
             }
 
             double currentValue = GetParamValue(burdeningTrackedData, burdeningTrackedKey);
-            double percent = Math.Abs(burdeningStartValue) < 1e-9 ? 0 : ((currentValue - burdeningStartValue) / burdeningStartValue) * 100.0;
-            burdeningIterationLog.Add($"Итерация {iterationNumber}: {currentValue.ToString("F4", CultureInfo.InvariantCulture)} ({percent:+0.##;-0.##;0}%)");
+            double absDelta = currentValue - burdeningStartValue;
+            double percent = Math.Abs(burdeningStartValue) < 1e-9 ? 0 : (absDelta / burdeningStartValue) * 100.0;
+            string label = ConvertParamKeyToLabel(burdeningTrackedKey);
+            burdeningIterationLog.Add($"Итерация {iterationNumber}: {label} = {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%)");
         }
 
         private bool TryBuildControlStopReason(int stepNumber, out string reason, out string details)
@@ -3025,6 +3027,28 @@ namespace PowerGridEditor
             AppendBurdeningIterationLog(convergedModeCounter);
             SaveLastConvergedState();
 
+            if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
+            {
+                divergedModeNumber = convergedModeCounter + 1;
+                lastStopReason = stopReason;
+                lastStopDetails = stopDetails;
+
+                if (hasLastConvergedSnapshot)
+                {
+                    RestoreLastConvergedState();
+                }
+
+                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                StopCalculationLoopInternal();
+                panel2.Invalidate();
+                RefreshElementsGrid();
+                return;
+            }
+
+            convergedModeCounter++;
+            AppendBurdeningIterationLog(convergedModeCounter);
+            SaveLastConvergedState();
+
             panel2.Invalidate();
             RefreshElementsGrid();
         }
@@ -3120,6 +3144,11 @@ namespace PowerGridEditor
                 }
 
                 node.Data.CalculatedVoltage = uFact;
+                if (!IsFactTelemetryEnabled(node.Data))
+                {
+                    node.Data.ActualVoltage = node.Data.CalculatedVoltage;
+                }
+
                 var uNom = node.Data.InitialVoltage;
                 double uFactForColor = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uFact;
                 node.VoltageColor = GetNodeVoltageColor(uNom, uFactForColor);
@@ -3136,10 +3165,31 @@ namespace PowerGridEditor
                 }
 
                 baseNode.Data.CalculatedVoltage = uFact;
+                if (!IsFactTelemetryEnabled(baseNode.Data))
+                {
+                    baseNode.Data.ActualVoltage = baseNode.Data.CalculatedVoltage;
+                }
+
                 var uNom = baseNode.Data.InitialVoltage;
                 double uFactForColor = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uFact;
                 baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFactForColor);
             }
+        }
+
+        private bool IsFactTelemetryEnabled(dynamic data)
+        {
+            if (data == null || data.ParamAutoModes == null)
+            {
+                return false;
+            }
+
+            var modes = data.ParamAutoModes as Dictionary<string, bool>;
+            if (modes == null)
+            {
+                return false;
+            }
+
+            return modes.TryGetValue("Ufact", out bool enabled) && enabled;
         }
 
         private Dictionary<int, double> ParseNodeVoltagesFromNetworkRez(string networkRez)

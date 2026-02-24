@@ -34,6 +34,8 @@ namespace PowerGridEditor
         {
             Number = number;
             InitialVoltage = 525.0;
+            ActualVoltage = InitialVoltage;
+            CalculatedVoltage = InitialVoltage;
 
             string[] keys = { "U", "Ufact", "Ucalc", "P", "Q", "Pg", "Qg", "Uf", "Qmin", "Qmax", "Imax" };
             foreach (var key in keys)
