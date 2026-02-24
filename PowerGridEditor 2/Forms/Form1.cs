@@ -2582,12 +2582,14 @@ namespace PowerGridEditor
         {
             ApplyBranchLoadingColorsFromCurrentResult();
 
-            var reportForm = new ReportForm();
-            reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
-            RegisterOpenedWindow(reportForm);
-            reportForm.StartPosition = FormStartPosition.Manual;
-            reportForm.Location = GetNextChildWindowLocation();
-            reportForm.Show(this);
+        private void UpdateCalculationButtonState()
+        {
+            buttonOpenReport.Text = isCalculationRunning ? "Стоп расчёт" : "Расчёт";
+            buttonOpenReport.BackColor = isCalculationRunning ? Color.FromArgb(220, 38, 38) : ThemeAccentBlue;
+            buttonOpenReport.ForeColor = isCalculationRunning ? Color.White : ThemeTextBlack;
+            buttonOpenReport.FlatAppearance.BorderColor = isCalculationRunning ? Color.FromArgb(127, 29, 29) : ThemeBorderBlue;
+            buttonOpenReport.FlatAppearance.BorderSize = 2;
+            buttonOpenReport.Invalidate();
         }
 
         private void StartCalculationLoopInternal()
