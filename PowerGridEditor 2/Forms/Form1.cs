@@ -3065,7 +3065,7 @@ namespace PowerGridEditor
             sb.AppendLine("Пороги комплексного контроля:");
             sb.AppendLine("- Несходимость итераций");
             sb.AppendLine("- Перегрузка ветви > 100%");
-            sb.AppendLine("- Отклонение напряжения узла > 10% от номинала");
+            sb.AppendLine("- Отклонение напряжения узла |ΔU| > 10% (ΔU% = (Uрасч - Uфакт)/Uфакт)");
             return sb.ToString();
         }
 
@@ -3096,12 +3096,13 @@ namespace PowerGridEditor
             var criticalNodes = new List<string>();
             foreach (var node in graphicElements.OfType<GraphicNode>())
             {
-                if (node.Data.InitialVoltage <= 0 || node.Data.CalculatedVoltage <= 0)
+                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
+                if (uFact <= 0 || node.Data.CalculatedVoltage <= 0)
                 {
                     continue;
                 }
 
-                double delta = Math.Abs((node.Data.CalculatedVoltage - node.Data.InitialVoltage) / node.Data.InitialVoltage) * 100.0;
+                double delta = Math.Abs(CalculateVoltageDeviationPercent(uFact, node.Data.CalculatedVoltage));
                 if (delta > 10.0)
                 {
                     criticalNodes.Add($"{node.Data.Number} ({delta:F1}%)");
@@ -3110,12 +3111,13 @@ namespace PowerGridEditor
 
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
             {
-                if (baseNode.Data.InitialVoltage <= 0 || baseNode.Data.CalculatedVoltage <= 0)
+                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
+                if (uFact <= 0 || baseNode.Data.CalculatedVoltage <= 0)
                 {
                     continue;
                 }
 
-                double delta = Math.Abs((baseNode.Data.CalculatedVoltage - baseNode.Data.InitialVoltage) / baseNode.Data.InitialVoltage) * 100.0;
+                double delta = Math.Abs(CalculateVoltageDeviationPercent(uFact, baseNode.Data.CalculatedVoltage));
                 if (delta > 10.0)
                 {
                     criticalNodes.Add($"{baseNode.Data.Number} ({delta:F1}%)");
