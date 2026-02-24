@@ -66,6 +66,11 @@ namespace PowerGridEditor
         private bool isDraggingLegend;
         private string draggingLegendKey;
         private Point lastLegendMousePoint;
+        private bool hasLastConvergedSnapshot;
+        private readonly Dictionary<(int Start, int End), (double Active, double Reactive, double Current, double Loading, Color Color)> lastConvergedBranchState = new Dictionary<(int Start, int End), (double Active, double Reactive, double Current, double Loading, Color Color)>();
+        private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
+        private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedBaseNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
+        private readonly Dictionary<int, double> lastConvergedCalculatedNodeVoltages = new Dictionary<int, double>();
 
 
         // Временные переменные для обратной совместимости
@@ -2616,18 +2621,6 @@ namespace PowerGridEditor
             _ = RunCalculationCycleAsync();
         }
 
-        private void StopCalculationLoop()
-        {
-            if (!isCalculationRunning)
-            {
-                return;
-            }
-
-            isCalculationRunning = false;
-            calculationTimer?.Stop();
-            UpdateCalculationButtonState();
-        }
-
         private void StartCalculationLoop()
         {
             if (isCalculationRunning)
@@ -2711,6 +2704,19 @@ namespace PowerGridEditor
             isLastModeConverged = !(result.NetworkRez ?? string.Empty).Contains("НЕ сошелся");
             hasConvergenceStatus = true;
 
+            if (!isLastModeConverged)
+            {
+                if (hasLastConvergedSnapshot)
+                {
+                    RestoreLastConvergedState();
+                }
+
+                StopCalculationLoop();
+                panel2.Invalidate();
+                RefreshElementsGrid();
+                return;
+            }
+
             var lossesText = result.LossesRez;
             if (string.IsNullOrWhiteSpace(lossesText))
             {
@@ -2743,11 +2749,82 @@ namespace PowerGridEditor
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            SaveLastConvergedState();
 
             panel2.Invalidate();
             RefreshElementsGrid();
         }
 
+
+        private void SaveLastConvergedState()
+        {
+            lastConvergedBranchState.Clear();
+            foreach (var branch in graphicBranches)
+            {
+                lastConvergedBranchState[(branch.Data.StartNodeNumber, branch.Data.EndNodeNumber)] =
+                    (branch.Data.CalculatedActiveCurrent, branch.Data.CalculatedReactiveCurrent, branch.Data.CalculatedCurrent, branch.Data.LoadingPercent, branch.LoadColor);
+            }
+
+            lastConvergedNodeState.Clear();
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                lastConvergedNodeState[node.Data.Number] = (node.Data.CalculatedVoltage, node.VoltageColor);
+            }
+
+            lastConvergedBaseNodeState.Clear();
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                lastConvergedBaseNodeState[baseNode.Data.Number] = (baseNode.Data.CalculatedVoltage, baseNode.VoltageColor);
+            }
+
+            lastConvergedCalculatedNodeVoltages.Clear();
+            foreach (var kv in lastCalculatedNodeVoltages)
+            {
+                lastConvergedCalculatedNodeVoltages[kv.Key] = kv.Value;
+            }
+
+            hasLastConvergedSnapshot = true;
+        }
+
+        private void RestoreLastConvergedState()
+        {
+            foreach (var branch in graphicBranches)
+            {
+                if (lastConvergedBranchState.TryGetValue((branch.Data.StartNodeNumber, branch.Data.EndNodeNumber), out var state)
+                    || lastConvergedBranchState.TryGetValue((branch.Data.EndNodeNumber, branch.Data.StartNodeNumber), out state))
+                {
+                    branch.Data.CalculatedActiveCurrent = state.Active;
+                    branch.Data.CalculatedReactiveCurrent = state.Reactive;
+                    branch.Data.CalculatedCurrent = state.Current;
+                    branch.Data.LoadingPercent = state.Loading;
+                    branch.LoadColor = state.Color;
+                }
+            }
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (lastConvergedNodeState.TryGetValue(node.Data.Number, out var state))
+                {
+                    node.Data.CalculatedVoltage = state.CalculatedVoltage;
+                    node.VoltageColor = state.Color;
+                }
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (lastConvergedBaseNodeState.TryGetValue(baseNode.Data.Number, out var state))
+                {
+                    baseNode.Data.CalculatedVoltage = state.CalculatedVoltage;
+                    baseNode.VoltageColor = state.Color;
+                }
+            }
+
+            lastCalculatedNodeVoltages.Clear();
+            foreach (var kv in lastConvergedCalculatedNodeVoltages)
+            {
+                lastCalculatedNodeVoltages[kv.Key] = kv.Value;
+            }
+        }
 
         private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
         {
