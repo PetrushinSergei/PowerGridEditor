@@ -13,6 +13,8 @@ namespace PowerGridEditor
         private List<GraphicBranch> _branches;
         private List<GraphicShunt> _shunts;
         private readonly Timer refreshTimer;
+        private string _modeBurdeningInfo = "нет данных";
+        private string _researchModeInfo = "нет данных";
 
         public ReportForm()
         {
@@ -29,6 +31,24 @@ namespace PowerGridEditor
             _branches = branches;
             _shunts = shunts;
             RefreshReport();
+        }
+
+        public void SetModeBurdeningInfo(string info)
+        {
+            _modeBurdeningInfo = string.IsNullOrWhiteSpace(info) ? "нет данных" : info;
+            if (txtModeBurdening != null)
+            {
+                txtModeBurdening.Text = _modeBurdeningInfo;
+            }
+        }
+
+        public void SetResearchModeInfo(string info)
+        {
+            _researchModeInfo = string.IsNullOrWhiteSpace(info) ? "нет данных" : info;
+            if (txtResearchMode != null)
+            {
+                txtResearchMode.Text = _researchModeInfo;
+            }
         }
 
         private void RefreshReport()
@@ -51,6 +71,8 @@ namespace PowerGridEditor
             txtLoadCurrent.Text = BuildCurrentLoadingReport(result.LossesRez);
             txtLoadCurrentAmp.Text = BuildCurrentLoadingAmpReport(result.LossesRez);
             txtVoltageAnalysis.Text = BuildVoltageAnalysisReport(result.NetworkRez);
+            txtModeBurdening.Text = _modeBurdeningInfo;
+            txtResearchMode.Text = _researchModeInfo;
         }
 
         private sealed class BranchCurrentRow
@@ -69,8 +91,8 @@ namespace PowerGridEditor
         private sealed class NodeVoltageRow
         {
             public int Number;
-            public double UNom;
             public double UFact;
+            public double UCalc;
         }
 
         private string BuildVoltageAnalysisReport(string networkRez)
@@ -78,134 +100,57 @@ namespace PowerGridEditor
             var sb = new StringBuilder();
             sb.AppendLine("Анализ напряжения");
             sb.AppendLine("Формула:");
-            sb.AppendLine("delta = ((u_fact - u_nom) / u_nom) * 100%");
+            sb.AppendLine("ΔU = Uрасч - Uфакт");
             sb.AppendLine();
-            sb.AppendLine("Узел      Uном,кВ   Uфакт,кВ   delta,%    Цвет      Статус");
+            sb.AppendLine("Узел      Uфакт,кВ   Uрасч,кВ      ΔU,кВ     ΔU,%      Статус");
 
-            var factVoltages = ParseNodeFactVoltages(networkRez);
-            foreach (var row in BuildNodeVoltageRows(factVoltages).OrderBy(x => x.Number))
+            foreach (var row in BuildNodeVoltageRows().OrderBy(x => x.Number))
             {
-                double delta = row.UNom == 0 ? 0 : ((row.UFact - row.UNom) / row.UNom) * 100.0;
-                var absDelta = Math.Abs(delta);
-
-                string color;
-                string status;
-                if (absDelta <= 5.0)
-                {
-                    color = "Зеленый";
-                    status = "Норма (±5%)";
-                }
-                else if (absDelta <= 10.0)
-                {
-                    color = "Желтый";
-                    status = "Предупреждение (5-10%)";
-                }
-                else
-                {
-                    color = "Красный";
-                    status = "Критическое по ГОСТ (>10%)";
-                }
+                double deltaKv = row.UCalc - row.UFact;
+                double deltaPercent = Math.Abs(row.UFact) < 1e-9 ? 0 : (deltaKv / row.UFact) * 100.0;
+                string status = Math.Abs(deltaPercent) > 10.0 ? "Критическое (>10%)" : "Допустимое";
 
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0,4}    {1,8:F2}  {2,9:F2}  {3,8:F2}%  {4,-8}  {5}",
+                    "{0,4}    {1,9:F2}  {2,9:F2}  {3,10:F2}  {4,7:F2}%  {5}",
                     row.Number,
-                    row.UNom,
                     row.UFact,
-                    delta,
-                    color,
+                    row.UCalc,
+                    deltaKv,
+                    deltaPercent,
                     status));
             }
 
             sb.AppendLine();
-            sb.AppendLine("Пороговые зоны:");
-            sb.AppendLine("|delta| <= 5%     : Зеленый (Норма)");
-            sb.AppendLine("5% < |delta| <=10%: Желтый (Предупреждение)");
-            sb.AppendLine("|delta| > 10%     : Красный (Критическое по ГОСТ)");
+            sb.AppendLine("Критерий: |ΔU|/Uфакт > 10% — критическое отклонение.");
             return sb.ToString();
         }
 
-        private Dictionary<int, double> ParseNodeFactVoltages(string networkRez)
-        {
-            var result = new Dictionary<int, double>();
-            if (string.IsNullOrWhiteSpace(networkRez))
-            {
-                return result;
-            }
-
-            bool inNodesSection = false;
-            var lines = networkRez.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            foreach (var raw in lines)
-            {
-                var line = raw.Trim();
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                if (line.StartsWith("Результаты расчета по узлам", StringComparison.OrdinalIgnoreCase))
-                {
-                    inNodesSection = true;
-                    continue;
-                }
-
-                if (!inNodesSection)
-                {
-                    continue;
-                }
-
-                if (line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith("Баланс", StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
-
-                var parts = line.Split(new[] { ' ', '	' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2)
-                {
-                    continue;
-                }
-
-                if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int node))
-                {
-                    continue;
-                }
-
-                if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double uFact))
-                {
-                    continue;
-                }
-
-                result[node] = uFact;
-            }
-
-            return result;
-        }
-
-        private List<NodeVoltageRow> BuildNodeVoltageRows(Dictionary<int, double> factVoltages)
+        private List<NodeVoltageRow> BuildNodeVoltageRows()
         {
             var rows = new List<NodeVoltageRow>();
             foreach (var element in _elements)
             {
                 var node = element as GraphicNode;
-                if (node != null && factVoltages.TryGetValue(node.Data.Number, out double factNode))
+                if (node != null)
                 {
                     rows.Add(new NodeVoltageRow
                     {
                         Number = node.Data.Number,
-                        UNom = node.Data.InitialVoltage,
-                        UFact = factNode
+                        UFact = node.Data.ActualVoltage,
+                        UCalc = node.Data.CalculatedVoltage
                     });
                     continue;
                 }
 
                 var baseNode = element as GraphicBaseNode;
-                if (baseNode != null && factVoltages.TryGetValue(baseNode.Data.Number, out double factBaseNode))
+                if (baseNode != null)
                 {
                     rows.Add(new NodeVoltageRow
                     {
                         Number = baseNode.Data.Number,
-                        UNom = baseNode.Data.InitialVoltage,
-                        UFact = factBaseNode
+                        UFact = baseNode.Data.ActualVoltage,
+                        UCalc = baseNode.Data.CalculatedVoltage
                     });
                 }
             }
