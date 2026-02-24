@@ -56,8 +56,7 @@ namespace PowerGridEditor
         private System.Windows.Forms.Timer calculationTimer;
         private bool isCalculationRunning;
         private bool calculationInProgress;
-        private System.Windows.Forms.Timer calcClickTimer;
-        private DateTime lastCalcClickAt = DateTime.MinValue;
+        private DateTime lastCalcDoubleClickAt = DateTime.MinValue;
         private CheckBox checkBoxLockLegends;
         private bool legendsLocked = true;
         private Rectangle branchLegendBounds = Rectangle.Empty;
@@ -103,6 +102,7 @@ namespace PowerGridEditor
             Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             ConfigureToolbarStyle();
             AddDynamicControls();
+            buttonOpenReport.MouseDoubleClick += buttonOpenReport_MouseDoubleClick;
             ApplyTheme();
         }
 
@@ -2552,35 +2552,25 @@ namespace PowerGridEditor
 
         private void buttonOpenReport_Click(object sender, EventArgs e)
         {
-            var now = DateTime.UtcNow;
-            if ((now - lastCalcClickAt).TotalMilliseconds <= 350)
+            if ((DateTime.UtcNow - lastCalcDoubleClickAt).TotalMilliseconds < 350)
             {
-                calcClickTimer?.Stop();
-                OpenCalculationReportWindow();
-                lastCalcClickAt = DateTime.MinValue;
                 return;
             }
 
-            lastCalcClickAt = now;
-            if (calcClickTimer == null)
+            if (isCalculationRunning)
             {
-                calcClickTimer = new System.Windows.Forms.Timer { Interval = 360 };
-                calcClickTimer.Tick += (s, args) =>
-                {
-                    calcClickTimer.Stop();
-                    if (isCalculationRunning)
-                    {
-                        StopCalculationLoop();
-                    }
-                    else
-                    {
-                        StartCalculationLoop();
-                    }
-                };
+                StopCalculationLoop();
             }
+            else
+            {
+                StartCalculationLoop();
+            }
+        }
 
-            calcClickTimer.Stop();
-            calcClickTimer.Start();
+        private void buttonOpenReport_MouseDoubleClick(object sender, MouseEventArgs e)
+        {
+            lastCalcDoubleClickAt = DateTime.UtcNow;
+            OpenCalculationReportWindow();
         }
 
         private void OpenCalculationReportWindow()
@@ -2595,6 +2585,47 @@ namespace PowerGridEditor
             buttonOpenReport.FlatAppearance.BorderColor = isCalculationRunning ? Color.FromArgb(127, 29, 29) : ThemeBorderBlue;
             buttonOpenReport.FlatAppearance.BorderSize = 2;
             buttonOpenReport.Invalidate();
+        }
+
+        private void StartCalculationLoop()
+        {
+            if (isCalculationRunning)
+            {
+                return;
+            }
+
+            isCalculationRunning = true;
+            UpdateCalculationButtonState();
+
+            if (calculationTimer == null)
+            {
+                calculationTimer = new System.Windows.Forms.Timer();
+                calculationTimer.Interval = Math.Max(1000, AppRuntimeSettings.UpdateIntervalSeconds * 1000);
+                calculationTimer.Tick += async (s, e) => await RunCalculationCycleAsync();
+
+                AppRuntimeSettings.UpdateIntervalChanged += seconds =>
+                {
+                    if (calculationTimer != null)
+                    {
+                        calculationTimer.Interval = Math.Max(1, seconds) * 1000;
+                    }
+                };
+            }
+
+            calculationTimer.Start();
+            _ = RunCalculationCycleAsync();
+        }
+
+        private void StopCalculationLoop()
+        {
+            if (!isCalculationRunning)
+            {
+                return;
+            }
+
+            isCalculationRunning = false;
+            calculationTimer?.Stop();
+            UpdateCalculationButtonState();
         }
 
         private void StartCalculationLoop()
