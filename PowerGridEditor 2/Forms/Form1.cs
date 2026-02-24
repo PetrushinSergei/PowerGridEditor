@@ -3407,7 +3407,7 @@ namespace PowerGridEditor
                 {
                     node.Data.CalculatedVoltage = 0;
                     double uFactTelemetry = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : node.Data.InitialVoltage;
-                    node.VoltageColor = GetNodeVoltageColor(node.Data.InitialVoltage, uFactTelemetry);
+                    node.VoltageColor = GetNodeVoltageColor(uFactTelemetry, node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFactTelemetry);
                     continue;
                 }
 
@@ -3427,7 +3427,7 @@ namespace PowerGridEditor
                 {
                     baseNode.Data.CalculatedVoltage = 0;
                     double uFactTelemetry = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : baseNode.Data.InitialVoltage;
-                    baseNode.VoltageColor = GetNodeVoltageColor(baseNode.Data.InitialVoltage, uFactTelemetry);
+                    baseNode.VoltageColor = GetNodeVoltageColor(uFactTelemetry, baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFactTelemetry);
                     continue;
                 }
 
@@ -4169,7 +4169,8 @@ namespace PowerGridEditor
                 double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uNom;
                 if (uNom > 0 && uFact > 0)
                 {
-                    node.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                    double uCalc = node.Data.CalculatedVoltage > 0 ? node.Data.CalculatedVoltage : uFact;
+                    node.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
                 }
             }
 
@@ -4179,7 +4180,8 @@ namespace PowerGridEditor
                 double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uNom;
                 if (uNom > 0 && uFact > 0)
                 {
-                    baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                    double uCalc = baseNode.Data.CalculatedVoltage > 0 ? baseNode.Data.CalculatedVoltage : uFact;
+                    baseNode.VoltageColor = GetNodeVoltageColor(uFact, uCalc);
                 }
             }
 
