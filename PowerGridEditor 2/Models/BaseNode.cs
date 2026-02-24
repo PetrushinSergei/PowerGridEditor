@@ -8,6 +8,7 @@ namespace PowerGridEditor
         public int Number { get; set; }
         public double InitialVoltage { get; set; }
         public double ActualVoltage { get; set; }
+        public double CalculatedVoltage { get; set; }
         public double NominalActivePower { get; set; }
         public double NominalReactivePower { get; set; }
         public double ActivePowerGeneration { get; set; }

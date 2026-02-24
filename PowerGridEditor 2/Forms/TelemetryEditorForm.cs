@@ -320,14 +320,18 @@ namespace PowerGridEditor
 
                     if (!tag.IsParent)
                     {
-                        if (!data.ParamAutoModes.ContainsKey(tag.Key) || !data.ParamRegisters.ContainsKey(tag.Key))
-                        {
-                            continue;
-                        }
-
+                        bool isNodeVoltageStaticRow = (data is Node || data is BaseNode) && (tag.Key == "U" || tag.Key == "Ucalc");
                         row.Cells["Value"].Value = GetParamValue(data, tag.Key);
-                        row.Cells["Telemetry"].Value = data.ParamAutoModes[tag.Key];
-                        row.Cells["Register"].Value = data.ParamRegisters[tag.Key];
+                        row.Cells["Telemetry"].Value = isNodeVoltageStaticRow ? false : (data.ParamAutoModes.ContainsKey(tag.Key) && data.ParamAutoModes[tag.Key]);
+                        row.Cells["Register"].Value = isNodeVoltageStaticRow ? string.Empty : (data.ParamRegisters.ContainsKey(tag.Key) ? data.ParamRegisters[tag.Key] : string.Empty);
+
+                        if (isNodeVoltageStaticRow)
+                        {
+                            row.Cells["Telemetry"].ReadOnly = true;
+                            row.Cells["Register"].ReadOnly = true;
+                            row.Cells["Telemetry"].Style.BackColor = Color.Gainsboro;
+                            row.Cells["Register"].Style.BackColor = Color.Gainsboro;
+                        }
                         row.Cells["IncStep"].Value = data.ParamIncrementSteps.ContainsKey(tag.Key) ? data.ParamIncrementSteps[tag.Key] : 1;
                         row.Cells["IncInterval"].Value = data.ParamIncrementIntervals.ContainsKey(tag.Key) ? data.ParamIncrementIntervals[tag.Key] : 2;
                         UpdateIncrementButtonState(row, data, tag.Key);
@@ -397,7 +401,7 @@ namespace PowerGridEditor
                 foreach (var node in elementsSnapshot.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
                     AddParentWithChildren("Узел", $"N{node.Data.Number}", node.Data, new[]
                     {
-                        ("U", "Номинальное напряжение, кВ", node.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", node.Data.ActualVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower),
+                        ("U", "Номинальное напряжение, кВ", node.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", node.Data.ActualVoltage), ("Ucalc", "Расчётное напряжение, кВ", node.Data.CalculatedVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower),
                         ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration),
                         ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule),
                         ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower)
@@ -407,7 +411,7 @@ namespace PowerGridEditor
                 foreach (var baseNode in elementsSnapshot.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
                     AddParentWithChildren("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, new[]
                     {
-                        ("U", "Номинальное напряжение, кВ", baseNode.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", baseNode.Data.ActualVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower),
+                        ("U", "Номинальное напряжение, кВ", baseNode.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", baseNode.Data.ActualVoltage), ("Ucalc", "Расчётное напряжение, кВ", baseNode.Data.CalculatedVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower),
                         ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration),
                         ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule),
                         ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower)
@@ -528,8 +532,8 @@ namespace PowerGridEditor
                 string registerValue = data.ParamRegisters.ContainsKey(row.Key) ? data.ParamRegisters[row.Key] : string.Empty;
                 double incStep = data.ParamIncrementSteps.ContainsKey(row.Key) ? data.ParamIncrementSteps[row.Key] : 1;
                 int incInterval = data.ParamIncrementIntervals.ContainsKey(row.Key) ? data.ParamIncrementIntervals[row.Key] : 2;
-                bool isNominalVoltageRow = (type == "Узел" || type == "Базисный узел") && row.Key == "U";
-                if (isNominalVoltageRow)
+                bool isNodeVoltageStaticRow = (type == "Узел" || type == "Базисный узел") && (row.Key == "U" || row.Key == "Ucalc");
+                if (isNodeVoltageStaticRow)
                 {
                     telemetryEnabled = false;
                     registerValue = string.Empty;
@@ -539,12 +543,18 @@ namespace PowerGridEditor
                 var childRow = grid.Rows[index];
                 childRow.Tag = new GridRowTag { GroupKey = groupKey, Key = row.Key, Data = data, IsParent = false, ParentText = elementName, ParamText = row.Label };
 
-                if (isNominalVoltageRow)
+                if (isNodeVoltageStaticRow)
                 {
                     childRow.Cells["Telemetry"].ReadOnly = true;
                     childRow.Cells["Register"].ReadOnly = true;
                     childRow.Cells["Telemetry"].Style.BackColor = Color.Gainsboro;
                     childRow.Cells["Register"].Style.BackColor = Color.Gainsboro;
+                }
+
+                if ((type == "Узел" || type == "Базисный узел") && row.Key == "Ucalc")
+                {
+                    childRow.Cells["Value"].ReadOnly = true;
+                    childRow.Cells["Value"].Style.BackColor = Color.Gainsboro;
                 }
 
                 UpdateIncrementButtonState(childRow, data, row.Key);
@@ -572,11 +582,6 @@ namespace PowerGridEditor
             dynamic data = tag.Data;
             string key = tag.Key;
 
-            if (double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double value))
-            {
-                ApplyParamValue(data, key, value);
-            }
-
             if (double.TryParse(Convert.ToString(row.Cells["IncStep"].Value), out double step))
             {
                 data.ParamIncrementSteps[key] = step;
@@ -586,8 +591,13 @@ namespace PowerGridEditor
                 data.ParamIncrementIntervals[key] = Math.Max(1, incInterval);
             }
 
-            bool isNominalVoltageRow = (data is Node || data is BaseNode) && key == "U";
-            if (!isNominalVoltageRow)
+            bool isNodeVoltageStaticRow = (data is Node || data is BaseNode) && (key == "U" || key == "Ucalc");
+            if (key != "Ucalc" && double.TryParse(Convert.ToString(row.Cells["Value"].Value), out double value2))
+            {
+                ApplyParamValue(data, key, value2);
+            }
+
+            if (!isNodeVoltageStaticRow)
             {
                 data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
                 data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
@@ -716,6 +726,7 @@ namespace PowerGridEditor
         {
             if (key == "U") return data.InitialVoltage;
             if (key == "Ufact") return data.ActualVoltage;
+            if (key == "Ucalc") return data.CalculatedVoltage;
             if (key == "P") return data.NominalActivePower;
             if (key == "Q") return data.NominalReactivePower;
             if (key == "Pg") return data.ActivePowerGeneration;
@@ -736,6 +747,7 @@ namespace PowerGridEditor
         {
             if (key == "U") data.InitialVoltage = value;
             else if (key == "Ufact") data.ActualVoltage = value;
+            else if (key == "Ucalc") data.CalculatedVoltage = value;
             else if (key == "P") data.NominalActivePower = value;
             else if (key == "Q") data.NominalReactivePower = value;
             else if (key == "Pg") data.ActivePowerGeneration = value;
