@@ -58,6 +58,12 @@ namespace PowerGridEditor
         private bool calculationInProgress;
         private DateTime lastCalcDoubleClickAt = DateTime.MinValue;
         private CheckBox checkBoxLockLegends;
+        private CheckBox checkBoxComprehensiveControl;
+        private bool comprehensiveControlEnabled = true;
+        private string lastStopReason = "нет";
+        private readonly List<string> burdeningIterationLog = new List<string>();
+        private dynamic burdeningTrackedData;
+        private string burdeningTrackedKey;
         private bool legendsLocked = true;
         private Rectangle branchLegendBounds = Rectangle.Empty;
         private Rectangle voltageLegendBounds = Rectangle.Empty;
@@ -78,6 +84,7 @@ namespace PowerGridEditor
         private double burdeningStartValue;
         private bool burdeningStartValueKnown;
         private bool divergenceNotificationShown;
+        private string lastStopDetails = string.Empty;
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -336,6 +343,20 @@ namespace PowerGridEditor
             };
             checkBoxLockLegends.CheckedChanged += (s, e) => legendsLocked = checkBoxLockLegends.Checked;
             panel1.Controls.Add(checkBoxLockLegends);
+
+            checkBoxComprehensiveControl = new CheckBox
+            {
+                Name = "checkBoxComprehensiveControl",
+                Text = "Комплексный контроль параметров",
+                AutoSize = true,
+                Left = 900,
+                Top = 54,
+                Checked = true,
+                BackColor = ThemePanelBackground,
+                ForeColor = ThemeTextBlack
+            };
+            checkBoxComprehensiveControl.CheckedChanged += (s, e) => comprehensiveControlEnabled = checkBoxComprehensiveControl.Checked;
+            panel1.Controls.Add(checkBoxComprehensiveControl);
         }
 
         private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
@@ -2600,6 +2621,7 @@ namespace PowerGridEditor
             var reportForm = new ReportForm();
             reportForm.SetNetworkSummary(graphicElements, graphicBranches, graphicShunts);
             reportForm.SetModeBurdeningInfo(BuildModeBurdeningReport());
+            reportForm.SetResearchModeInfo(BuildResearchModeReport());
             RegisterOpenedWindow(reportForm);
             reportForm.StartPosition = FormStartPosition.Manual;
             reportForm.Location = GetNextChildWindowLocation();
@@ -2610,53 +2632,68 @@ namespace PowerGridEditor
         {
             burdeningParameterDescription = "нет данных";
             burdeningStartValueKnown = false;
+            burdeningTrackedData = null;
+            burdeningTrackedKey = null;
 
             foreach (var element in graphicElements)
             {
-                if (element is GraphicNode node && TryCaptureBurdeningInfo("Узел", node.Data.Number, node.Data, out var desc, out var value))
+                if (element is GraphicNode node && TryCaptureBurdeningInfo("Узел", node.Data.Number, node.Data, out var desc, out var value, out var key))
                 {
                     burdeningParameterDescription = desc;
                     burdeningStartValue = value;
                     burdeningStartValueKnown = true;
+                    burdeningTrackedData = node.Data;
+                    burdeningTrackedKey = key;
+                    burdeningIterationLog.Add($"Узел №{node.Data.Number} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
                     return;
                 }
 
-                if (element is GraphicBaseNode baseNode && TryCaptureBurdeningInfo("Базисный узел", baseNode.Data.Number, baseNode.Data, out desc, out value))
+                if (element is GraphicBaseNode baseNode && TryCaptureBurdeningInfo("Базисный узел", baseNode.Data.Number, baseNode.Data, out desc, out value, out key))
                 {
                     burdeningParameterDescription = desc;
                     burdeningStartValue = value;
                     burdeningStartValueKnown = true;
+                    burdeningTrackedData = baseNode.Data;
+                    burdeningTrackedKey = key;
+                    burdeningIterationLog.Add($"Базисный узел №{baseNode.Data.Number} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
                     return;
                 }
             }
 
             foreach (var branch in graphicBranches)
             {
-                if (TryCaptureBurdeningInfo($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", 0, branch.Data, out var desc, out var value))
+                if (TryCaptureBurdeningInfo($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", 0, branch.Data, out var desc, out var value, out var key))
                 {
                     burdeningParameterDescription = desc;
                     burdeningStartValue = value;
                     burdeningStartValueKnown = true;
+                    burdeningTrackedData = branch.Data;
+                    burdeningTrackedKey = key;
+                    burdeningIterationLog.Add($"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
                     return;
                 }
             }
 
             foreach (var shunt in graphicShunts)
             {
-                if (TryCaptureBurdeningInfo($"Шунт {shunt.Data.StartNodeNumber}", 0, shunt.Data, out var desc, out var value))
+                if (TryCaptureBurdeningInfo($"Шунт {shunt.Data.StartNodeNumber}", 0, shunt.Data, out var desc, out var value, out var key))
                 {
                     burdeningParameterDescription = desc;
                     burdeningStartValue = value;
                     burdeningStartValueKnown = true;
+                    burdeningTrackedData = shunt.Data;
+                    burdeningTrackedKey = key;
+                    burdeningIterationLog.Add($"Шунт {shunt.Data.StartNodeNumber} | Начальное {ConvertParamKeyToLabel(key)}: {value.ToString("F4", CultureInfo.InvariantCulture)}");
                     return;
                 }
             }
         }
 
-        private bool TryCaptureBurdeningInfo(string prefix, int number, dynamic data, out string description, out double startValue)
+        private bool TryCaptureBurdeningInfo(string prefix, int number, dynamic data, out string description, out double startValue, out string key)
         {
             description = null;
             startValue = 0;
+            key = null;
             if (data == null || data.ParamAutoModes == null)
             {
                 return false;
@@ -2672,6 +2709,7 @@ namespace PowerGridEditor
                 string label = ConvertParamKeyToLabel(kv.Key);
                 description = number > 0 ? $"{prefix} {number}: {label} ({kv.Key})" : $"{prefix}: {label} ({kv.Key})";
                 startValue = GetParamValue(data, kv.Key);
+                key = kv.Key;
                 return true;
             }
 
@@ -2702,17 +2740,119 @@ namespace PowerGridEditor
         private string BuildModeBurdeningReport()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Утяжеление режима");
+            sb.AppendLine("Итерационный анализ (утяжеление)");
             sb.AppendLine();
             sb.AppendLine($"Что утяжеляется: {burdeningParameterDescription}");
             sb.AppendLine($"С какого значения старт: {(burdeningStartValueKnown ? burdeningStartValue.ToString("F4", CultureInfo.InvariantCulture) : "нет данных")}");
             sb.AppendLine($"Последний сошедшийся режим: {convergedModeCounter}");
             sb.AppendLine($"После какого режима началась расходимость: {(divergedModeNumber.HasValue ? divergedModeNumber.Value.ToString(CultureInfo.InvariantCulture) : "нет")}");
             sb.AppendLine();
-            sb.AppendLine("Примечание:");
-            sb.AppendLine("- фактическое напряжение берется из Modbus (Ufact)");
-            sb.AppendLine("- расчётное напряжение берется из результата расчёта режима (Ucalc)");
+            sb.AppendLine("Лог шагов:");
+            if (burdeningIterationLog.Count == 0)
+            {
+                sb.AppendLine("- шаги отсутствуют");
+            }
+            else
+            {
+                foreach (var line in burdeningIterationLog)
+                {
+                    sb.AppendLine(line);
+                }
+            }
             return sb.ToString();
+        }
+
+        private string BuildResearchModeReport()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Контроль параметров и устойчивость");
+            sb.AppendLine();
+            sb.AppendLine($"Комплексный контроль параметров: {(comprehensiveControlEnabled ? "включён" : "выключен")}");
+            sb.AppendLine($"Процесс остановлен на шаге: {(divergedModeNumber.HasValue ? divergedModeNumber.Value.ToString(CultureInfo.InvariantCulture) : "нет")}");
+            sb.AppendLine($"Причина остановки: {lastStopReason}");
+            if (!string.IsNullOrWhiteSpace(lastStopDetails))
+            {
+                sb.AppendLine($"Дополнительно: {lastStopDetails}");
+            }
+            sb.AppendLine($"Статус: {(hasLastConvergedSnapshot ? $"Отображен режим итерации №{convergedModeCounter}." : "Стабильный режим ещё не зафиксирован.")}");
+            sb.AppendLine();
+            sb.AppendLine("Пороги комплексного контроля:");
+            sb.AppendLine("- Несходимость итераций");
+            sb.AppendLine("- Перегрузка ветви > 100%");
+            sb.AppendLine("- Отклонение напряжения узла > 10% от номинала");
+            return sb.ToString();
+        }
+
+        private void AppendBurdeningIterationLog(int iterationNumber)
+        {
+            if (!burdeningStartValueKnown || burdeningTrackedData == null || string.IsNullOrWhiteSpace(burdeningTrackedKey))
+            {
+                return;
+            }
+
+            double currentValue = GetParamValue(burdeningTrackedData, burdeningTrackedKey);
+            double percent = Math.Abs(burdeningStartValue) < 1e-9 ? 0 : ((currentValue - burdeningStartValue) / burdeningStartValue) * 100.0;
+            burdeningIterationLog.Add($"Итерация {iterationNumber}: {currentValue.ToString("F4", CultureInfo.InvariantCulture)} ({percent:+0.##;-0.##;0}%)");
+        }
+
+        private bool TryBuildControlStopReason(int stepNumber, out string reason, out string details)
+        {
+            var overloaded = graphicBranches
+                .Where(b => b.Data.LoadingPercent > 100.0)
+                .OrderByDescending(b => b.Data.LoadingPercent)
+                .ToList();
+
+            var criticalNodes = new List<string>();
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (node.Data.InitialVoltage <= 0 || node.Data.CalculatedVoltage <= 0)
+                {
+                    continue;
+                }
+
+                double delta = Math.Abs((node.Data.CalculatedVoltage - node.Data.InitialVoltage) / node.Data.InitialVoltage) * 100.0;
+                if (delta > 10.0)
+                {
+                    criticalNodes.Add($"{node.Data.Number} ({delta:F1}%)");
+                }
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (baseNode.Data.InitialVoltage <= 0 || baseNode.Data.CalculatedVoltage <= 0)
+                {
+                    continue;
+                }
+
+                double delta = Math.Abs((baseNode.Data.CalculatedVoltage - baseNode.Data.InitialVoltage) / baseNode.Data.InitialVoltage) * 100.0;
+                if (delta > 10.0)
+                {
+                    criticalNodes.Add($"{baseNode.Data.Number} ({delta:F1}%)");
+                }
+            }
+
+            if (overloaded.Count == 0 && criticalNodes.Count == 0)
+            {
+                reason = null;
+                details = null;
+                return false;
+            }
+
+            reason = overloaded.Count > 0
+                ? $"Перегрузка ветви {overloaded[0].Data.StartNodeNumber}-{overloaded[0].Data.EndNodeNumber} ({overloaded[0].Data.LoadingPercent:F1}%)."
+                : "Критическое отклонение напряжения в узлах (>10%).";
+
+            var detailLines = new List<string>
+            {
+                $"Процесс остановлен на шаге №{stepNumber}."
+            };
+            if (criticalNodes.Count > 0)
+            {
+                detailLines.Add($"Узлы с |ΔU| > 10%: {string.Join(", ", criticalNodes)}.");
+            }
+
+            details = string.Join(" ", detailLines);
+            return true;
         }
 
         private void StartCalculationLoopInternal()
@@ -2726,6 +2866,9 @@ namespace PowerGridEditor
             convergedModeCounter = 0;
             divergedModeNumber = null;
             divergenceNotificationShown = false;
+            lastStopReason = "нет";
+            lastStopDetails = string.Empty;
+            burdeningIterationLog.Clear();
             UpdateBurdeningStartInfo();
             UpdateCalculationButtonUi();
 
@@ -2805,6 +2948,9 @@ namespace PowerGridEditor
             if (!isLastModeConverged)
             {
                 divergedModeNumber = convergedModeCounter + 1;
+                lastStopReason = "Несходимость итерационного процесса";
+                lastStopDetails = $"Процесс остановлен на шаге №{divergedModeNumber}.";
+
                 if (hasLastConvergedSnapshot)
                 {
                     RestoreLastConvergedState();
@@ -2855,6 +3001,28 @@ namespace PowerGridEditor
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
             convergedModeCounter++;
+            SaveLastConvergedState();
+
+            if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
+            {
+                divergedModeNumber = convergedModeCounter + 1;
+                lastStopReason = stopReason;
+                lastStopDetails = stopDetails;
+
+                if (hasLastConvergedSnapshot)
+                {
+                    RestoreLastConvergedState();
+                }
+
+                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                StopCalculationLoopInternal();
+                panel2.Invalidate();
+                RefreshElementsGrid();
+                return;
+            }
+
+            convergedModeCounter++;
+            AppendBurdeningIterationLog(convergedModeCounter);
             SaveLastConvergedState();
 
             panel2.Invalidate();

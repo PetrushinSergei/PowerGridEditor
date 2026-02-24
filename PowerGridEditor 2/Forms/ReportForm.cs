@@ -14,6 +14,7 @@ namespace PowerGridEditor
         private List<GraphicShunt> _shunts;
         private readonly Timer refreshTimer;
         private string _modeBurdeningInfo = "нет данных";
+        private string _researchModeInfo = "нет данных";
 
         public ReportForm()
         {
@@ -41,6 +42,15 @@ namespace PowerGridEditor
             }
         }
 
+        public void SetResearchModeInfo(string info)
+        {
+            _researchModeInfo = string.IsNullOrWhiteSpace(info) ? "нет данных" : info;
+            if (txtResearchMode != null)
+            {
+                txtResearchMode.Text = _researchModeInfo;
+            }
+        }
+
         private void RefreshReport()
         {
             if (_elements == null || _branches == null || _shunts == null)
@@ -62,6 +72,7 @@ namespace PowerGridEditor
             txtLoadCurrentAmp.Text = BuildCurrentLoadingAmpReport(result.LossesRez);
             txtVoltageAnalysis.Text = BuildVoltageAnalysisReport(result.NetworkRez);
             txtModeBurdening.Text = _modeBurdeningInfo;
+            txtResearchMode.Text = _researchModeInfo;
         }
 
         private sealed class BranchCurrentRow

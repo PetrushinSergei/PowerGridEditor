@@ -24,6 +24,8 @@ namespace PowerGridEditor
         private System.Windows.Forms.TextBox txtVoltageAnalysis;
         private System.Windows.Forms.TabPage tabModeBurdening;
         private System.Windows.Forms.TextBox txtModeBurdening;
+        private System.Windows.Forms.TabPage tabResearchMode;
+        private System.Windows.Forms.TextBox txtResearchMode;
 
         protected override void Dispose(bool disposing)
         {
@@ -57,6 +59,8 @@ namespace PowerGridEditor
             this.txtVoltageAnalysis = new System.Windows.Forms.TextBox();
             this.tabModeBurdening = new System.Windows.Forms.TabPage();
             this.txtModeBurdening = new System.Windows.Forms.TextBox();
+            this.tabResearchMode = new System.Windows.Forms.TabPage();
+            this.txtResearchMode = new System.Windows.Forms.TextBox();
             this.tabControl1.SuspendLayout();
             this.tabOverview.SuspendLayout();
             this.tabErr.SuspendLayout();
@@ -68,6 +72,7 @@ namespace PowerGridEditor
             this.tabLoadCurrentAmp.SuspendLayout();
             this.tabVoltageAnalysis.SuspendLayout();
             this.tabModeBurdening.SuspendLayout();
+            this.tabResearchMode.SuspendLayout();
             this.SuspendLayout();
             //
             // tabControl1
@@ -82,6 +87,7 @@ namespace PowerGridEditor
             this.tabControl1.Controls.Add(this.tabLoadCurrentAmp);
             this.tabControl1.Controls.Add(this.tabVoltageAnalysis);
             this.tabControl1.Controls.Add(this.tabModeBurdening);
+            this.tabControl1.Controls.Add(this.tabResearchMode);
             this.tabControl1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tabControl1.Location = new System.Drawing.Point(0, 0);
             this.tabControl1.Name = "tabControl1";
@@ -324,6 +330,30 @@ namespace PowerGridEditor
             this.txtModeBurdening.WordWrap = false;
 
             //
+            // tabResearchMode
+            //
+            this.tabResearchMode.Controls.Add(this.txtResearchMode);
+            this.tabResearchMode.Location = new System.Drawing.Point(4, 22);
+            this.tabResearchMode.Name = "tabResearchMode";
+            this.tabResearchMode.Size = new System.Drawing.Size(892, 624);
+            this.tabResearchMode.TabIndex = 10;
+            this.tabResearchMode.Text = "Исследовательский режим";
+            this.tabResearchMode.UseVisualStyleBackColor = true;
+            //
+            // txtResearchMode
+            //
+            this.txtResearchMode.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.txtResearchMode.Font = new System.Drawing.Font("Consolas", 10F);
+            this.txtResearchMode.Location = new System.Drawing.Point(0, 0);
+            this.txtResearchMode.Multiline = true;
+            this.txtResearchMode.Name = "txtResearchMode";
+            this.txtResearchMode.ReadOnly = true;
+            this.txtResearchMode.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+            this.txtResearchMode.Size = new System.Drawing.Size(892, 624);
+            this.txtResearchMode.TabIndex = 0;
+            this.txtResearchMode.WordWrap = false;
+
+            //
             // ReportForm
             //
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -353,6 +383,8 @@ namespace PowerGridEditor
             this.tabVoltageAnalysis.PerformLayout();
             this.tabModeBurdening.ResumeLayout(false);
             this.tabModeBurdening.PerformLayout();
+            this.tabResearchMode.ResumeLayout(false);
+            this.tabResearchMode.PerformLayout();
             this.ResumeLayout(false);
         }
     }
