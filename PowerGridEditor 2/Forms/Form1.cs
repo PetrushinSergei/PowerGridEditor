@@ -50,6 +50,10 @@ namespace PowerGridEditor
         private readonly ToolTip hoverToolTip = new ToolTip();
         private object hoveredElement;
         private readonly Dictionary<int, double> lastCalculatedNodeVoltages = new Dictionary<int, double>();
+        private CheckBox checkBoxShowBranchInfo;
+        private bool showBranchCurrentOverlay = true;
+        private string lastTooltipText;
+
 
         // Временные переменные для обратной совместимости
         private List<GraphicNode> graphicNodes => GetGraphicNodes();
@@ -274,6 +278,24 @@ namespace PowerGridEditor
             panel1.Controls.Add(buttonOpenTelemetryForm);
             panel1.Controls.Add(buttonOpenClientSettingsForm);
             panel1.Controls.Add(buttonCalcSettings);
+
+            checkBoxShowBranchInfo = new CheckBox
+            {
+                Name = "checkBoxShowBranchInfo",
+                Text = "Показывать токи/загрузку на ветвях",
+                AutoSize = true,
+                Left = 490,
+                Top = 54,
+                Checked = true,
+                BackColor = ThemePanelBackground,
+                ForeColor = ThemeTextBlack
+            };
+            checkBoxShowBranchInfo.CheckedChanged += (s, e) =>
+            {
+                showBranchCurrentOverlay = checkBoxShowBranchInfo.Checked;
+                panel2.Invalidate();
+            };
+            panel1.Controls.Add(checkBoxShowBranchInfo);
         }
 
         private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
@@ -397,11 +419,11 @@ namespace PowerGridEditor
 
             AddSectionRow("Узлы");
             foreach (var node in graphicElements.OfType<GraphicNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Напряжение, кВ", node.Data.InitialVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower) });
+                AddRowsForNode("Узел", $"N{node.Data.Number}", node.Data, node, new[] { ("U", "Номинальное напряжение, кВ", node.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", node.Data.ActualVoltage), ("P", "P нагрузка, МВт", node.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", node.Data.NominalReactivePower), ("Pg", "P генерация, МВт", node.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", node.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", node.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", node.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", node.Data.MaxReactivePower) });
 
             AddSectionRow("Базисный узел");
             foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>().OrderBy(n => n.Data.Number))
-                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Напряжение, кВ", baseNode.Data.InitialVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower) });
+                AddRowsForNode("Базисный узел", $"B{baseNode.Data.Number}", baseNode.Data, baseNode, new[] { ("U", "Номинальное напряжение, кВ", baseNode.Data.InitialVoltage), ("Ufact", "Фактическое напряжение, кВ", baseNode.Data.ActualVoltage), ("P", "P нагрузка, МВт", baseNode.Data.NominalActivePower), ("Q", "Q нагрузка, Мвар", baseNode.Data.NominalReactivePower), ("Pg", "P генерация, МВт", baseNode.Data.ActivePowerGeneration), ("Qg", "Q генерация, Мвар", baseNode.Data.ReactivePowerGeneration), ("Uf", "U фикс., кВ", baseNode.Data.FixedVoltageModule), ("Qmin", "Q мин, Мвар", baseNode.Data.MinReactivePower), ("Qmax", "Q макс, Мвар", baseNode.Data.MaxReactivePower) });
 
             AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
@@ -427,8 +449,26 @@ namespace PowerGridEditor
         {
             foreach (var row in rows)
             {
-                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, data.ParamAutoModes[row.Key], data.ParamRegisters[row.Key], data.MeasurementIntervalSeconds, data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
+                bool telemetryEnabled = data.ParamAutoModes.ContainsKey(row.Key) && data.ParamAutoModes[row.Key];
+                string registerValue = data.ParamRegisters.ContainsKey(row.Key) ? data.ParamRegisters[row.Key] : string.Empty;
+                bool isVoltageRow = row.Key == "U";
+                if ((type == "Узел" || type == "Базисный узел") && isVoltageRow)
+                {
+                    telemetryEnabled = false;
+                    registerValue = string.Empty;
+                }
+
+                int index = elementsGrid.Rows.Add(type, elementName, row.Label, row.Value, telemetryEnabled, registerValue, data.MeasurementIntervalSeconds, data.Protocol, data.IPAddress, data.Port, data is Node ? data.NodeID : data.DeviceID, "Пинг", "Настроить");
                 elementsGrid.Rows[index].Tag = Tuple.Create(owner, row.Key, data);
+
+                if ((type == "Узел" || type == "Базисный узел") && isVoltageRow)
+                {
+                    var createdRow = elementsGrid.Rows[index];
+                    createdRow.Cells["Telemetry"].ReadOnly = true;
+                    createdRow.Cells["Register"].ReadOnly = true;
+                    createdRow.Cells["Telemetry"].Style.BackColor = Color.Gainsboro;
+                    createdRow.Cells["Register"].Style.BackColor = Color.Gainsboro;
+                }
             }
         }
 
@@ -446,8 +486,12 @@ namespace PowerGridEditor
                     ApplyParamValue(data, key, val);
                 }
 
-                data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
-                data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+                bool isNominalVoltageRow = (data is Node || data is BaseNode) && key == "U";
+                if (!isNominalVoltageRow)
+                {
+                    data.ParamAutoModes[key] = Convert.ToBoolean(row.Cells["Telemetry"].Value);
+                    data.ParamRegisters[key] = Convert.ToString(row.Cells["Register"].Value) ?? "0";
+                }
                 if (int.TryParse(Convert.ToString(row.Cells["MeasureInterval"].Value), out int measureInterval))
                 {
                     data.MeasurementIntervalSeconds = Math.Max(1, measureInterval);
@@ -521,6 +565,7 @@ namespace PowerGridEditor
         private double GetParamValue(dynamic data, string key)
         {
             if (key == "U") return data.InitialVoltage;
+            if (key == "Ufact") return data.ActualVoltage;
             if (key == "P") return data.NominalActivePower;
             if (key == "Q") return data.NominalReactivePower;
             if (key == "Pg") return data.ActivePowerGeneration;
@@ -556,6 +601,7 @@ namespace PowerGridEditor
         private void ApplyParamValue(dynamic data, string key, double value)
         {
             if (key == "U") data.InitialVoltage = value;
+            else if (key == "Ufact") data.ActualVoltage = value;
             else if (key == "P") data.NominalActivePower = value;
             else if (key == "Q") data.NominalReactivePower = value;
             else if (key == "Pg") data.ActivePowerGeneration = value;
@@ -613,7 +659,10 @@ namespace PowerGridEditor
             foreach (var branch in graphicBranches)
             {
                 branch.Draw(e.Graphics);
-                DrawBranchCurrentInfo(e.Graphics, branch);
+                if (showBranchCurrentOverlay)
+                {
+                    DrawBranchCurrentInfo(e.Graphics, branch);
+                }
             }
 
             // 3. Затем рисуем прямоугольники шунтов
@@ -764,10 +813,10 @@ namespace PowerGridEditor
             var state = g.Save();
             g.ResetTransform();
 
-            int legendW = 310;
+            int legendW = 360;
             int legendH = 120;
             int x = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
-            int y = 46;
+            int y = 90;
 
             using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
             using (var border = new Pen(Color.FromArgb(96, 165, 250), 1))
@@ -1030,8 +1079,11 @@ namespace PowerGridEditor
 
             if (!isDragging && !isMarqueeSelecting && !panning)
             {
-                var hitForTooltip = HitTest(modelPoint);
-                UpdateHoverTooltip(hitForTooltip, e.Location);
+                var hitForTooltip = FindElementAt(modelPoint);
+                if (!ReferenceEquals(hitForTooltip, hoveredElement))
+                {
+                    UpdateHoverTooltip(hitForTooltip, e.Location);
+                }
             }
         }
 
@@ -2485,10 +2537,12 @@ namespace PowerGridEditor
             {
                 if (!voltages.TryGetValue(node.Data.Number, out var uFact))
                 {
+                    node.Data.ActualVoltage = 0;
                     node.VoltageColor = Color.LightBlue;
                     continue;
                 }
 
+                node.Data.ActualVoltage = uFact;
                 var uNom = node.Data.InitialVoltage;
                 node.VoltageColor = GetNodeVoltageColor(uNom, uFact);
             }
@@ -2497,11 +2551,14 @@ namespace PowerGridEditor
             {
                 if (!voltages.TryGetValue(baseNode.Data.Number, out var uFact))
                 {
+                    baseNode.Data.ActualVoltage = 0;
                     baseNode.VoltageColor = Color.FromArgb(216, 191, 255);
                     continue;
                 }
 
-                baseNode.VoltageColor = Color.FromArgb(216, 191, 255);
+                baseNode.Data.ActualVoltage = uFact;
+                var uNom = baseNode.Data.InitialVoltage;
+                baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
             }
         }
 
@@ -2582,36 +2639,42 @@ namespace PowerGridEditor
 
         private void UpdateHoverTooltip(object element, Point screenPoint)
         {
-            if (!ReferenceEquals(hoveredElement, element))
-            {
-                hoverToolTip.Hide(panel2);
-                hoveredElement = element;
-            }
-
             if (element == null)
             {
+                hoverToolTip.Hide(panel2);
+                hoveredElement = null;
+                lastTooltipText = null;
                 return;
             }
 
             string text = BuildHoverTooltipText(element);
             if (string.IsNullOrWhiteSpace(text))
             {
+                hoverToolTip.Hide(panel2);
+                hoveredElement = null;
+                lastTooltipText = null;
                 return;
             }
 
-            hoverToolTip.Show(text, panel2, screenPoint.X + 16, screenPoint.Y + 16, 1200);
+            if (!ReferenceEquals(hoveredElement, element) || !string.Equals(lastTooltipText, text, StringComparison.Ordinal))
+            {
+                hoverToolTip.Hide(panel2);
+                hoveredElement = element;
+                lastTooltipText = text;
+                hoverToolTip.Show(text, panel2, screenPoint.X + 16, screenPoint.Y + 16, 5000);
+            }
         }
 
         private string BuildHoverTooltipText(object element)
         {
             if (element is GraphicNode node)
             {
-                return BuildNodeHoverText(node.Data.Number, node.Data.InitialVoltage, false);
+                return BuildNodeHoverText(node.Data.Number, node.Data.InitialVoltage, node.Data.ActualVoltage, false);
             }
 
             if (element is GraphicBaseNode baseNode)
             {
-                return BuildNodeHoverText(baseNode.Data.Number, baseNode.Data.InitialVoltage, true);
+                return BuildNodeHoverText(baseNode.Data.Number, baseNode.Data.InitialVoltage, baseNode.Data.ActualVoltage, true);
             }
 
             if (element is GraphicBranch branch)
@@ -2630,17 +2693,23 @@ namespace PowerGridEditor
             return null;
         }
 
-        private string BuildNodeHoverText(int nodeNumber, double uNom, bool isBaseNode)
+        private string BuildNodeHoverText(int nodeNumber, double uNom, double telemetryUfact, bool isBaseNode)
         {
-            if (!lastCalculatedNodeVoltages.TryGetValue(nodeNumber, out var uFact))
+            double uFact = telemetryUfact;
+            if (uFact <= 0 && lastCalculatedNodeVoltages.TryGetValue(nodeNumber, out var calcUFact))
             {
-                return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\nUном={uNom:F2} кВ\nUрасч=нет данных";
+                uFact = calcUFact;
+            }
+
+            if (uFact <= 0)
+            {
+                return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\nНоминальное напряжение={uNom:F2} кВ\nФактическое напряжение=нет данных";
             }
 
             double delta = uNom == 0 ? 0 : ((uFact - uNom) / uNom) * 100.0;
             return $"{(isBaseNode ? "Базисный узел" : "Узел")} {nodeNumber}\n" +
-                   $"Uном={uNom:F2} кВ\n" +
-                   $"Uрасч={uFact:F2} кВ\n" +
+                   $"Номинальное напряжение={uNom:F2} кВ\n" +
+                   $"Фактическое напряжение={uFact:F2} кВ\n" +
                    $"ΔU={delta:F2}%";
         }
 
@@ -3059,6 +3128,9 @@ namespace PowerGridEditor
             {
                 telemetryPollingInProgress = false;
             }
+
+            ApplyRealtimeVisualizationFromTelemetry();
+            panel2.Invalidate();
         }
 
         private bool ShouldPoll(dynamic data)
@@ -3101,7 +3173,7 @@ namespace PowerGridEditor
                     byte slaveId = 1;
                     byte.TryParse(node.NodeID, out slaveId);
 
-                    UpdateNodeFieldByKey(node, master, slaveId, "U", nameof(Node.InitialVoltage));
+                    UpdateNodeFieldByKey(node, master, slaveId, "Ufact", nameof(Node.ActualVoltage));
                     UpdateNodeFieldByKey(node, master, slaveId, "P", nameof(Node.NominalActivePower));
                     UpdateNodeFieldByKey(node, master, slaveId, "Q", nameof(Node.NominalReactivePower));
                     UpdateNodeFieldByKey(node, master, slaveId, "Pg", nameof(Node.ActivePowerGeneration));
@@ -3155,6 +3227,7 @@ namespace PowerGridEditor
             var response = master.ReadHoldingRegisters(slaveId, addr, 1);
             double val = response[0];
             if (propertyName == nameof(Node.InitialVoltage)) node.InitialVoltage = val;
+            else if (propertyName == nameof(Node.ActualVoltage)) node.ActualVoltage = val;
             else if (propertyName == nameof(Node.NominalActivePower)) node.NominalActivePower = val;
             else if (propertyName == nameof(Node.NominalReactivePower)) node.NominalReactivePower = val;
             else if (propertyName == nameof(Node.ActivePowerGeneration)) node.ActivePowerGeneration = val;
@@ -3162,6 +3235,41 @@ namespace PowerGridEditor
             else if (propertyName == nameof(Node.FixedVoltageModule)) node.FixedVoltageModule = val;
             else if (propertyName == nameof(Node.MinReactivePower)) node.MinReactivePower = val;
             else if (propertyName == nameof(Node.MaxReactivePower)) node.MaxReactivePower = val;
+        }
+
+        private void ApplyRealtimeVisualizationFromTelemetry()
+        {
+            foreach (var branch in graphicBranches)
+            {
+                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                if (branch.Data.CalculatedCurrent > 0)
+                {
+                    branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                    branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+                }
+            }
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                double uNom = node.Data.InitialVoltage;
+                double uFact = node.Data.ActualVoltage > 0 ? node.Data.ActualVoltage : uNom;
+                if (uFact > 0)
+                {
+                    node.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                }
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                double uNom = baseNode.Data.InitialVoltage;
+                double uFact = baseNode.Data.ActualVoltage > 0 ? baseNode.Data.ActualVoltage : uNom;
+                if (uFact > 0)
+                {
+                    baseNode.VoltageColor = GetNodeVoltageColor(uNom, uFact);
+                }
+            }
+
+            RefreshElementsGrid();
         }
 
         private void Form1_Load(object sender, EventArgs e)
