@@ -3512,14 +3512,14 @@ namespace PowerGridEditor
             return result;
         }
 
-        private Color GetNodeVoltageColor(double uFact, double uCalc)
+        private Color GetNodeVoltageColor(double nominalVoltage, double factualVoltage)
         {
-            if (uNom <= 0 || uFact <= 0)
+            if (nominalVoltage <= 0 || factualVoltage <= 0)
             {
                 return Color.LightBlue;
             }
 
-            double deltaPercent = CalculateVoltageDeviationPercent(uNom, uFact);
+            double deltaPercent = CalculateVoltageDeviationPercent(nominalVoltage, factualVoltage);
             double absDelta = Math.Abs(deltaPercent);
             if (absDelta <= 5.0)
             {
