@@ -3002,6 +3002,30 @@ namespace PowerGridEditor
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            convergedModeCounter++;
+            SaveLastConvergedState();
+
+            if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
+            {
+                divergedModeNumber = convergedModeCounter + 1;
+                lastStopReason = stopReason;
+                lastStopDetails = stopDetails;
+
+                if (hasLastConvergedSnapshot)
+                {
+                    RestoreLastConvergedState();
+                }
+
+                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                StopCalculationLoopInternal();
+                panel2.Invalidate();
+                RefreshElementsGrid();
+                return;
+            }
+
+            convergedModeCounter++;
+            AppendBurdeningIterationLog(convergedModeCounter);
+            SaveLastConvergedState();
 
             if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
             {
