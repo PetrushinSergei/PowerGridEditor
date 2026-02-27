@@ -724,7 +724,7 @@ namespace PowerGridEditor
                     form.IntervalSeconds,
                     form.EnabledChange,
                     () => GetParamValue(data, key),
-                    value => ApplyParamValue(data, key, value),
+                    newValue => ApplyParamValue(data, key, newValue),
                     () => BeginInvoke(new Action(() =>
                     {
                         AppendBurdeningAutoChangeEvent(data, key);
@@ -732,9 +732,12 @@ namespace PowerGridEditor
                         panel2.Invalidate();
                     })));
             }
+            else
+            {
+                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {value.ToString("F4", CultureInfo.InvariantCulture)}");
+            }
 
-            double value = GetParamValue(data, key);
-            burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)} = {value.ToString("F4", CultureInfo.InvariantCulture)}");
+            burdeningLastAutoValues[autoKey] = value;
         }
 
         private void AppendBurdeningAutoChangeEvent(dynamic data, string key)
@@ -781,18 +784,18 @@ namespace PowerGridEditor
                 }
             }
 
-            double value = GetParamValue(data, key);
+            double currentValue = GetParamValue(data, key);
             string autoKey = $"{element}|{key}";
             if (burdeningLastAutoValues.TryGetValue(autoKey, out var prev))
             {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {value.ToString("F4", CultureInfo.InvariantCulture)}");
+                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
             }
             else
             {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {value.ToString("F4", CultureInfo.InvariantCulture)}");
+                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
             }
 
-            burdeningLastAutoValues[autoKey] = value;
+            burdeningLastAutoValues[autoKey] = currentValue;
         }
 
         private double GetParamValue(dynamic data, string key)
