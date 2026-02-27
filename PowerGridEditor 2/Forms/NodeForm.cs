@@ -415,6 +415,11 @@ namespace PowerGridEditor
             {
                 var inv = CultureInfo.InvariantCulture;
                 MyNode.Number = int.Parse(paramBoxes[0].Text);
+                if (MyNode.Number <= 0)
+                {
+                    MessageBox.Show("Номер узла должен быть больше 0.");
+                    return;
+                }
                 MyNode.InitialVoltage = double.Parse(paramBoxes[1].Text.Replace(',', '.'), inv);
                 MyNode.ActualVoltage = double.Parse(paramBoxes[2].Text.Replace(',', '.'), inv);
                 MyNode.NominalActivePower = double.Parse(paramBoxes[4].Text.Replace(',', '.'), inv);

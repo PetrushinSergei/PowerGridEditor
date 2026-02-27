@@ -43,6 +43,19 @@ namespace PowerGridEditor
             return false;
         }
 
+
+        public static void StopAll()
+        {
+            lock (sync)
+            {
+                foreach (var state in states.Values)
+                {
+                    state.Timer?.Dispose();
+                    state.Timer = null;
+                }
+            }
+        }
+
         public static void Configure(string id, double step, int intervalSeconds, bool enabled, Func<double> getter, Action<double> setter, Action onTick)
         {
             lock (sync)
