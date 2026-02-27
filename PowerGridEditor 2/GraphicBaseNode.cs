@@ -26,6 +26,11 @@ namespace PowerGridEditor
                 g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));
             }
             g.DrawEllipse(Pens.Black, new Rectangle(Location, NodeSize));
+            using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
+            using (Brush modeBrush = new SolidBrush(Color.Black))
+            {
+                g.DrawString("Balance", modeFont, modeBrush, Location.X + NodeSize.Width + 6, Location.Y + (NodeSize.Height / 2) - 7);
+            }
 
             using (Font font = new Font("Arial", 10, FontStyle.Bold))
             using (StringFormat format = new StringFormat())
