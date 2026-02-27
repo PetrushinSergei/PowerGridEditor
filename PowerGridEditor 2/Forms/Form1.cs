@@ -759,6 +759,7 @@ namespace PowerGridEditor
                 if (form.EnabledChange)
                 {
                     RegisterBurdeningTracking(data, key, form.StepValue, form.IntervalSeconds);
+                    RefreshOpenedReportForms();
                 }
             }
 
@@ -3311,6 +3312,8 @@ namespace PowerGridEditor
         }
         private string BuildModeBurdeningReport()
         {
+            SyncRunningAutoChangeTracking();
+
             var sb = new StringBuilder();
             sb.AppendLine("Утяжеление режима");
             sb.AppendLine();
@@ -3761,6 +3764,60 @@ namespace PowerGridEditor
             }
         }
 
+        private void SyncRunningAutoChangeTracking()
+        {
+            foreach (var element in graphicElements)
+            {
+                if (element is GraphicNode node)
+                {
+                    SyncAutoChangeForData(node.Data);
+                }
+                else if (element is GraphicBaseNode baseNode)
+                {
+                    SyncAutoChangeForData(baseNode.Data);
+                }
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                SyncAutoChangeForData(branch.Data);
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                SyncAutoChangeForData(shunt.Data);
+            }
+        }
+
+        private void SyncAutoChangeForData(dynamic data)
+        {
+            if (data == null || data.ParamIncrementSteps == null)
+            {
+                return;
+            }
+
+            foreach (var kv in ((Dictionary<string, double>)data.ParamIncrementSteps))
+            {
+                string key = kv.Key;
+                string id = ParameterAutoChangeService.BuildId((object)data, key);
+                if (!ParameterAutoChangeService.TryGet(id, out double step, out int interval, out bool running) || !running)
+                {
+                    continue;
+                }
+
+                RegisterBurdeningTracking(data, key, step, interval);
+
+                string element = ResolveBurdeningElementLabel(data);
+                string historyKey = $"{element}|{key}";
+                double currentValue = GetParamValue(data, key);
+                if (burdeningValueHistory.TryGetValue(historyKey, out var values)
+                    && (values.Count == 0 || Math.Abs(values[values.Count - 1] - currentValue) > 1e-9))
+                {
+                    values.Add(currentValue);
+                }
+            }
+        }
+
         private void RegisterBurdeningTracking(dynamic data, string key, double step, int intervalSeconds)
         {
             if (!isCalculationRunning)
@@ -3799,7 +3856,6 @@ namespace PowerGridEditor
             }
 
             burdeningLastAutoValues[historyKey] = currentValue;
-            RefreshOpenedReportForms();
         }
 
         private void CaptureTrackedParameterSnapshot(Dictionary<string, double> target)
