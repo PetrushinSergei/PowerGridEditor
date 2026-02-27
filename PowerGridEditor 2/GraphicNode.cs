@@ -26,6 +26,12 @@ namespace PowerGridEditor
                 g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));
             }
             g.DrawEllipse(Pens.Black, new Rectangle(Location, NodeSize));
+            string nodeMode = Data.FixedVoltageModule == 0 ? "PQ" : "PU";
+            using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
+            using (Brush modeBrush = new SolidBrush(Color.Black))
+            {
+                g.DrawString(nodeMode, modeFont, modeBrush, Location.X + 4, Location.Y + 2);
+            }
 
             // Рисуем номер узла
             using (Font font = new Font("Arial", 10, FontStyle.Bold))
