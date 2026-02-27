@@ -55,11 +55,16 @@ namespace PowerGridEditor
             {
                 var textSize = g.MeasureString(nodeType, modeFont);
                 int padding = 3;
-                float textX = Location.X + NodeSize.Width + 8;
-                float textY = Location.Y + (NodeSize.Height - textSize.Height) / 2f;
-                var bgRect = new RectangleF(textX - padding, textY - 1, textSize.Width + padding * 2, textSize.Height + 2);
+                float anchorX = Location.X + NodeSize.Width + 6;
+                float anchorY = Location.Y + 6;
+
+                var state = g.Transform;
+                g.TranslateTransform(anchorX, anchorY);
+                g.RotateTransform(-45f);
+                var bgRect = new RectangleF(-padding, -textSize.Height - 2, textSize.Width + padding * 2, textSize.Height + 2);
                 g.FillRectangle(bgBrush, bgRect);
-                g.DrawString(nodeType, modeFont, modeBrush, textX, textY);
+                g.DrawString(nodeType, modeFont, modeBrush, 0, -textSize.Height - 1);
+                g.Transform = state;
             }
         }
 

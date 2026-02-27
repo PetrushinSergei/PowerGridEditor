@@ -95,6 +95,11 @@ namespace PowerGridEditor
         private string lastStopDetails = string.Empty;
         private readonly List<BurdeningTrackedParameter> burdeningTrackedParameters = new List<BurdeningTrackedParameter>();
         private readonly Dictionary<string, double> burdeningLastAutoValues = new Dictionary<string, double>();
+        private readonly Dictionary<string, List<double>> burdeningValueHistory = new Dictionary<string, List<double>>();
+        private readonly Dictionary<string, string> burdeningHistoryDescriptions = new Dictionary<string, string>();
+        private readonly List<string> burdeningHistoryOrder = new List<string>();
+        private readonly Dictionary<string, double> lastConvergedTrackedValues = new Dictionary<string, double>();
+        private readonly Dictionary<string, double> lastDivergedTrackedValues = new Dictionary<string, double>();
 
         private sealed class BurdeningTrackedParameter
         {
@@ -435,9 +440,12 @@ namespace PowerGridEditor
             }
 
             RestoreLastConvergedState();
+            RestoreTrackedParameterSnapshot(lastConvergedTrackedValues);
+            RecalculateSnapshotState();
             showingDivergedSnapshot = false;
             panel2.Invalidate();
             RefreshElementsGrid();
+            RefreshOpenedReportForms();
             UpdateSnapshotNavigationButtons();
         }
 
@@ -449,9 +457,12 @@ namespace PowerGridEditor
             }
 
             RestoreLastDivergedState();
+            RestoreTrackedParameterSnapshot(lastDivergedTrackedValues);
+            RecalculateSnapshotState();
             showingDivergedSnapshot = true;
             panel2.Invalidate();
             RefreshElementsGrid();
+            RefreshOpenedReportForms();
             UpdateSnapshotNavigationButtons();
         }
 
@@ -744,6 +755,11 @@ namespace PowerGridEditor
                         ApplyParamValue(data, key, newValue);
                     },
                     onTick);
+
+                if (form.EnabledChange)
+                {
+                    RegisterBurdeningTracking(data, key, form.StepValue, form.IntervalSeconds);
+                }
             }
 
         }
@@ -838,16 +854,25 @@ namespace PowerGridEditor
             string element = ResolveBurdeningElementLabel(data);
             double latestValue = GetParamValue(data, key);
             string historyKey = $"{element}|{key}";
-            if (burdeningLastAutoValues.TryGetValue(historyKey, out var prev))
+            if (!burdeningValueHistory.TryGetValue(historyKey, out var values))
             {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {latestValue.ToString("F4", CultureInfo.InvariantCulture)}");
+                values = new List<double>();
+                burdeningValueHistory[historyKey] = values;
+                burdeningHistoryOrder.Add(historyKey);
+                burdeningHistoryDescriptions[historyKey] = $"{element} | {ConvertParamKeyToLabel(key)}";
             }
-            else
+
+            if (values.Count == 0)
             {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {latestValue.ToString("F4", CultureInfo.InvariantCulture)}");
+                values.Add(latestValue);
+            }
+            else if (Math.Abs(values[values.Count - 1] - latestValue) > 1e-9)
+            {
+                values.Add(latestValue);
             }
 
             burdeningLastAutoValues[historyKey] = latestValue;
+            RefreshOpenedReportForms();
         }
 
         private string ResolveBurdeningElementLabel(dynamic data)
@@ -2634,6 +2659,7 @@ namespace PowerGridEditor
             ApplySavedLayout(savedLayout);
             panel2.Invalidate();
             RefreshElementsGrid();
+            RefreshOpenedReportForms();
         }
         private void ParseNodeLine(string[] parts, bool isBaseNode, int index)
         {
@@ -3167,6 +3193,20 @@ namespace PowerGridEditor
             reportForm.Show(this);
         }
 
+        private void RefreshOpenedReportForms()
+        {
+            if (!openedEditorWindows.TryGetValue(typeof(ReportForm), out var forms))
+            {
+                return;
+            }
+
+            foreach (var form in forms.OfType<ReportForm>().Where(f => f != null && !f.IsDisposed))
+            {
+                form.SetModeBurdeningInfo(BuildModeBurdeningReport());
+                form.SetResearchModeInfo(BuildResearchModeReport());
+            }
+        }
+
         private void UpdateBurdeningStartInfo()
         {
             burdeningParameterDescription = "нет данных";
@@ -3232,6 +3272,11 @@ namespace PowerGridEditor
                 string description = number > 0 ? $"{prefix} {number}: {label}" : $"{prefix}: {label}";
                 double startValue = GetParamValue(data, key);
 
+                if (burdeningTrackedParameters.Any(x => ReferenceEquals((object)x.Data, (object)data) && x.Key == key))
+                {
+                    continue;
+                }
+
                 burdeningTrackedParameters.Add(new BurdeningTrackedParameter
                 {
                     Description = description,
@@ -3241,8 +3286,6 @@ namespace PowerGridEditor
                     Step = step,
                     IntervalSeconds = interval
                 });
-
-                burdeningIterationLog.Add($"{description} | Старт: {startValue.ToString("F4", CultureInfo.InvariantCulture)} | Шаг: {step.ToString("F4", CultureInfo.InvariantCulture)} каждые {interval} c");
             }
         }
 
@@ -3266,30 +3309,35 @@ namespace PowerGridEditor
             if (key == "Imax") return "Iдоп";
             return key;
         }
-
         private string BuildModeBurdeningReport()
         {
             var sb = new StringBuilder();
-            sb.AppendLine("Итерационный анализ (утяжеление)");
+            sb.AppendLine("Утяжеление режима");
             sb.AppendLine();
-            sb.AppendLine($"Что утяжеляется: {burdeningParameterDescription}");
-            sb.AppendLine($"С какого значения старт: {(burdeningStartValueKnown ? burdeningStartValue.ToString("F4", CultureInfo.InvariantCulture) : "нет данных")}");
-            sb.AppendLine($"Последний сошедшийся режим: {convergedModeCounter}");
-            sb.AppendLine($"После какого режима началась расходимость: {(divergedModeNumber.HasValue ? divergedModeNumber.Value.ToString(CultureInfo.InvariantCulture) : "нет")}");
-            sb.AppendLine();
-            sb.AppendLine("Лог шагов:");
-            if (burdeningIterationLog.Count == 0)
+
+            if (burdeningHistoryOrder.Count == 0)
             {
-                sb.AppendLine("- авто-изменение параметров не запущено");
-                sb.AppendLine("  (в таблице нажмите \"Инкремент\" и включите авто-изменение нужного параметра)");
+                sb.AppendLine("Автоизменение параметров не запущено.");
+                return sb.ToString();
             }
-            else
+
+            foreach (var historyKey in burdeningHistoryOrder)
             {
-                foreach (var line in burdeningIterationLog)
+                if (!burdeningValueHistory.TryGetValue(historyKey, out var values) || values.Count == 0)
                 {
-                    sb.AppendLine(line);
+                    continue;
                 }
+
+                string description = burdeningHistoryDescriptions.TryGetValue(historyKey, out var text) ? text : historyKey;
+                var parts = new List<string> { $"Было: {values[0].ToString("F4", CultureInfo.InvariantCulture)}" };
+                for (int i = 1; i < values.Count; i++)
+                {
+                    parts.Add($"Стало: {values[i].ToString("F4", CultureInfo.InvariantCulture)}");
+                }
+
+                sb.AppendLine($"{description} -> {string.Join(" -> ", parts)}");
             }
+
             return sb.ToString();
         }
 
@@ -3312,23 +3360,6 @@ namespace PowerGridEditor
             sb.AppendLine("- Перегрузка ветви > 100%");
             sb.AppendLine("- Отклонение напряжения узла |ΔU| > 10% (ΔU% = (Uном - Uфакт)/Uном)");
             return sb.ToString();
-        }
-
-        private void AppendBurdeningIterationLog(int iterationNumber)
-        {
-            if (burdeningTrackedParameters.Count == 0)
-            {
-                return;
-            }
-
-            burdeningIterationLog.Add($"--- Итерация {iterationNumber} ---");
-            foreach (var tracked in burdeningTrackedParameters)
-            {
-                double currentValue = GetParamValue(tracked.Data, tracked.Key);
-                double absDelta = currentValue - tracked.StartValue;
-                double percent = Math.Abs(tracked.StartValue) < 1e-9 ? 0 : (absDelta / tracked.StartValue) * 100.0;
-                burdeningIterationLog.Add($"{tracked.Description}: {tracked.StartValue.ToString("F4", CultureInfo.InvariantCulture)} -> {currentValue.ToString("F4", CultureInfo.InvariantCulture)} (Δ {absDelta:+0.####;-0.####;0}; {percent:+0.##;-0.##;0}%; шаг {tracked.Step:+0.####;-0.####;0} / {tracked.IntervalSeconds} c)");
-            }
         }
 
         private bool TryBuildControlStopReason(int stepNumber, out string reason, out string details)
@@ -3417,7 +3448,13 @@ namespace PowerGridEditor
             lastStopDetails = string.Empty;
             burdeningIterationLog.Clear();
             burdeningLastAutoValues.Clear();
+            burdeningValueHistory.Clear();
+            burdeningHistoryDescriptions.Clear();
+            burdeningHistoryOrder.Clear();
+            lastConvergedTrackedValues.Clear();
+            lastDivergedTrackedValues.Clear();
             UpdateBurdeningStartInfo();
+            RefreshOpenedReportForms();
             UpdateCalculationButtonUi();
 
             if (calculationTimer == null)
@@ -3514,6 +3551,7 @@ namespace PowerGridEditor
                 }
                 panel2.Invalidate();
                 RefreshElementsGrid();
+                RefreshOpenedReportForms();
                 return;
             }
 
@@ -3550,7 +3588,6 @@ namespace PowerGridEditor
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
             convergedModeCounter++;
-            AppendBurdeningIterationLog(convergedModeCounter);
             SaveLastConvergedState();
 
             if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
@@ -3566,11 +3603,13 @@ namespace PowerGridEditor
                 MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 panel2.Invalidate();
                 RefreshElementsGrid();
+                RefreshOpenedReportForms();
                 return;
             }
 
             panel2.Invalidate();
             RefreshElementsGrid();
+            RefreshOpenedReportForms();
         }
 
 
@@ -3601,6 +3640,7 @@ namespace PowerGridEditor
                 lastConvergedCalculatedNodeVoltages[kv.Key] = kv.Value;
             }
 
+            CaptureTrackedParameterSnapshot(lastConvergedTrackedValues);
             hasLastConvergedSnapshot = true;
         }
 
@@ -3631,6 +3671,7 @@ namespace PowerGridEditor
                 lastDivergedCalculatedNodeVoltages[kv.Key] = kv.Value;
             }
 
+            CaptureTrackedParameterSnapshot(lastDivergedTrackedValues);
             hasLastDivergedSnapshot = true;
             UpdateSnapshotNavigationButtons();
         }
@@ -3718,6 +3759,104 @@ namespace PowerGridEditor
             {
                 lastCalculatedNodeVoltages[kv.Key] = kv.Value;
             }
+        }
+
+        private void RegisterBurdeningTracking(dynamic data, string key, double step, int intervalSeconds)
+        {
+            if (!isCalculationRunning)
+            {
+                return;
+            }
+
+            if (!burdeningTrackedParameters.Any(x => ReferenceEquals((object)x.Data, (object)data) && x.Key == key))
+            {
+                string description = $"{ResolveBurdeningElementLabel(data)} | {ConvertParamKeyToLabel(key)}";
+                burdeningTrackedParameters.Add(new BurdeningTrackedParameter
+                {
+                    Description = description,
+                    Data = data,
+                    Key = key,
+                    StartValue = GetParamValue(data, key),
+                    Step = step,
+                    IntervalSeconds = intervalSeconds
+                });
+            }
+
+            string element = ResolveBurdeningElementLabel(data);
+            string historyKey = $"{element}|{key}";
+            double currentValue = GetParamValue(data, key);
+            if (!burdeningValueHistory.TryGetValue(historyKey, out var values))
+            {
+                values = new List<double>();
+                burdeningValueHistory[historyKey] = values;
+                burdeningHistoryOrder.Add(historyKey);
+                burdeningHistoryDescriptions[historyKey] = $"{element} | {ConvertParamKeyToLabel(key)}";
+            }
+
+            if (values.Count == 0)
+            {
+                values.Add(currentValue);
+            }
+
+            burdeningLastAutoValues[historyKey] = currentValue;
+            RefreshOpenedReportForms();
+        }
+
+        private void CaptureTrackedParameterSnapshot(Dictionary<string, double> target)
+        {
+            target.Clear();
+            foreach (var tracked in burdeningTrackedParameters)
+            {
+                string id = ParameterAutoChangeService.BuildId((object)tracked.Data, tracked.Key);
+                target[id] = GetParamValue(tracked.Data, tracked.Key);
+            }
+        }
+
+        private void RestoreTrackedParameterSnapshot(Dictionary<string, double> source)
+        {
+            if (source == null || source.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var tracked in burdeningTrackedParameters)
+            {
+                string id = ParameterAutoChangeService.BuildId((object)tracked.Data, tracked.Key);
+                if (source.TryGetValue(id, out var value))
+                {
+                    ApplyParamValue(tracked.Data, tracked.Key, value);
+                }
+            }
+        }
+
+        private void RecalculateSnapshotState()
+        {
+            var result = RunCurrentLossesCalculation();
+            if (result == null || string.IsNullOrWhiteSpace(result.LossesRez))
+            {
+                return;
+            }
+
+            var currents = ParseBranchCurrentsFromLosses(result.LossesRez);
+            foreach (var branch in graphicBranches)
+            {
+                var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
+                {
+                    continue;
+                }
+
+                branch.Data.CalculatedActiveCurrent = c.Active;
+                branch.Data.CalculatedReactiveCurrent = c.Reactive;
+                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
+                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                bool overloaded;
+                branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
+                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+            }
+
+            ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
         }
 
         private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
