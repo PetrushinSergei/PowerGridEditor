@@ -734,72 +734,21 @@ namespace PowerGridEditor
                     form.IntervalSeconds,
                     form.EnabledChange,
                     () => GetParamValue(data, key),
-                    newValue => ApplyParamValue(data, key, newValue),
+                    newValue =>
+                    {
+                        if (!isCalculationRunning)
+                        {
+                            return;
+                        }
+
+                        ApplyParamValue(data, key, newValue);
+                    },
                     onTick);
             }
 
-            burdeningLastAutoValues[autoKey] = currentValue;
         }
 
         private void AppendBurdeningAutoChangeEvent(dynamic data, string key)
-        {
-            if (!isCalculationRunning)
-            {
-                return;
-            }
-
-            string element = "Элемент";
-            foreach (var node in graphicElements.OfType<GraphicNode>())
-            {
-                if (ReferenceEquals(node.Data, data))
-                {
-                    element = $"Узел {node.Data.Number}";
-                    break;
-                }
-            }
-
-            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
-            {
-                if (ReferenceEquals(baseNode.Data, data))
-                {
-                    element = $"Базисный узел {baseNode.Data.Number}";
-                    break;
-                }
-            }
-
-            foreach (var branch in graphicBranches)
-            {
-                if (ReferenceEquals(branch.Data, data))
-                {
-                    element = $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}";
-                    break;
-                }
-            }
-
-            foreach (var shunt in graphicShunts)
-            {
-                if (ReferenceEquals(shunt.Data, data))
-                {
-                    element = $"Шунт {shunt.Data.StartNodeNumber}";
-                    break;
-                }
-            }
-
-            double currentValue = GetParamValue(data, key);
-            string autoKey = $"{element}|{key}";
-            if (burdeningLastAutoValues.TryGetValue(autoKey, out var prev))
-            {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
-            }
-            else
-            {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
-            }
-
-            burdeningLastAutoValues[autoKey] = currentValue;
-        }
-
-        private void AppendBurdeningAutoChangeLogEvent(dynamic data, string key)
         {
             if (!isCalculationRunning)
             {
@@ -877,43 +826,6 @@ namespace PowerGridEditor
             }
 
             burdeningLastAutoValues[autoKey] = currentValue;
-        }
-
-        private string ResolveBurdeningElementLabel(dynamic data)
-        {
-            foreach (var node in graphicElements.OfType<GraphicNode>())
-            {
-                if (ReferenceEquals(node.Data, data))
-                {
-                    return $"Узел {node.Data.Number}";
-                }
-            }
-
-            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
-            {
-                if (ReferenceEquals(baseNode.Data, data))
-                {
-                    return $"Базисный узел {baseNode.Data.Number}";
-                }
-            }
-
-            foreach (var branch in graphicBranches)
-            {
-                if (ReferenceEquals(branch.Data, data))
-                {
-                    return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}";
-                }
-            }
-
-            foreach (var shunt in graphicShunts)
-            {
-                if (ReferenceEquals(shunt.Data, data))
-                {
-                    return $"Шунт {shunt.Data.StartNodeNumber}";
-                }
-            }
-
-            return "Элемент";
         }
 
         private void LogBurdeningAutoChangeTick(dynamic data, string key)
@@ -3467,8 +3379,8 @@ namespace PowerGridEditor
             }
 
             reason = overloaded.Count > 0
-                ? $"Перегрузка ветви {overloaded[0].Data.StartNodeNumber}-{overloaded[0].Data.EndNodeNumber} ({overloaded[0].Data.LoadingPercent:F1}%)."
-                : "Критическое отклонение напряжения в узлах (>10%).";
+                ? $"Остановлено: перегрузка ветви {overloaded[0].Data.StartNodeNumber}-{overloaded[0].Data.EndNodeNumber} ({overloaded[0].Data.LoadingPercent:F1}%)."
+                : "Остановлено: напряжение в узлах вышло за пределы ±10%.";
 
             var detailLines = new List<string>
             {
@@ -3587,7 +3499,7 @@ namespace PowerGridEditor
             if (!isLastModeConverged)
             {
                 divergedModeNumber = convergedModeCounter + 1;
-                lastStopReason = "Несходимость итерационного процесса";
+                lastStopReason = "Остановлено: режим не существует (расчёт не сошёлся).";
                 lastStopDetails = $"Процесс остановлен на шаге №{divergedModeNumber}.";
 
                 SaveLastDivergedState();
@@ -3598,7 +3510,7 @@ namespace PowerGridEditor
                 if (!divergenceNotificationShown)
                 {
                     divergenceNotificationShown = true;
-                    MessageBox.Show(this, $"Режим не сошёлся (режим № {divergedModeNumber}). Расчёт остановлен.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, $"Остановлено: режим не существует (режим № {divergedModeNumber}).\nФоновое автоизменение параметров остановлено.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 panel2.Invalidate();
                 RefreshElementsGrid();
