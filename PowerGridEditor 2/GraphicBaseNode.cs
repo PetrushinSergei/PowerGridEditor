@@ -26,11 +26,7 @@ namespace PowerGridEditor
                 g.FillEllipse(fillBrush, new Rectangle(Location, NodeSize));
             }
             g.DrawEllipse(Pens.Black, new Rectangle(Location, NodeSize));
-            using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
-            using (Brush modeBrush = new SolidBrush(Color.Black))
-            {
-                g.DrawString("Balance", modeFont, modeBrush, Location.X + NodeSize.Width + 6, Location.Y + (NodeSize.Height / 2) - 7);
-            }
+            DrawNodeTypeLabel(g, "Balance");
 
             using (Font font = new Font("Arial", 10, FontStyle.Bold))
             using (StringFormat format = new StringFormat())
@@ -48,6 +44,27 @@ namespace PowerGridEditor
                         format
                     );
                 }
+            }
+        }
+
+        private void DrawNodeTypeLabel(Graphics g, string nodeType)
+        {
+            using (Font modeFont = new Font("Arial", 8, FontStyle.Bold))
+            using (Brush modeBrush = new SolidBrush(Color.Black))
+            using (Brush bgBrush = new SolidBrush(Color.FromArgb(230, Color.White)))
+            {
+                var textSize = g.MeasureString(nodeType, modeFont);
+                int padding = 3;
+                float anchorX = Location.X + NodeSize.Width + 6;
+                float anchorY = Location.Y + 6;
+
+                var state = g.Transform;
+                g.TranslateTransform(anchorX, anchorY);
+                g.RotateTransform(-45f);
+                var bgRect = new RectangleF(-padding, -textSize.Height - 2, textSize.Width + padding * 2, textSize.Height + 2);
+                g.FillRectangle(bgBrush, bgRect);
+                g.DrawString(nodeType, modeFont, modeBrush, 0, -textSize.Height - 1);
+                g.Transform = state;
             }
         }
 
