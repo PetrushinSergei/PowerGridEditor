@@ -59,6 +59,8 @@ namespace PowerGridEditor
         private DateTime lastCalcDoubleClickAt = DateTime.MinValue;
         private CheckBox checkBoxLockLegends;
         private CheckBox checkBoxComprehensiveControl;
+        private Button buttonPrevMode;
+        private Button buttonNextMode;
         private bool comprehensiveControlEnabled = true;
         private string lastStopReason = "нет";
         private readonly List<string> burdeningIterationLog = new List<string>();
@@ -77,6 +79,12 @@ namespace PowerGridEditor
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastConvergedBaseNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
         private readonly Dictionary<int, double> lastConvergedCalculatedNodeVoltages = new Dictionary<int, double>();
+        private readonly Dictionary<(int Start, int End), (double Active, double Reactive, double Current, double Loading, Color Color)> lastDivergedBranchState = new Dictionary<(int Start, int End), (double Active, double Reactive, double Current, double Loading, Color Color)>();
+        private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastDivergedNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
+        private readonly Dictionary<int, (double CalculatedVoltage, Color Color)> lastDivergedBaseNodeState = new Dictionary<int, (double CalculatedVoltage, Color Color)>();
+        private readonly Dictionary<int, double> lastDivergedCalculatedNodeVoltages = new Dictionary<int, double>();
+        private bool hasLastDivergedSnapshot;
+        private bool showingDivergedSnapshot;
         // Временные переменные для обратной совместимости
         private int convergedModeCounter;
         private int? divergedModeNumber;
@@ -368,6 +376,82 @@ namespace PowerGridEditor
             };
             checkBoxComprehensiveControl.CheckedChanged += (s, e) => comprehensiveControlEnabled = checkBoxComprehensiveControl.Checked;
             panel1.Controls.Add(checkBoxComprehensiveControl);
+
+            buttonPrevMode = new Button
+            {
+                Name = "buttonPrevMode",
+                Text = "← Пред. режим",
+                Width = 110,
+                Height = 30,
+                Left = 1180,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentBlue,
+                ForeColor = ThemeTextBlack,
+                Enabled = false
+            };
+            buttonPrevMode.FlatAppearance.BorderSize = 2;
+            buttonPrevMode.Click += (s, e) => ShowConvergedSnapshot();
+            panel1.Controls.Add(buttonPrevMode);
+
+            buttonNextMode = new Button
+            {
+                Name = "buttonNextMode",
+                Text = "След. режим →",
+                Width = 110,
+                Height = 30,
+                Left = 1295,
+                Top = 48,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = ThemeAccentBlue,
+                ForeColor = ThemeTextBlack,
+                Enabled = false
+            };
+            buttonNextMode.FlatAppearance.BorderSize = 2;
+            buttonNextMode.Click += (s, e) => ShowDivergedSnapshot();
+            panel1.Controls.Add(buttonNextMode);
+        }
+
+        private void UpdateSnapshotNavigationButtons()
+        {
+            bool canNavigate = !isCalculationRunning && hasLastConvergedSnapshot && hasLastDivergedSnapshot;
+            if (buttonPrevMode != null)
+            {
+                buttonPrevMode.Enabled = canNavigate && showingDivergedSnapshot;
+            }
+
+            if (buttonNextMode != null)
+            {
+                buttonNextMode.Enabled = canNavigate && !showingDivergedSnapshot;
+            }
+        }
+
+        private void ShowConvergedSnapshot()
+        {
+            if (!hasLastConvergedSnapshot)
+            {
+                return;
+            }
+
+            RestoreLastConvergedState();
+            showingDivergedSnapshot = false;
+            panel2.Invalidate();
+            RefreshElementsGrid();
+            UpdateSnapshotNavigationButtons();
+        }
+
+        private void ShowDivergedSnapshot()
+        {
+            if (!hasLastDivergedSnapshot)
+            {
+                return;
+            }
+
+            RestoreLastDivergedState();
+            showingDivergedSnapshot = true;
+            panel2.Invalidate();
+            RefreshElementsGrid();
+            UpdateSnapshotNavigationButtons();
         }
 
         private void buttonOpenTelemetryForm_Click(object sender, EventArgs e)
@@ -640,8 +724,61 @@ namespace PowerGridEditor
                     form.EnabledChange,
                     () => GetParamValue(data, key),
                     value => ApplyParamValue(data, key, value),
-                    () => BeginInvoke(new Action(() => { RefreshElementsGrid(); panel2.Invalidate(); })));
+                    () => BeginInvoke(new Action(() =>
+                    {
+                        AppendBurdeningAutoChangeEvent(data, key);
+                        RefreshElementsGrid();
+                        panel2.Invalidate();
+                    })));
             }
+        }
+
+        private void AppendBurdeningAutoChangeEvent(dynamic data, string key)
+        {
+            if (!isCalculationRunning)
+            {
+                return;
+            }
+
+            string element = "Элемент";
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (ReferenceEquals(node.Data, data))
+                {
+                    element = $"Узел {node.Data.Number}";
+                    break;
+                }
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (ReferenceEquals(baseNode.Data, data))
+                {
+                    element = $"Базисный узел {baseNode.Data.Number}";
+                    break;
+                }
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                if (ReferenceEquals(branch.Data, data))
+                {
+                    element = $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}";
+                    break;
+                }
+            }
+
+            foreach (var shunt in graphicShunts)
+            {
+                if (ReferenceEquals(shunt.Data, data))
+                {
+                    element = $"Шунт {shunt.Data.StartNodeNumber}";
+                    break;
+                }
+            }
+
+            double value = GetParamValue(data, key);
+            burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)} = {value.ToString("F4", CultureInfo.InvariantCulture)}");
         }
 
         private double GetParamValue(dynamic data, string key)
@@ -1284,6 +1421,7 @@ namespace PowerGridEditor
         {
             BranchForm form = new BranchForm();
             form.BindBranchModel(graphicBranch.Data);
+            form.SetAvailableNodeNumbers(GetAllNodeNumbers());
 
             RegisterOpenedWindow(form);
             form.StartPosition = FormStartPosition.Manual;
@@ -1842,6 +1980,7 @@ namespace PowerGridEditor
             }
 
             BranchForm branchForm = new BranchForm();
+            branchForm.SetAvailableNodeNumbers(GetAllNodeNumbers());
 
             if (ShowEditorForm(branchForm) == DialogResult.OK &&
                 branchForm.MyBranch.StartNodeNumber != 0 &&
@@ -3161,6 +3300,13 @@ namespace PowerGridEditor
             convergedModeCounter = 0;
             divergedModeNumber = null;
             divergenceNotificationShown = false;
+            hasLastDivergedSnapshot = false;
+            showingDivergedSnapshot = false;
+            lastDivergedBranchState.Clear();
+            lastDivergedNodeState.Clear();
+            lastDivergedBaseNodeState.Clear();
+            lastDivergedCalculatedNodeVoltages.Clear();
+            ParameterAutoChangeService.StopAll();
             lastStopReason = "нет";
             lastStopDetails = string.Empty;
             burdeningIterationLog.Clear();
@@ -3184,6 +3330,7 @@ namespace PowerGridEditor
 
             calculationTimer.Start();
             _ = RunCalculationCycleAsync();
+            UpdateSnapshotNavigationButtons();
         }
 
         private void StopCalculationLoopInternal()
@@ -3195,7 +3342,9 @@ namespace PowerGridEditor
 
             isCalculationRunning = false;
             calculationTimer?.Stop();
+            ParameterAutoChangeService.StopAll();
             UpdateCalculationButtonUi();
+            UpdateSnapshotNavigationButtons();
         }
 
         private void UpdateCalculationButtonUi()
@@ -3246,10 +3395,8 @@ namespace PowerGridEditor
                 lastStopReason = "Несходимость итерационного процесса";
                 lastStopDetails = $"Процесс остановлен на шаге №{divergedModeNumber}.";
 
-                if (hasLastConvergedSnapshot)
-                {
-                    RestoreLastConvergedState();
-                }
+                SaveLastDivergedState();
+                showingDivergedSnapshot = true;
 
                 if (!divergenceNotificationShown)
                 {
@@ -3305,10 +3452,8 @@ namespace PowerGridEditor
                 lastStopReason = stopReason;
                 lastStopDetails = stopDetails;
 
-                if (hasLastConvergedSnapshot)
-                {
-                    RestoreLastConvergedState();
-                }
+                SaveLastDivergedState();
+                showingDivergedSnapshot = true;
 
                 MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 StopCalculationLoopInternal();
@@ -3350,6 +3495,82 @@ namespace PowerGridEditor
             }
 
             hasLastConvergedSnapshot = true;
+        }
+
+        private void SaveLastDivergedState()
+        {
+            lastDivergedBranchState.Clear();
+            foreach (var branch in graphicBranches)
+            {
+                lastDivergedBranchState[(branch.Data.StartNodeNumber, branch.Data.EndNodeNumber)] =
+                    (branch.Data.CalculatedActiveCurrent, branch.Data.CalculatedReactiveCurrent, branch.Data.CalculatedCurrent, branch.Data.LoadingPercent, branch.LoadColor);
+            }
+
+            lastDivergedNodeState.Clear();
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                lastDivergedNodeState[node.Data.Number] = (node.Data.CalculatedVoltage, node.VoltageColor);
+            }
+
+            lastDivergedBaseNodeState.Clear();
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                lastDivergedBaseNodeState[baseNode.Data.Number] = (baseNode.Data.CalculatedVoltage, baseNode.VoltageColor);
+            }
+
+            lastDivergedCalculatedNodeVoltages.Clear();
+            foreach (var kv in lastCalculatedNodeVoltages)
+            {
+                lastDivergedCalculatedNodeVoltages[kv.Key] = kv.Value;
+            }
+
+            hasLastDivergedSnapshot = true;
+            UpdateSnapshotNavigationButtons();
+        }
+
+        private void RestoreLastDivergedState()
+        {
+            if (!hasLastDivergedSnapshot)
+            {
+                return;
+            }
+
+            foreach (var branch in graphicBranches)
+            {
+                if (lastDivergedBranchState.TryGetValue((branch.Data.StartNodeNumber, branch.Data.EndNodeNumber), out var state)
+                    || lastDivergedBranchState.TryGetValue((branch.Data.EndNodeNumber, branch.Data.StartNodeNumber), out state))
+                {
+                    branch.Data.CalculatedActiveCurrent = state.Active;
+                    branch.Data.CalculatedReactiveCurrent = state.Reactive;
+                    branch.Data.CalculatedCurrent = state.Current;
+                    branch.Data.LoadingPercent = state.Loading;
+                    branch.LoadColor = state.Color;
+                }
+            }
+
+            foreach (var node in graphicElements.OfType<GraphicNode>())
+            {
+                if (lastDivergedNodeState.TryGetValue(node.Data.Number, out var state))
+                {
+                    node.Data.CalculatedVoltage = state.CalculatedVoltage;
+                    node.VoltageColor = state.Color;
+                }
+            }
+
+            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
+            {
+                if (lastDivergedBaseNodeState.TryGetValue(baseNode.Data.Number, out var state))
+                {
+                    baseNode.Data.CalculatedVoltage = state.CalculatedVoltage;
+                    baseNode.VoltageColor = state.Color;
+                }
+            }
+
+            lastCalculatedNodeVoltages.Clear();
+            foreach (var kv in lastDivergedCalculatedNodeVoltages)
+            {
+                lastCalculatedNodeVoltages[kv.Key] = kv.Value;
+            }
         }
 
         private void RestoreLastConvergedState()
