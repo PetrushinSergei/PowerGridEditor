@@ -30,7 +30,7 @@ namespace PowerGridEditor
             using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
             using (Brush modeBrush = new SolidBrush(Color.Black))
             {
-                g.DrawString(nodeMode, modeFont, modeBrush, Location.X + 4, Location.Y + 2);
+                g.DrawString(nodeMode, modeFont, modeBrush, Location.X + NodeSize.Width + 6, Location.Y + (NodeSize.Height / 2) - 7);
             }
 
             // Рисуем номер узла

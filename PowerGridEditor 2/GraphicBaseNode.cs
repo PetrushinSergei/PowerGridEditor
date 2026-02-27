@@ -29,7 +29,7 @@ namespace PowerGridEditor
             using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
             using (Brush modeBrush = new SolidBrush(Color.Black))
             {
-                g.DrawString("Balance", modeFont, modeBrush, Location.X + 2, Location.Y + 2);
+                g.DrawString("Balance", modeFont, modeBrush, Location.X + NodeSize.Width + 6, Location.Y + (NodeSize.Height / 2) - 7);
             }
 
             using (Font font = new Font("Arial", 10, FontStyle.Bold))

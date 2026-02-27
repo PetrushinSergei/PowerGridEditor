@@ -138,7 +138,7 @@ namespace PowerGridEditor
         {
             comboStartNode = new ComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
+                DropDownStyle = ComboBoxStyle.DropDown,
                 Location = paramBoxes[0].Location,
                 Size = paramBoxes[0].Size,
                 Font = paramBoxes[0].Font
@@ -146,7 +146,7 @@ namespace PowerGridEditor
 
             comboEndNode = new ComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDownList,
+                DropDownStyle = ComboBoxStyle.DropDown,
                 Location = paramBoxes[1].Location,
                 Size = paramBoxes[1].Size,
                 Font = paramBoxes[1].Font
@@ -161,18 +161,12 @@ namespace PowerGridEditor
 
             comboStartNode.SelectedIndexChanged += (s, e) =>
             {
-                if (comboStartNode.SelectedItem != null)
-                {
-                    paramBoxes[0].Text = comboStartNode.SelectedItem.ToString();
-                }
+                paramBoxes[0].Text = comboStartNode.Text;
             };
 
             comboEndNode.SelectedIndexChanged += (s, e) =>
             {
-                if (comboEndNode.SelectedItem != null)
-                {
-                    paramBoxes[1].Text = comboEndNode.SelectedItem.ToString();
-                }
+                paramBoxes[1].Text = comboEndNode.Text;
             };
         }
 
@@ -186,8 +180,8 @@ namespace PowerGridEditor
             var inv = CultureInfo.InvariantCulture;
             paramBoxes[0].Text = MyBranch.StartNodeNumber.ToString(inv);
             paramBoxes[1].Text = MyBranch.EndNodeNumber.ToString(inv);
-            if (comboStartNode != null && comboStartNode.Items.Contains(MyBranch.StartNodeNumber)) comboStartNode.SelectedItem = MyBranch.StartNodeNumber;
-            if (comboEndNode != null && comboEndNode.Items.Contains(MyBranch.EndNodeNumber)) comboEndNode.SelectedItem = MyBranch.EndNodeNumber;
+            if (comboStartNode != null) comboStartNode.Text = MyBranch.StartNodeNumber > 0 ? MyBranch.StartNodeNumber.ToString(inv) : string.Empty;
+            if (comboEndNode != null) comboEndNode.Text = MyBranch.EndNodeNumber > 0 ? MyBranch.EndNodeNumber.ToString(inv) : string.Empty;
             paramBoxes[2].Text = MyBranch.ActiveResistance.ToString(inv);
             paramBoxes[3].Text = MyBranch.ReactiveResistance.ToString(inv);
             paramBoxes[4].Text = MyBranch.ReactiveConductivity.ToString(inv);
@@ -290,8 +284,8 @@ namespace PowerGridEditor
             try
             {
                 var inv = CultureInfo.InvariantCulture;
-                if (comboStartNode != null && comboStartNode.SelectedItem != null) paramBoxes[0].Text = comboStartNode.SelectedItem.ToString();
-                if (comboEndNode != null && comboEndNode.SelectedItem != null) paramBoxes[1].Text = comboEndNode.SelectedItem.ToString();
+                if (comboStartNode != null) paramBoxes[0].Text = comboStartNode.Text;
+                if (comboEndNode != null) paramBoxes[1].Text = comboEndNode.Text;
                 MyBranch.StartNodeNumber = int.Parse(paramBoxes[0].Text);
                 MyBranch.EndNodeNumber = int.Parse(paramBoxes[1].Text);
                 if (MyBranch.StartNodeNumber <= 0 || MyBranch.EndNodeNumber <= 0)

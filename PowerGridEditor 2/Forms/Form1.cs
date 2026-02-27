@@ -94,6 +94,7 @@ namespace PowerGridEditor
         private bool divergenceNotificationShown;
         private string lastStopDetails = string.Empty;
         private readonly List<BurdeningTrackedParameter> burdeningTrackedParameters = new List<BurdeningTrackedParameter>();
+        private readonly Dictionary<string, double> burdeningLastAutoValues = new Dictionary<string, double>();
 
         private sealed class BurdeningTrackedParameter
         {
@@ -380,10 +381,10 @@ namespace PowerGridEditor
             buttonPrevMode = new Button
             {
                 Name = "buttonPrevMode",
-                Text = "← Пред. режим",
-                Width = 110,
+                Text = "Предыдущий режим",
+                Width = 145,
                 Height = 30,
-                Left = 1180,
+                Left = 1140,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -397,10 +398,10 @@ namespace PowerGridEditor
             buttonNextMode = new Button
             {
                 Name = "buttonNextMode",
-                Text = "След. режим →",
-                Width = 110,
+                Text = "Последний режим",
+                Width = 145,
                 Height = 30,
-                Left = 1295,
+                Left = 1290,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -731,6 +732,9 @@ namespace PowerGridEditor
                         panel2.Invalidate();
                     })));
             }
+
+            double value = GetParamValue(data, key);
+            burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)} = {value.ToString("F4", CultureInfo.InvariantCulture)}");
         }
 
         private void AppendBurdeningAutoChangeEvent(dynamic data, string key)
@@ -778,7 +782,17 @@ namespace PowerGridEditor
             }
 
             double value = GetParamValue(data, key);
-            burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)} = {value.ToString("F4", CultureInfo.InvariantCulture)}");
+            string autoKey = $"{element}|{key}";
+            if (burdeningLastAutoValues.TryGetValue(autoKey, out var prev))
+            {
+                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {value.ToString("F4", CultureInfo.InvariantCulture)}");
+            }
+            else
+            {
+                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {value.ToString("F4", CultureInfo.InvariantCulture)}");
+            }
+
+            burdeningLastAutoValues[autoKey] = value;
         }
 
         private double GetParamValue(dynamic data, string key)
@@ -3310,6 +3324,7 @@ namespace PowerGridEditor
             lastStopReason = "нет";
             lastStopDetails = string.Empty;
             burdeningIterationLog.Clear();
+            burdeningLastAutoValues.Clear();
             UpdateBurdeningStartInfo();
             UpdateCalculationButtonUi();
 
@@ -3398,13 +3413,13 @@ namespace PowerGridEditor
                 SaveLastDivergedState();
                 showingDivergedSnapshot = true;
 
+                StopCalculationLoopInternal();
+
                 if (!divergenceNotificationShown)
                 {
                     divergenceNotificationShown = true;
                     MessageBox.Show(this, $"Режим не сошёлся (режим № {divergedModeNumber}). Расчёт остановлен.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
-
-                StopCalculationLoopInternal();
                 panel2.Invalidate();
                 RefreshElementsGrid();
                 return;
@@ -3455,8 +3470,8 @@ namespace PowerGridEditor
                 SaveLastDivergedState();
                 showingDivergedSnapshot = true;
 
-                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 StopCalculationLoopInternal();
+                MessageBox.Show(this, $"{stopReason}\n{stopDetails}", "Комплексный контроль параметров", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 panel2.Invalidate();
                 RefreshElementsGrid();
                 return;
