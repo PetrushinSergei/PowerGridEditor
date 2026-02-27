@@ -738,68 +738,9 @@ namespace PowerGridEditor
                     onTick);
             }
 
-            burdeningLastAutoValues[autoKey] = currentValue;
         }
 
         private void AppendBurdeningAutoChangeEvent(dynamic data, string key)
-        {
-            if (!isCalculationRunning)
-            {
-                return;
-            }
-
-            string element = "Элемент";
-            foreach (var node in graphicElements.OfType<GraphicNode>())
-            {
-                if (ReferenceEquals(node.Data, data))
-                {
-                    element = $"Узел {node.Data.Number}";
-                    break;
-                }
-            }
-
-            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
-            {
-                if (ReferenceEquals(baseNode.Data, data))
-                {
-                    element = $"Базисный узел {baseNode.Data.Number}";
-                    break;
-                }
-            }
-
-            foreach (var branch in graphicBranches)
-            {
-                if (ReferenceEquals(branch.Data, data))
-                {
-                    element = $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}";
-                    break;
-                }
-            }
-
-            foreach (var shunt in graphicShunts)
-            {
-                if (ReferenceEquals(shunt.Data, data))
-                {
-                    element = $"Шунт {shunt.Data.StartNodeNumber}";
-                    break;
-                }
-            }
-
-            double currentValue = GetParamValue(data, key);
-            string autoKey = $"{element}|{key}";
-            if (burdeningLastAutoValues.TryGetValue(autoKey, out var prev))
-            {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Было {prev.ToString("F4", CultureInfo.InvariantCulture)} -> Стало {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
-            }
-            else
-            {
-                burdeningIterationLog.Add($"Автоизм.: {element} | {ConvertParamKeyToLabel(key)}: Старт {currentValue.ToString("F4", CultureInfo.InvariantCulture)}");
-            }
-
-            burdeningLastAutoValues[autoKey] = currentValue;
-        }
-
-        private void AppendBurdeningAutoChangeLogEvent(dynamic data, string key)
         {
             if (!isCalculationRunning)
             {
@@ -877,43 +818,6 @@ namespace PowerGridEditor
             }
 
             burdeningLastAutoValues[autoKey] = currentValue;
-        }
-
-        private string ResolveBurdeningElementLabel(dynamic data)
-        {
-            foreach (var node in graphicElements.OfType<GraphicNode>())
-            {
-                if (ReferenceEquals(node.Data, data))
-                {
-                    return $"Узел {node.Data.Number}";
-                }
-            }
-
-            foreach (var baseNode in graphicElements.OfType<GraphicBaseNode>())
-            {
-                if (ReferenceEquals(baseNode.Data, data))
-                {
-                    return $"Базисный узел {baseNode.Data.Number}";
-                }
-            }
-
-            foreach (var branch in graphicBranches)
-            {
-                if (ReferenceEquals(branch.Data, data))
-                {
-                    return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}";
-                }
-            }
-
-            foreach (var shunt in graphicShunts)
-            {
-                if (ReferenceEquals(shunt.Data, data))
-                {
-                    return $"Шунт {shunt.Data.StartNodeNumber}";
-                }
-            }
-
-            return "Элемент";
         }
 
         private void LogBurdeningAutoChangeTick(dynamic data, string key)
