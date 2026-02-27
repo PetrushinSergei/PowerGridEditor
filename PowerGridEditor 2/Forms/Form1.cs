@@ -734,7 +734,15 @@ namespace PowerGridEditor
                     form.IntervalSeconds,
                     form.EnabledChange,
                     () => GetParamValue(data, key),
-                    newValue => ApplyParamValue(data, key, newValue),
+                    newValue =>
+                    {
+                        if (!isCalculationRunning)
+                        {
+                            return;
+                        }
+
+                        ApplyParamValue(data, key, newValue);
+                    },
                     onTick);
             }
 
@@ -3371,8 +3379,8 @@ namespace PowerGridEditor
             }
 
             reason = overloaded.Count > 0
-                ? $"Перегрузка ветви {overloaded[0].Data.StartNodeNumber}-{overloaded[0].Data.EndNodeNumber} ({overloaded[0].Data.LoadingPercent:F1}%)."
-                : "Критическое отклонение напряжения в узлах (>10%).";
+                ? $"Остановлено: перегрузка ветви {overloaded[0].Data.StartNodeNumber}-{overloaded[0].Data.EndNodeNumber} ({overloaded[0].Data.LoadingPercent:F1}%)."
+                : "Остановлено: напряжение в узлах вышло за пределы ±10%.";
 
             var detailLines = new List<string>
             {
@@ -3491,7 +3499,7 @@ namespace PowerGridEditor
             if (!isLastModeConverged)
             {
                 divergedModeNumber = convergedModeCounter + 1;
-                lastStopReason = "Несходимость итерационного процесса";
+                lastStopReason = "Остановлено: режим не существует (расчёт не сошёлся).";
                 lastStopDetails = $"Процесс остановлен на шаге №{divergedModeNumber}.";
 
                 SaveLastDivergedState();
@@ -3502,7 +3510,7 @@ namespace PowerGridEditor
                 if (!divergenceNotificationShown)
                 {
                     divergenceNotificationShown = true;
-                    MessageBox.Show(this, $"Режим не сошёлся (режим № {divergedModeNumber}). Расчёт остановлен.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, $"Остановлено: режим не существует (режим № {divergedModeNumber}).\nФоновое автоизменение параметров остановлено.", "Расчёт режима", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 panel2.Invalidate();
                 RefreshElementsGrid();

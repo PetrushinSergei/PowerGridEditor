@@ -123,12 +123,12 @@ namespace PowerGridEditor
             comboStartNode.Items.AddRange(items);
             comboEndNode.Items.AddRange(items);
 
-            if (MyBranch.StartNodeNumber > 0 && comboStartNode.Items.Contains(MyBranch.StartNodeNumber))
+            if (MyBranch.StartNodeNumber > 0)
             {
                 comboStartNode.SelectedItem = MyBranch.StartNodeNumber;
             }
 
-            if (MyBranch.EndNodeNumber > 0 && comboEndNode.Items.Contains(MyBranch.EndNodeNumber))
+            if (MyBranch.EndNodeNumber > 0)
             {
                 comboEndNode.SelectedItem = MyBranch.EndNodeNumber;
             }
@@ -138,36 +138,32 @@ namespace PowerGridEditor
         {
             comboStartNode = new ComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDown,
-                Location = paramBoxes[0].Location,
-                Size = paramBoxes[0].Size,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(paramBoxes[0].Right + 10, paramBoxes[0].Top),
+                Size = new Size(120, paramBoxes[0].Height + 2),
                 Font = paramBoxes[0].Font
             };
 
             comboEndNode = new ComboBox
             {
-                DropDownStyle = ComboBoxStyle.DropDown,
-                Location = paramBoxes[1].Location,
-                Size = paramBoxes[1].Size,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(paramBoxes[1].Right + 10, paramBoxes[1].Top),
+                Size = new Size(120, paramBoxes[1].Height + 2),
                 Font = paramBoxes[1].Font
             };
 
             tabParams.Controls.Add(comboStartNode);
             tabParams.Controls.Add(comboEndNode);
-            comboStartNode.BringToFront();
-            comboEndNode.BringToFront();
-            paramBoxes[0].Visible = false;
-            paramBoxes[1].Visible = false;
 
-            comboStartNode.SelectedIndexChanged += (s, e) =>
+            tabParams.Controls.Add(new Label
             {
-                paramBoxes[0].Text = comboStartNode.Text;
-            };
+                Text = "Список узлов:",
+                Location = new Point(comboStartNode.Left, comboStartNode.Top - 18),
+                Size = new Size(120, 16)
+            });
 
-            comboEndNode.SelectedIndexChanged += (s, e) =>
-            {
-                paramBoxes[1].Text = comboEndNode.Text;
-            };
+            comboStartNode.SelectedIndexChanged += (s, e) => paramBoxes[0].Text = comboStartNode.Text;
+            comboEndNode.SelectedIndexChanged += (s, e) => paramBoxes[1].Text = comboEndNode.Text;
         }
 
         public void RefreshFromModel()
@@ -180,8 +176,15 @@ namespace PowerGridEditor
             var inv = CultureInfo.InvariantCulture;
             paramBoxes[0].Text = MyBranch.StartNodeNumber.ToString(inv);
             paramBoxes[1].Text = MyBranch.EndNodeNumber.ToString(inv);
-            if (comboStartNode != null) comboStartNode.Text = MyBranch.StartNodeNumber > 0 ? MyBranch.StartNodeNumber.ToString(inv) : string.Empty;
-            if (comboEndNode != null) comboEndNode.Text = MyBranch.EndNodeNumber > 0 ? MyBranch.EndNodeNumber.ToString(inv) : string.Empty;
+            if (comboStartNode != null)
+            {
+                comboStartNode.SelectedItem = MyBranch.StartNodeNumber > 0 ? (object)MyBranch.StartNodeNumber : null;
+            }
+
+            if (comboEndNode != null)
+            {
+                comboEndNode.SelectedItem = MyBranch.EndNodeNumber > 0 ? (object)MyBranch.EndNodeNumber : null;
+            }
             paramBoxes[2].Text = MyBranch.ActiveResistance.ToString(inv);
             paramBoxes[3].Text = MyBranch.ReactiveResistance.ToString(inv);
             paramBoxes[4].Text = MyBranch.ReactiveConductivity.ToString(inv);
@@ -284,10 +287,8 @@ namespace PowerGridEditor
             try
             {
                 var inv = CultureInfo.InvariantCulture;
-                if (comboStartNode != null) paramBoxes[0].Text = comboStartNode.Text;
-                if (comboEndNode != null) paramBoxes[1].Text = comboEndNode.Text;
-                MyBranch.StartNodeNumber = int.Parse(paramBoxes[0].Text);
-                MyBranch.EndNodeNumber = int.Parse(paramBoxes[1].Text);
+                MyBranch.StartNodeNumber = ParseNodeIdentifier(paramBoxes[0].Text);
+                MyBranch.EndNodeNumber = ParseNodeIdentifier(paramBoxes[1].Text);
                 if (MyBranch.StartNodeNumber <= 0 || MyBranch.EndNodeNumber <= 0)
                 {
                     MessageBox.Show("Номера узлов ветви должны быть больше 0.");
@@ -326,6 +327,28 @@ namespace PowerGridEditor
             {
                 MessageBox.Show("Ошибка в числовых полях!");
             }
+        }
+
+        private int ParseNodeIdentifier(string rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                throw new FormatException();
+            }
+
+            string trimmed = rawValue.Trim();
+            if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out int number))
+            {
+                return number;
+            }
+
+            var digits = new string(trimmed.Where(char.IsDigit).ToArray());
+            if (int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out number))
+            {
+                return number;
+            }
+
+            throw new FormatException();
         }
 
         private async System.Threading.Tasks.Task RunPing()

@@ -27,11 +27,7 @@ namespace PowerGridEditor
             }
             g.DrawEllipse(Pens.Black, new Rectangle(Location, NodeSize));
             string nodeMode = Data.FixedVoltageModule == 0 ? "PQ" : "PU";
-            using (Font modeFont = new Font("Arial", 7, FontStyle.Bold))
-            using (Brush modeBrush = new SolidBrush(Color.Black))
-            {
-                g.DrawString(nodeMode, modeFont, modeBrush, Location.X + NodeSize.Width + 6, Location.Y + (NodeSize.Height / 2) - 7);
-            }
+            DrawNodeTypeLabel(g, nodeMode);
 
             // Рисуем номер узла
             using (Font font = new Font("Arial", 10, FontStyle.Bold))
@@ -50,6 +46,22 @@ namespace PowerGridEditor
                         format
                     );
                 }
+            }
+        }
+
+        private void DrawNodeTypeLabel(Graphics g, string nodeType)
+        {
+            using (Font modeFont = new Font("Arial", 8, FontStyle.Bold))
+            using (Brush modeBrush = new SolidBrush(Color.Black))
+            using (Brush bgBrush = new SolidBrush(Color.FromArgb(230, Color.White)))
+            {
+                var textSize = g.MeasureString(nodeType, modeFont);
+                int padding = 3;
+                float textX = Location.X + NodeSize.Width + 8;
+                float textY = Location.Y + (NodeSize.Height - textSize.Height) / 2f;
+                var bgRect = new RectangleF(textX - padding, textY - 1, textSize.Width + padding * 2, textSize.Height + 2);
+                g.FillRectangle(bgBrush, bgRect);
+                g.DrawString(nodeType, modeFont, modeBrush, textX, textY);
             }
         }
 
