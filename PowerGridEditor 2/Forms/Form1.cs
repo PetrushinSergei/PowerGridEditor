@@ -342,8 +342,8 @@ namespace PowerGridEditor
                 Name = "checkBoxShowBranchInfo",
                 Text = "Показывать токи/загрузку на ветвях",
                 AutoSize = true,
-                Left = 490,
-                Top = 54,
+                Left = 12,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
@@ -360,8 +360,8 @@ namespace PowerGridEditor
                 Name = "checkBoxLockLegends",
                 Text = "Закрепить легенды",
                 AutoSize = true,
-                Left = 730,
-                Top = 54,
+                Left = 260,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
@@ -374,8 +374,8 @@ namespace PowerGridEditor
                 Name = "checkBoxComprehensiveControl",
                 Text = "Комплексный контроль параметров",
                 AutoSize = true,
-                Left = 900,
-                Top = 54,
+                Left = 460,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
