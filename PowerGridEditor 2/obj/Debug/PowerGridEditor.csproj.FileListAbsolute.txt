@@ -14,3 +14,19 @@ C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEdi
 C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGri.81ACA730.Up2Date
 C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.exe
 C:\Users\Петрушин Сергей\Desktop\PowerGridEditor-main\PowerGridEditor 2\obj\Debug\PowerGridEditor.pdb
+D:\3\PowerGridEditor 2\bin\Debug\PowerGridEditor.exe.config
+D:\3\PowerGridEditor 2\bin\Debug\PowerGridEditor.exe
+D:\3\PowerGridEditor 2\bin\Debug\PowerGridEditor.pdb
+D:\3\PowerGridEditor 2\bin\Debug\NModbus.dll
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.AssemblyReference.cache
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.BaseNodeForm.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.BranchForm.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.Form1.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.NodeForm.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.Properties.Resources.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.ShuntForm.resources
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.GenerateResource.cache
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.csproj.CoreCompileInputs.cache
+D:\3\PowerGridEditor 2\obj\Debug\PowerGri.81ACA730.Up2Date
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.exe
+D:\3\PowerGridEditor 2\obj\Debug\PowerGridEditor.pdb

@@ -106,26 +106,21 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Петрушин Сергей\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\Petru\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Петрушин Сергей\\Desktop\\PowerGridEditor-main\\PowerGridEditor 2\\PowerGridEditor.csproj",
+      "projectUniqueName": "D:\\3\\PowerGridEditor 2\\PowerGridEditor.csproj",
       "projectName": "PowerGridEditor",
-      "projectPath": "C:\\Users\\Петрушин Сергей\\Desktop\\PowerGridEditor-main\\PowerGridEditor 2\\PowerGridEditor.csproj",
-      "packagesPath": "C:\\Users\\Петрушин Сергей\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Петрушин Сергей\\Desktop\\PowerGridEditor-main\\PowerGridEditor 2\\obj\\",
+      "projectPath": "D:\\3\\PowerGridEditor 2\\PowerGridEditor.csproj",
+      "packagesPath": "C:\\Users\\Petru\\.nuget\\packages\\",
+      "outputPath": "D:\\3\\PowerGridEditor 2\\obj\\",
       "projectStyle": "PackageReference",
       "skipContentFileWrite": true,
       "UsingMicrosoftNETSdk": false,
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\Петрушин Сергей\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Users\\Petru\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -137,6 +132,7 @@
       },
       "frameworks": {
         "net48": {
+          "framework": "net48",
           "projectReferences": {}
         }
       },
@@ -148,6 +144,7 @@
     },
     "frameworks": {
       "net48": {
+        "framework": "net48",
         "dependencies": {
           "NModbus": {
             "target": "Package",
