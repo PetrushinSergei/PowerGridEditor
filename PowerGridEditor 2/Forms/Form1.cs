@@ -342,8 +342,8 @@ namespace PowerGridEditor
                 Name = "checkBoxShowBranchInfo",
                 Text = "Показывать токи/загрузку на ветвях",
                 AutoSize = true,
-                Left = 490,
-                Top = 54,
+                Left = 12,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
@@ -360,8 +360,8 @@ namespace PowerGridEditor
                 Name = "checkBoxLockLegends",
                 Text = "Закрепить легенды",
                 AutoSize = true,
-                Left = 730,
-                Top = 54,
+                Left = 250,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
@@ -374,8 +374,8 @@ namespace PowerGridEditor
                 Name = "checkBoxComprehensiveControl",
                 Text = "Комплексный контроль параметров",
                 AutoSize = true,
-                Left = 900,
-                Top = 54,
+                Left = 430,
+                Top = 86,
                 Checked = true,
                 BackColor = ThemePanelBackground,
                 ForeColor = ThemeTextBlack
@@ -389,7 +389,7 @@ namespace PowerGridEditor
                 Text = "Предыдущий режим",
                 Width = 145,
                 Height = 30,
-                Left = 1140,
+                Left = 980,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -397,6 +397,7 @@ namespace PowerGridEditor
                 Enabled = false
             };
             buttonPrevMode.FlatAppearance.BorderSize = 2;
+            buttonPrevMode.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             buttonPrevMode.Click += (s, e) => ShowConvergedSnapshot();
             panel1.Controls.Add(buttonPrevMode);
 
@@ -406,7 +407,7 @@ namespace PowerGridEditor
                 Text = "Последний режим",
                 Width = 145,
                 Height = 30,
-                Left = 1290,
+                Left = 1130,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -414,6 +415,7 @@ namespace PowerGridEditor
                 Enabled = false
             };
             buttonNextMode.FlatAppearance.BorderSize = 2;
+            buttonNextMode.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             buttonNextMode.Click += (s, e) => ShowDivergedSnapshot();
             panel1.Controls.Add(buttonNextMode);
         }
@@ -439,7 +441,6 @@ namespace PowerGridEditor
                 return;
             }
 
-            RestoreLastConvergedState();
             RestoreTrackedParameterSnapshot(lastConvergedTrackedValues);
             RecalculateSnapshotState();
             showingDivergedSnapshot = false;
@@ -456,7 +457,6 @@ namespace PowerGridEditor
                 return;
             }
 
-            RestoreLastDivergedState();
             RestoreTrackedParameterSnapshot(lastDivergedTrackedValues);
             RecalculateSnapshotState();
             showingDivergedSnapshot = true;
@@ -1172,7 +1172,7 @@ namespace PowerGridEditor
             int legendW = 360;
             int legendH = 120;
             int defaultX = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
-            int defaultY = 90;
+            int defaultY = 130;
             int x = Math.Max(6, defaultX + voltageLegendOffset.X);
             int y = Math.Max(6, defaultY + voltageLegendOffset.Y);
             voltageLegendBounds = new Rectangle(x, y, legendW, legendH);
@@ -3332,13 +3332,14 @@ namespace PowerGridEditor
                 }
 
                 string description = burdeningHistoryDescriptions.TryGetValue(historyKey, out var text) ? text : historyKey;
-                var parts = new List<string> { $"Было: {values[0].ToString("F4", CultureInfo.InvariantCulture)}" };
+                sb.AppendLine(description);
+                sb.AppendLine($"  Было: {values[0].ToString("F4", CultureInfo.InvariantCulture)}");
                 for (int i = 1; i < values.Count; i++)
                 {
-                    parts.Add($"Стало: {values[i].ToString("F4", CultureInfo.InvariantCulture)}");
+                    sb.AppendLine($"  Стало: {values[i].ToString("F4", CultureInfo.InvariantCulture)}");
                 }
 
-                sb.AppendLine($"{description} -> {string.Join(" -> ", parts)}");
+                sb.AppendLine();
             }
 
             return sb.ToString();
@@ -3675,10 +3676,38 @@ namespace PowerGridEditor
             }
 
             CaptureTrackedParameterSnapshot(lastDivergedTrackedValues);
+            EnsureDivergedValueIsTrackedInHistory();
             hasLastDivergedSnapshot = true;
             UpdateSnapshotNavigationButtons();
         }
 
+
+        private void EnsureDivergedValueIsTrackedInHistory()
+        {
+            foreach (var tracked in burdeningTrackedParameters)
+            {
+                string id = ParameterAutoChangeService.BuildId((object)tracked.Data, tracked.Key);
+                if (!lastDivergedTrackedValues.TryGetValue(id, out var divergedValue))
+                {
+                    continue;
+                }
+
+                string element = ResolveBurdeningElementLabel(tracked.Data);
+                string historyKey = $"{element}|{tracked.Key}";
+                if (!burdeningValueHistory.TryGetValue(historyKey, out var values))
+                {
+                    values = new List<double>();
+                    burdeningValueHistory[historyKey] = values;
+                    burdeningHistoryOrder.Add(historyKey);
+                    burdeningHistoryDescriptions[historyKey] = $"{element} | {ConvertParamKeyToLabel(tracked.Key)}";
+                }
+
+                if (values.Count == 0 || Math.Abs(values[values.Count - 1] - divergedValue) > 1e-9)
+                {
+                    values.Add(divergedValue);
+                }
+            }
+        }
         private void RestoreLastDivergedState()
         {
             if (!hasLastDivergedSnapshot)
