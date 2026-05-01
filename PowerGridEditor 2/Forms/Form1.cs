@@ -389,7 +389,7 @@ namespace PowerGridEditor
                 Text = "Предыдущий режим",
                 Width = 145,
                 Height = 30,
-                Left = 1140,
+                Left = 980,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -397,6 +397,7 @@ namespace PowerGridEditor
                 Enabled = false
             };
             buttonPrevMode.FlatAppearance.BorderSize = 2;
+            buttonPrevMode.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             buttonPrevMode.Click += (s, e) => ShowConvergedSnapshot();
             panel1.Controls.Add(buttonPrevMode);
 
@@ -406,7 +407,7 @@ namespace PowerGridEditor
                 Text = "Последний режим",
                 Width = 145,
                 Height = 30,
-                Left = 1290,
+                Left = 1130,
                 Top = 48,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = ThemeAccentBlue,
@@ -414,6 +415,7 @@ namespace PowerGridEditor
                 Enabled = false
             };
             buttonNextMode.FlatAppearance.BorderSize = 2;
+            buttonNextMode.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             buttonNextMode.Click += (s, e) => ShowDivergedSnapshot();
             panel1.Controls.Add(buttonNextMode);
         }
@@ -1170,7 +1172,7 @@ namespace PowerGridEditor
             int legendW = 360;
             int legendH = 120;
             int defaultX = Math.Max(6, panel2.ClientSize.Width - legendW - 10);
-            int defaultY = 90;
+            int defaultY = 130;
             int x = Math.Max(6, defaultX + voltageLegendOffset.X);
             int y = Math.Max(6, defaultY + voltageLegendOffset.Y);
             voltageLegendBounds = new Rectangle(x, y, legendW, legendH);
