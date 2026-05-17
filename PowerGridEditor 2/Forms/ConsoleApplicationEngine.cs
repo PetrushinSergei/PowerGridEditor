@@ -525,15 +525,15 @@ internal sealed class ConsoleApplicationEngine
             sp += p[i]; sq += q[i]; spg += pg; sqb += qb;
             mv = Math.Sqrt(mv);
 
-            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(-p[i]),10}{F2(-q[i]),10}{F2(pg),10}{F2(qb),10}");
+            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(p[i]),10}{F2(q[i]),10}{F2(pg),10}{F2(qb),10}");
         }
 
         net2.AppendLine("---------------------------------------------------");
         net2.AppendLine($"Баланс пассивных элементов {F2(sp),10}{F2(sq),10}{F2(spg),10}{F2(sqb),10}");
-        net2.AppendLine("                         + потребление, - генерация ");
+        net2.AppendLine("                         - потребление, + генерация ");
         net2.AppendLine();
-        net2.AppendLine("                   Результаты расчета по ветвям");
-        net2.AppendLine("   N1   N1       P12       Q12       P21       Q21       dP");
+        net2.AppendLine("                   Результаты расчета по ветвям (токи, А)");
+        net2.AppendLine("   N1   N2   Ток Ак нач  Ток Re нач  Ток Ак кон  Ток Re кон     I_нач       I_кон");
 
         for (int j = 1; j <= m; j++)
         {
@@ -557,7 +557,27 @@ internal sealed class ConsoleApplicationEngine
 
             tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
-            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
+            // 1) Реальные напряжения на зажимах ветви (кВ):
+            // если модуль меньше 10, считаем что это о.е. и масштабируем на Uном узла.
+            double uI = Math.Sqrt(va[i1] * va[i1] + vr[i1] * vr[i1]);
+            double uJ = Math.Sqrt(va[i2] * va[i2] + vr[i2] * vr[i2]);
+            double uIKv = uI < 10.0 ? uI * unom[i1] : uI;
+            double uJKv = uJ < 10.0 ? uJ * unom[i2] : uJ;
+            double safeUIKv = uIKv > 1e-9 ? uIKv : 1e-9;
+            double safeUJKv = uJKv > 1e-9 ? uJKv : 1e-9;
+
+            // 2) Перевод в Амперы через рассчитанные мощности:
+            // I = (S * 1000) / (sqrt(3) * U), где S в МВт/МВАр, U в кВ.
+            double iActIAmp = (-p12 * 1000.0) / (Math.Sqrt(3.0) * safeUIKv);
+            double iReIAmp = (-q12 * 1000.0) / (Math.Sqrt(3.0) * safeUIKv);
+            double iActJAmp = (p21 * 1000.0) / (Math.Sqrt(3.0) * safeUJKv);
+            double iReJAmp = (q21 * 1000.0) / (Math.Sqrt(3.0) * safeUJKv);
+
+            // 3) Полные токи на началах/концах ветви (емкостная составляющая уже учтена в p/q).
+            double iNachTotal = Math.Sqrt(iActIAmp * iActIAmp + iReIAmp * iReIAmp);
+            double iKonTotal = Math.Sqrt(iActJAmp * iActJAmp + iReJAmp * iReJAmp);
+
+            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(iActIAmp),12}{F2(iReIAmp),12}{F2(iActJAmp),12}{F2(iReJAmp),12}{F2(iNachTotal),12}{F2(iKonTotal),12}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
