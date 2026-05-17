@@ -525,25 +525,24 @@ internal sealed class ConsoleApplicationEngine
             sp += p[i]; sq += q[i]; spg += pg; sqb += qb;
             mv = Math.Sqrt(mv);
 
-            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(p[i]),10}{F2(q[i]),10}{F2(pg),10}{F2(qb),10}");
+            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(-p[i]),10}{F2(-q[i]),10}{F2(pg),10}{F2(qb),10}");
         }
 
         net2.AppendLine("---------------------------------------------------");
         net2.AppendLine($"Баланс пассивных элементов {F2(sp),10}{F2(sq),10}{F2(spg),10}{F2(sqb),10}");
-        net2.AppendLine("                         - потребление, + генерация ");
+        net2.AppendLine("                         + потребление, - генерация ");
         net2.AppendLine();
-        net2.AppendLine("                   Результаты расчета по ветвям (токи, А)");
-        net2.AppendLine("   N1   N2   Ток Ак нач  Ток Re нач  Ток Ак кон  Ток Re кон     I_нач       I_кон      I_макс");
+        net2.AppendLine("                   Результаты расчета по ветвям");
+        net2.AppendLine("   N1   N1       P12       Q12       P21       Q21       dP");
 
         for (int j = 1; j <= m; j++)
         {
             int i1 = nm1[1, j], i2 = nm1[2, j];
-            const double sBaz = 500.0; // МВА
 
             double i1a = (va[i1] * gr[j] - vr[i1] * bx[j]) / (kt[j] * kt[j]) - (va[i2] * gr[j] - vr[i2] * bx[j]) / kt[j];
             double i1r = (va[i1] * bx[j] + vr[i1] * gr[j]) / (kt[j] * kt[j]) - (va[i2] * bx[j] + vr[i2] * gr[j]) / kt[j];
-            double i2a = -i1a;
-            double i2r = -i1r;
+            double i2a = (va[i1] * gr[j] - vr[i1] * bx[j]) / kt[j] - (va[i2] * gr[j] - vr[i2] * bx[j]);
+            double i2r = (va[i1] * bx[j] + vr[i1] * gr[j]) / kt[j] - (va[i2] * bx[j] + vr[i2] * gr[j]);
 
             double mv = va[i1] * va[i1] + vr[i1] * vr[i1];
             double p12 = va[i1] * i1a + vr[i1] * i1r - gy[j] * mv / 2.0;
@@ -558,35 +557,7 @@ internal sealed class ConsoleApplicationEngine
 
             tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
-            // Базисные токи для каждого конца ветви, А.
-            double safeUnomI = Math.Abs(unom[i1]) > 1e-9 ? Math.Abs(unom[i1]) : 1e-9;
-            double safeUnomJ = Math.Abs(unom[i2]) > 1e-9 ? Math.Abs(unom[i2]) : 1e-9;
-            double iBazI = (sBaz * 1000.0) / (Math.Sqrt(3.0) * safeUnomI);
-            double iBazJ = (sBaz * 1000.0) / (Math.Sqrt(3.0) * safeUnomJ);
-
-            // Емкостные токи половин линии: I_sh = V * j*(By/2) = (-Vr*By/2) + j*(Va*By/2).
-            double ish1a = -vr[i1] * (by[j] / 2.0);
-            double ish1r = va[i1] * (by[j] / 2.0);
-            double ish2a = -vr[i2] * (by[j] / 2.0);
-            double ish2r = va[i2] * (by[j] / 2.0);
-
-            // Полные токи зажимов в о.е. = продольный + емкостный.
-            double iNachOtnA = i1a + ish1a;
-            double iNachOtnR = i1r + ish1r;
-            double iKonOtnA = i2a + ish2a;
-            double iKonOtnR = i2r + ish2r;
-
-            // Перевод проекций в Амперы.
-            double iActIAmp = iNachOtnA * iBazI;
-            double iReIAmp = iNachOtnR * iBazI;
-            double iActJAmp = iKonOtnA * iBazJ;
-            double iReJAmp = iKonOtnR * iBazJ;
-
-            // Модули полных токов, А.
-            double iNachTotal = Math.Sqrt(iActIAmp * iActIAmp + iReIAmp * iReIAmp);
-            double iKonTotal = Math.Sqrt(iActJAmp * iActJAmp + iReJAmp * iReJAmp);
-
-            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(iActIAmp),13}{F2(iReIAmp),13}{F2(iActJAmp),13}{F2(iReJAmp),13}{F2(iNachTotal),11}{F2(iKonTotal),11}{F2(0.0),11}");
+            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;

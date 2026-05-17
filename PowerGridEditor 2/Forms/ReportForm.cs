@@ -220,16 +220,12 @@ namespace PowerGridEditor
             var sb = new StringBuilder();
             sb.AppendLine("Расчет загрузки ветвей по току в амперах");
             sb.AppendLine("Формулы:");
-            sb.AppendLine("S_baz = 500 МВА");
-            sb.AppendLine("I_baz = (S_baz * 1000) / (sqrt(3) * Uном_кВ)");
-            sb.AppendLine("Iак(А) = Iак(о.е.) * I_baz,  Iре(А) = Iре(о.е.) * I_baz");
-            sb.AppendLine("Для линии: Iзар = (Uном * 1000 / sqrt(3)) * (B/2)");
-            sb.AppendLine("Iнач = sqrt(Iак_нач^2 + (Iре_нач + Iзар)^2)");
-            sb.AppendLine("Iкон = sqrt(Iак_кон^2 + (Iре_кон - Iзар)^2)");
-            sb.AppendLine("Для трансформатора (Uнач != Uкон): Iзар = 0");
-            sb.AppendLine("Kзагр = max(Iнач, Iкон) / I_макс * 100%");
+            sb.AppendLine("I_pu = sqrt(re^2 + im^2)");
+            sb.AppendLine("S_base = 1000");
+            sb.AppendLine("I_amp = (I_pu * S_base) / (sqrt(3) * Uном_кВ) * 1000");
+            sb.AppendLine("Kзагр = I_amp / I_max * 100%");
             sb.AppendLine();
-            sb.AppendLine("Ветвь      Uнач,кВ  Uкон,кВ  Ток Ак нач  Ток Re нач  Ток Ак кон  Ток Re кон    I_нач      I_кон      I_макс    Kзагр    Тип");
+            sb.AppendLine("Ветвь      re(pu)   im(pu)   Uном,кВ   Ipu      I_amp,А    Imax,А    Kзагр     Перегруз");
 
             var currents = ParseBranchCurrents(lossesRez);
             foreach (var branch in _branches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
@@ -243,46 +239,26 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                double uNomStartKv = GetNodeNominalVoltageKv(start);
-                double uNomEndKv = GetNodeNominalVoltageKv(end);
+                double uNomKv = GetNodeNominalVoltageKv(start);
                 double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
-                bool isTransformer = Math.Abs(uNomStartKv - uNomEndKv) > 1e-6;
-
-                const double sBaz = 500.0; // МВА
-                double iBazStart = (sBaz * 1000.0) / (Math.Sqrt(3.0) * (uNomStartKv <= 0 ? 110.0 : uNomStartKv));
-                double iBazEnd = (sBaz * 1000.0) / (Math.Sqrt(3.0) * (uNomEndKv <= 0 ? 110.0 : uNomEndKv));
-
-                // Iак/Iре из losses.rez (о.е.) пересчитываем в Амперы для начала и конца ветви по разным базисам.
-                double iActStartAmp = c.Active * iBazStart;
-                double iReStartAmp = c.Reactive * iBazStart;
-                double iActEndAmp = c.Active * iBazEnd;
-                double iReEndAmp = c.Reactive * iBazEnd;
-
-                // Для линий учитываем зарядный ток (B/2), для трансформаторов зарядный ток отсутствует.
-                double bLine = Math.Abs(branch.Data.ReactiveConductivity);
-                double iZar = isTransformer ? 0.0 : ((uNomStartKv * 1000.0) / Math.Sqrt(3.0)) * (bLine / 2.0);
-
-                double iStartTotal = Math.Sqrt(iActStartAmp * iActStartAmp + Math.Pow(iReStartAmp + iZar, 2));
-                double iEndTotal = Math.Sqrt(iActEndAmp * iActEndAmp + Math.Pow(iReEndAmp - iZar, 2));
-                double iCritical = Math.Max(iStartTotal, iEndTotal);
-                double load = iMax > 0 ? iCritical / iMax * 100.0 : 0;
+                bool overloaded;
+                double iPu;
+                double iAmp = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, iMax, out overloaded, out iPu);
+                double load = iMax > 0 ? iAmp / iMax * 100.0 : 0;
 
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0,4}-{1,-4}  {2,7:F2}  {3,7:F2}  {4,11:F2}  {5,11:F2}  {6,11:F2}  {7,11:F2}  {8,9:F2}  {9,9:F2}  {10,9:F2}  {11,6:F2}%  {12}",
+                    "{0,4}-{1,-4}  {2,7:F3}  {3,7:F3}  {4,8:F2}  {5,7:F3}  {6,9:F2}  {7,8:F2}  {8,7:F2}%  {9}",
                     start,
                     end,
-                    uNomStartKv,
-                    uNomEndKv,
-                    iActStartAmp,
-                    iReStartAmp,
-                    iActEndAmp,
-                    iReEndAmp,
-                    iStartTotal,
-                    iEndTotal,
+                    c.Active,
+                    c.Reactive,
+                    uNomKv,
+                    iPu,
+                    iAmp,
                     iMax,
                     load,
-                    isTransformer ? "Тр-р" : "ЛЭП"));
+                    overloaded ? "Да" : "Нет"));
             }
 
             sb.AppendLine();
@@ -313,6 +289,16 @@ namespace PowerGridEditor
             }
 
             return 110;
+        }
+
+        private double ConvertTokToAmperes(double re, double im, double uNomKv, double iMax, out bool overloaded, out double iPu)
+        {
+            iPu = Math.Sqrt(re * re + im * im);
+            const double sBase = 1000.0;
+            double u = uNomKv <= 0 ? 110.0 : uNomKv;
+            double iAmp = (iPu * sBase) / (Math.Sqrt(3.0) * u) * 1000.0;
+            overloaded = iAmp > iMax;
+            return iAmp;
         }
 
         private static string BuildBranchKey(int start, int end)
