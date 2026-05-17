@@ -229,7 +229,7 @@ namespace PowerGridEditor
             sb.AppendLine("Для трансформатора (Uнач != Uкон): Iзар = 0");
             sb.AppendLine("Kзагр = max(Iнач, Iкон) / I_макс * 100%");
             sb.AppendLine();
-            sb.AppendLine("Ветвь      Uнач,кВ  Uкон,кВ  Ток Ак нач  Ток Re нач    I_нач      I_кон      I_макс    Kзагр    Тип");
+            sb.AppendLine("Ветвь      Uнач,кВ  Uкон,кВ  Ток Ак нач  Ток Re нач  Ток Ак кон  Ток Re кон    I_нач      I_кон      I_макс    Kзагр    Тип");
 
             var currents = ParseBranchCurrents(lossesRez);
             foreach (var branch in _branches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
@@ -269,13 +269,15 @@ namespace PowerGridEditor
 
                 sb.AppendLine(string.Format(
                     CultureInfo.InvariantCulture,
-                    "{0,4}-{1,-4}  {2,7:F2}  {3,7:F2}  {4,11:F2}  {5,11:F2}  {6,9:F2}  {7,9:F2}  {8,9:F2}  {9,6:F2}%  {10}",
+                    "{0,4}-{1,-4}  {2,7:F2}  {3,7:F2}  {4,11:F2}  {5,11:F2}  {6,11:F2}  {7,11:F2}  {8,9:F2}  {9,9:F2}  {10,9:F2}  {11,6:F2}%  {12}",
                     start,
                     end,
                     uNomStartKv,
                     uNomEndKv,
                     iActStartAmp,
                     iReStartAmp,
+                    iActEndAmp,
+                    iReEndAmp,
                     iStartTotal,
                     iEndTotal,
                     iMax,

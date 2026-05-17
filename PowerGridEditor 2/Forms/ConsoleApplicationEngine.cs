@@ -557,7 +557,7 @@ internal sealed class ConsoleApplicationEngine
 
             tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
-            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(p12),10}{F2(q12),10}{F2(-p21),10}{F2(-q21),10}{F2(dpl),10}");
+            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(-p21),10}{F2(-q21),10}{F2(dpl),10}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
