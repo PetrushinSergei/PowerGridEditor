@@ -525,15 +525,15 @@ internal sealed class ConsoleApplicationEngine
             sp += p[i]; sq += q[i]; spg += pg; sqb += qb;
             mv = Math.Sqrt(mv);
 
-            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(-p[i]),10}{F2(-q[i]),10}{F2(pg),10}{F2(qb),10}");
+            net2.AppendLine($"{nn[i],5}{F2(mv),10}{F2(dv),10}{F2(p[i]),10}{F2(q[i]),10}{F2(pg),10}{F2(qb),10}");
         }
 
         net2.AppendLine("---------------------------------------------------");
         net2.AppendLine($"Баланс пассивных элементов {F2(sp),10}{F2(sq),10}{F2(spg),10}{F2(sqb),10}");
-        net2.AppendLine("                         + потребление, - генерация ");
+        net2.AppendLine("                         - потребление, + генерация ");
         net2.AppendLine();
         net2.AppendLine("                   Результаты расчета по ветвям");
-        net2.AppendLine("   N1   N1       P12       Q12       P21       Q21       dP");
+        net2.AppendLine("   N1   N1      Pнач      Qнач      Pкон      Qкон       dP");
 
         for (int j = 1; j <= m; j++)
         {
@@ -557,7 +557,7 @@ internal sealed class ConsoleApplicationEngine
 
             tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
-            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}");
+            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(p12),10}{F2(q12),10}{F2(-p21),10}{F2(-q21),10}{F2(dpl),10}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
