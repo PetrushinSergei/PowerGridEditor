@@ -27,7 +27,7 @@ namespace PowerGridEditor
             Point endCenter = NodeGraphicsHelper.GetNodeCenter(EndNode);
 
             // Выбираем цвет в зависимости от выделения
-            Pen pen = IsSelected ? new Pen(Color.Red, 3) : new Pen(LoadColor, 2);
+            Pen pen = IsSelected ? new Pen(Color.Red, 5) : new Pen(LoadColor, 4);
 
             // Рисуем линию от центра к центру
             g.DrawLine(pen, startCenter, endCenter);
