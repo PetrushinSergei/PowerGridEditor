@@ -1064,10 +1064,11 @@ namespace PowerGridEditor
             Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
 
             double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
-            double ir = branch.Data.CalculatedCurrent;
+            double iStart = branch.Data.CalculatedStartCurrent;
+            double iEnd = branch.Data.CalculatedEndCurrent;
             double loading = branch.Data.LoadingPercent;
 
-            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Загрузка={loading:F2}%";
+            string info = $"Iнач={iStart:F2}A  Iкон={iEnd:F2}A  Iдоп={id:F2}A  Загр={loading:F2}%";
             var size = g.MeasureString(info, Font);
             var rect = new RectangleF(middle.X - size.Width / 2f - 4f, middle.Y - 25f, size.Width + 8f, size.Height + 2f);
 
@@ -1091,7 +1092,7 @@ namespace PowerGridEditor
             int y = Math.Max(6, defaultY + branchLegendOffset.Y);
             int rowH = 24;
             int legendW = 350;
-            int legendH = 155;
+            int legendH = 110;
             branchLegendBounds = new Rectangle(x, y, legendW, legendH);
 
             using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
@@ -1104,10 +1105,8 @@ namespace PowerGridEditor
 
                 var rows = new[]
                 {
-                    (Color.Blue, "0% - 50%", "Линия недогружена (холодная)"),
-                    (Color.Green, "50% - 80%", "Оптимальный режим"),
-                    (Color.Yellow, "80% - 95%", "Внимание! Близко к пределу"),
-                    (Color.Orange, "95% - 100%", "Предупреждение"),
+                    (Color.Green, "0% - 80%", "Оптимальный режим / недогружена"),
+                    (Color.Yellow, "80% - 100%", "Внимание / близко к пределу"),
                     (Color.Red, "> 100%", "ПЕРЕГРУЗКА! Риск повреждения")
                 };
 
@@ -3566,14 +3565,27 @@ namespace PowerGridEditor
                 return;
             }
 
+            var branchMetricsFromNetwork = ParseBranchMetricsFromNetworkRez(result.NetworkRez);
             var currents = ParseBranchCurrentsFromLosses(lossesText);
             foreach (var branch in graphicBranches)
             {
                 var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (branchMetricsFromNetwork.TryGetValue(key, out var metrics) || branchMetricsFromNetwork.TryGetValue((key.Item2, key.Item1), out metrics))
+                {
+                    branch.Data.CalculatedStartCurrent = metrics.IStart;
+                    branch.Data.CalculatedEndCurrent = metrics.IEnd;
+                    branch.Data.CalculatedCurrent = Math.Max(metrics.IStart, metrics.IEnd);
+                    branch.Data.LoadingPercent = metrics.Loading;
+                    branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+                    continue;
+                }
+
                 if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
                 {
                     branch.Data.CalculatedActiveCurrent = 0;
                     branch.Data.CalculatedReactiveCurrent = 0;
+                    branch.Data.CalculatedStartCurrent = 0;
+                    branch.Data.CalculatedEndCurrent = 0;
                     branch.Data.CalculatedCurrent = 0;
                     branch.Data.LoadingPercent = 0;
                     branch.LoadColor = Color.Black;
@@ -3586,13 +3598,16 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
-                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
             convergedModeCounter++;
             SaveLastConvergedState();
+            RefreshOpenedElementForms();
 
             if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
             {
@@ -3922,10 +3937,21 @@ namespace PowerGridEditor
                 return;
             }
 
+            var branchMetricsFromNetwork = ParseBranchMetricsFromNetworkRez(result.NetworkRez);
             var currents = ParseBranchCurrentsFromLosses(result.LossesRez);
             foreach (var branch in graphicBranches)
             {
                 var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (branchMetricsFromNetwork.TryGetValue(key, out var metrics) || branchMetricsFromNetwork.TryGetValue((key.Item2, key.Item1), out metrics))
+                {
+                    branch.Data.CalculatedStartCurrent = metrics.IStart;
+                    branch.Data.CalculatedEndCurrent = metrics.IEnd;
+                    branch.Data.CalculatedCurrent = Math.Max(metrics.IStart, metrics.IEnd);
+                    branch.Data.LoadingPercent = metrics.Loading;
+                    branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+                    continue;
+                }
+
                 if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
                 {
                     continue;
@@ -3937,11 +3963,14 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
-                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            RefreshOpenedElementForms();
         }
 
         private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
@@ -4028,7 +4057,7 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                if (line.StartsWith("Результаты расчета по узлам", StringComparison.OrdinalIgnoreCase))
+                if (line.IndexOf("РЕЗУЛЬТАТЫ РАСЧЕТА ПО УЗЛАМ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     inNodesSection = true;
                     continue;
@@ -4039,25 +4068,30 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                if (line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith("Баланс", StringComparison.OrdinalIgnoreCase))
+                if (line.IndexOf("ИТОГОВЫЙ БАЛАНС", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     break;
                 }
 
-                var parts = Regex.Split(line, @"\s+");
-                if (parts.Length < 2)
+                if (!line.StartsWith("|", StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                if (!int.TryParse(parts[0], out var nodeNumber))
+                var parts = line.Split('|').Select(x => x.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+                if (parts.Length < 11)
                 {
                     continue;
                 }
 
-                if (double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var uFact))
+                if (!int.TryParse(parts[1], out var nodeNumber))
                 {
-                    result[nodeNumber] = uFact;
+                    continue;
+                }
+
+                if (double.TryParse(parts[9], NumberStyles.Float, CultureInfo.InvariantCulture, out var uCalc))
+                {
+                    result[nodeNumber] = uCalc;
                 }
             }
 
@@ -4138,13 +4172,10 @@ namespace PowerGridEditor
 
             if (element is GraphicBranch branch)
             {
-                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double iaAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedActiveCurrent, uNomKv);
-                double irAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedReactiveCurrent, uNomKv);
                 double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}\n" +
-                       $"Iакт={iaAmp:F2} A\n" +
-                       $"Iреакт={irAmp:F2} A\n" +
+                       $"Iнач={branch.Data.CalculatedStartCurrent:F2} A\n" +
+                       $"Iкон={branch.Data.CalculatedEndCurrent:F2} A\n" +
                        $"Iдоп={iMax:F2} A\n" +
                        $"Загрузка={branch.Data.LoadingPercent:F2}%";
             }
@@ -4328,12 +4359,59 @@ namespace PowerGridEditor
             return result;
         }
 
+        private Dictionary<(int Start, int End), (double IStart, double IEnd, double Loading)> ParseBranchMetricsFromNetworkRez(string networkRez)
+        {
+            var result = new Dictionary<(int Start, int End), (double IStart, double IEnd, double Loading)>();
+            if (string.IsNullOrWhiteSpace(networkRez))
+            {
+                return result;
+            }
+
+            var lines = networkRez.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("|"))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('|').Select(x => x.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+                if (parts.Length < 16 || (parts[0] != "ЛЭП" && parts[0] != "Тр-р"))
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(parts[1], out int start) || !int.TryParse(parts[2], out int end))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[12], NumberStyles.Any, CultureInfo.InvariantCulture, out double iStart))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[13], NumberStyles.Any, CultureInfo.InvariantCulture, out double iEnd))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[15], NumberStyles.Any, CultureInfo.InvariantCulture, out double loading))
+                {
+                    continue;
+                }
+
+                result[(start, end)] = (iStart, iEnd, loading);
+            }
+
+            return result;
+        }
+
         private Color GetBranchLoadColor(double loadingPercent)
         {
-            if (loadingPercent <= 50) return Color.Blue;
             if (loadingPercent <= 80) return Color.Green;
-            if (loadingPercent <= 95) return Color.Yellow;
-            if (loadingPercent <= 100) return Color.Orange;
+            if (loadingPercent <= 100) return Color.Yellow;
             return Color.Red;
         }
 
@@ -4710,7 +4788,9 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 if (branch.Data.CalculatedCurrent > 0)
                 {
-                    branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                    branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                     branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
                 }
             }
