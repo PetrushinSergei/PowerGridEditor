@@ -3607,6 +3607,7 @@ namespace PowerGridEditor
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
             convergedModeCounter++;
             SaveLastConvergedState();
+            RefreshOpenedElementForms();
 
             if (comprehensiveControlEnabled && TryBuildControlStopReason(convergedModeCounter + 1, out var stopReason, out var stopDetails))
             {
@@ -3969,6 +3970,7 @@ namespace PowerGridEditor
             }
 
             ApplyNodeVoltageColorsFromNetworkRez(result.NetworkRez);
+            RefreshOpenedElementForms();
         }
 
         private void ApplyNodeVoltageColorsFromNetworkRez(string networkRez)
@@ -4055,7 +4057,7 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                if (line.StartsWith("Результаты расчета по узлам", StringComparison.OrdinalIgnoreCase))
+                if (line.IndexOf("РЕЗУЛЬТАТЫ РАСЧЕТА ПО УЗЛАМ", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     inNodesSection = true;
                     continue;
@@ -4066,25 +4068,30 @@ namespace PowerGridEditor
                     continue;
                 }
 
-                if (line.StartsWith("-", StringComparison.Ordinal) || line.StartsWith("Баланс", StringComparison.OrdinalIgnoreCase))
+                if (line.IndexOf("ИТОГОВЫЙ БАЛАНС", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     break;
                 }
 
-                var parts = Regex.Split(line, @"\s+");
-                if (parts.Length < 2)
+                if (!line.StartsWith("|", StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                if (!int.TryParse(parts[0], out var nodeNumber))
+                var parts = line.Split('|').Select(x => x.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+                if (parts.Length < 11)
                 {
                     continue;
                 }
 
-                if (double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var uFact))
+                if (!int.TryParse(parts[1], out var nodeNumber))
                 {
-                    result[nodeNumber] = uFact;
+                    continue;
+                }
+
+                if (double.TryParse(parts[9], NumberStyles.Float, CultureInfo.InvariantCulture, out var uCalc))
+                {
+                    result[nodeNumber] = uCalc;
                 }
             }
 
