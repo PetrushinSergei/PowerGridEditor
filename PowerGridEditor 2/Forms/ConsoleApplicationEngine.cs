@@ -57,6 +57,8 @@ namespace PowerGridEditor
         private readonly double[] unom = new double[inn];
         private readonly double[] p0 = new double[inn];
         private readonly double[] q0 = new double[inn];
+        private readonly double[] qmin = new double[inn];
+        private readonly double[] qmax = new double[inn];
         private readonly double[] g = new double[inn];
         private readonly double[] b = new double[inn];
         private readonly double[] r = new double[imm];
@@ -64,6 +66,7 @@ namespace PowerGridEditor
         private readonly double[] gy = new double[imm];
         private readonly double[] by = new double[imm];
         private readonly double[] kt = new double[imm];
+        private readonly double[] imax = new double[imm];
         private readonly double[] gg = new double[inn];
         private readonly double[] bb = new double[inn];
         private readonly double[] va = new double[inn];
@@ -200,6 +203,8 @@ namespace PowerGridEditor
                             nk[j] = 2;
                         }
                     }
+                    if (t.Length > 9) qmin[j] = ParseD(t[9]);
+                    if (t.Length > 10) qmax[j] = ParseD(t[10]);
                     Raion(nn[j]);
                 }
                 else if (code == 301 || code == 0301)
@@ -230,6 +235,7 @@ namespace PowerGridEditor
                         x[br] = ParseD(t[5]);
                         by[br] = -ParseD(t[6]);
                         kt[br] = t.Length > 7 ? ParseD(t[7]) : 0;
+                        imax[br] = t.Length > 10 ? ParseD(t[10]) : 600.0;
                         if (Math.Abs(x[br]) < 1.001) x[br] = 1.01;
                         if (kt[br] < 0.001) kt[br] = 1;
                         gy[br] = 0;
@@ -539,10 +545,10 @@ namespace PowerGridEditor
                 if (nk[i] == 3) // Базовый узел 
                 {
                     typeStr = "База";
-                    pLoad = 30.0;
-                    qLoad = 15.0;
-                    pGen = 206.40;
-                    qGen = -1257.94;
+                    pLoad = p0[i];
+                    qLoad = q0[i];
+                    pGen = p[i] + pLoad;
+                    qGen = q[i] + qLoad;
 
                     baseNodeNum = nn[i];
                     baseNodePg = pGen;
@@ -551,23 +557,13 @@ namespace PowerGridEditor
                 else if (nk[i] == 2) // Генераторный узел
                 {
                     typeStr = "Ген ";
-                    if (nn[i] == 350)
-                    {
-                        pLoad = 33.0;
-                        qLoad = 10.0;
-                        pGen = 30.0;
-                        qGen = q[i] - qLoad;
-                    }
-                    else
-                    {
-                        pLoad = 0.0;
-                        qLoad = 0.0;
-                        pGen = 0.0;
-                        qGen = q[i];
-                    }
-                    vZdStr = F2(500.0);
-                    qMinStr = F2(-9999.0);
-                    qMaxStr = F2(9999.0);
+                    pLoad = p0[i];
+                    qLoad = q0[i];
+                    pGen = p[i] + pLoad;
+                    qGen = q[i] + qLoad;
+                    vZdStr = F2(unom[i]);
+                    qMinStr = F2(qmin[i]);
+                    qMaxStr = F2(qmax[i]);
                 }
                 else // Нагрузка
                 {
@@ -613,9 +609,9 @@ namespace PowerGridEditor
             net2.AppendLine("+---------------------------------------------------------------------------------------------------------------------------------------------------------------+");
             net2.AppendLine("|                                                                                                                                                               |");
             net2.AppendLine("|                                                              РЕЗУЛЬТАТЫ РАСЧЕТА ПО ВЕТВЯМ                                                                     |");
-            net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
-            net2.AppendLine("| Тип  |  N1  |  N2  |  Ктт  |   R    |   X    |   B    |  Pнач  |  Qнач  |  Pкон  |  Qкон  |   dP   |  Iнач  |  Iкон  | Загр,%  |");
-            net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
+            net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
+            net2.AppendLine("| Тип  |  N1  |  N2  |  Ктт  |   R    |   X    |   B    |  Pнач  |  Qнач  |  Pкон  |  Qкон  |   dP   |  Iнач  |  Iкон  |  Iдоп  | Загр,%  |");
+            net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
 
             for (int j = 1; j <= m; j++)
             {
@@ -646,20 +642,12 @@ namespace PowerGridEditor
 
                 string branchType = "ЛЭП";
                 string ktStr = "";
-                double iMax_A = 0.0;
+                double iMax_A = imax[j] > 0 ? imax[j] : 600.0;
 
                 if (Math.Abs(kt[j] - 1.0) > 0.001) // Трансформатор
                 {
                     branchType = "Тр-р";
                     ktStr = F2(kt[j]);
-                    double uNom = (unom[i1] > 0) ? unom[i1] : 500.0;
-                    double sNom = 500.0;
-                    iMax_A = (sNom / (Math.Sqrt(3.0) * uNom)) * 1000.0;
-                }
-                else // ЛЭП
-                {
-                    branchType = "ЛЭП";
-                    iMax_A = 1520.0;
                 }
 
                 double maxCurrent = Math.Max(iStartAmperes, iEndAmperes);
@@ -680,9 +668,9 @@ namespace PowerGridEditor
                 double p21_report = -p21; // Инвертируем знак конца для отображения сквозного транзита
                 double q21_report = -q21; // Инвертируем знак конца для отображения сквозного транзита
 
-                net2.AppendLine(string.Format("| {0,-4} | {1,4} | {2,4} | {3,5} | {4,6} | {5,6} | {6,6} | {7,6} | {8,6} | {9,6} | {10,6} | {11,6} | {12,6} | {13,6} | {14,7} |",
-                    branchType, nn[i1], nn[i2], ktStr, F2(resR), F2(resX), BlankZero(resB), F2(p12_report), F2(q12_report), F2(p21_report), F2(q21_report), F2(Math.Abs(dpl)), F2(iStartAmperes), F2(iEndAmperes), F2(totalLoadPercent)));
-                net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
+                net2.AppendLine(string.Format("| {0,-4} | {1,4} | {2,4} | {3,5} | {4,6} | {5,6} | {6,6} | {7,6} | {8,6} | {9,6} | {10,6} | {11,6} | {12,6} | {13,6} | {14,6} | {15,7} |",
+                    branchType, nn[i1], nn[i2], ktStr, F2(resR), F2(resX), BlankZero(resB), F2(p12_report), F2(q12_report), F2(p21_report), F2(q21_report), F2(Math.Abs(dpl)), F2(iStartAmperes), F2(iEndAmperes), F2(iMax_A), F2(totalLoadPercent)));
+                net2.AppendLine("+------+------+------+-------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+--------+---------+");
 
                 int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
                 int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
