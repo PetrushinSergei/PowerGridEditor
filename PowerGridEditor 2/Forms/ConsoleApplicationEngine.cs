@@ -235,8 +235,8 @@ internal sealed class ConsoleApplicationEngine
                     by[br] = -ParseD(t[6]);
                     kt[br] = t.Length > 7 ? ParseD(t[7]) : 0;
                     // Формат 0301: ... Kтрансф Gакт 0 0 Iдоп
-                    // Берем Iдоп из поля t[9], если оно присутствует.
-                    permissibleCurrentByBranch[br] = t.Length > 9 ? ParseD(t[9]) : 0;
+                    // Iдоп находится в ПОСЛЕДНЕМ поле строки (а не в t[9], где лежит один из нулевых маркеров).
+                    permissibleCurrentByBranch[br] = t.Length > 9 ? ParseD(t[t.Length - 1]) : 0;
                     if (Math.Abs(x[br]) < 1.001) x[br] = 1.01;
                     if (kt[br] < 0.001) kt[br] = 1;
                     gy[br] = 0;
