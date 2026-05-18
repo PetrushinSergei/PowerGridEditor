@@ -12,7 +12,8 @@ namespace PowerGridEditor
         public double ReactiveConductivity { get; set; }
         public double TransformationRatio { get; set; }
         public double ActiveConductivity { get; set; }
-        public double PermissibleCurrent { get; set; } = 600;
+        // Iдоп (А). По умолчанию 0, пока пользователь явно не задаст значение.
+        public double PermissibleCurrent { get; set; } = 0;
         public double CalculatedActiveCurrent { get; set; }
         public double CalculatedReactiveCurrent { get; set; }
         public double CalculatedCurrent { get; set; }

@@ -1063,7 +1063,7 @@ namespace PowerGridEditor
             Point end = NodeGraphicsHelper.GetNodeCenter(branch.EndNode);
             Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
 
-            double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+            double id = branch.Data.PermissibleCurrent;
             double ir = branch.Data.CalculatedCurrent;
             double loading = branch.Data.LoadingPercent;
 
@@ -3046,7 +3046,7 @@ namespace PowerGridEditor
                 double b = ParseDouble(parts[6]);
                 double k = ParseDouble(parts[7]);
                 double g = ParseDouble(parts[8]);
-                double iMax = (parts.Length == 10 || parts.Length > 11) ? ParseDouble(parts[parts.Length - 1]) : 600;
+                double iMax = (parts.Length == 10 || parts.Length > 11) ? ParseDouble(parts[parts.Length - 1]) : 0;
 
                 object startObj = FindNodeByNumber(startNode);
                 object endObj = FindNodeByNumber(endNode);
@@ -3583,7 +3583,7 @@ namespace PowerGridEditor
                 branch.Data.CalculatedActiveCurrent = c.Active;
                 branch.Data.CalculatedReactiveCurrent = c.Reactive;
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
                 branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
@@ -3934,7 +3934,7 @@ namespace PowerGridEditor
                 branch.Data.CalculatedActiveCurrent = c.Active;
                 branch.Data.CalculatedReactiveCurrent = c.Reactive;
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
                 branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
@@ -4141,7 +4141,7 @@ namespace PowerGridEditor
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
                 double iaAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedActiveCurrent, uNomKv);
                 double irAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedReactiveCurrent, uNomKv);
-                double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                double iMax = branch.Data.PermissibleCurrent;
                 return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}\n" +
                        $"Iакт={iaAmp:F2} A\n" +
                        $"Iреакт={irAmp:F2} A\n" +
@@ -4709,7 +4709,7 @@ namespace PowerGridEditor
         {
             foreach (var branch in graphicBranches)
             {
-                double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrent;
                 if (branch.Data.CalculatedCurrent > 0)
                 {
                     branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
