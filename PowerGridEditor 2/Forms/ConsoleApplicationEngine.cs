@@ -65,7 +65,9 @@ internal sealed class ConsoleApplicationEngine
     private readonly double[] gy = new double[imm];
     private readonly double[] by = new double[imm];
     private readonly double[] kt = new double[imm];
-    private readonly double[] iMax = new double[imm];
+    // Iдоп по индексам ветвей в расчетном движке.
+    // В этом классе нет объектов Branch/Data, поэтому Iдоп берём напрямую из строки 0301 и храним отдельно.
+    private readonly double[] permissibleCurrentByBranch = new double[imm];
     private readonly double[] gg = new double[inn];
     private readonly double[] bb = new double[inn];
     private readonly double[] va = new double[inn];
@@ -232,7 +234,9 @@ internal sealed class ConsoleApplicationEngine
                     x[br] = ParseD(t[5]);
                     by[br] = -ParseD(t[6]);
                     kt[br] = t.Length > 7 ? ParseD(t[7]) : 0;
-                    iMax[br] = t.Length > 9 ? ParseD(t[9]) : 0;
+                    // Формат 0301: ... Kтрансф Gакт 0 0 Iдоп
+                    // Берем Iдоп из поля t[9], если оно присутствует.
+                    permissibleCurrentByBranch[br] = t.Length > 9 ? ParseD(t[9]) : 0;
                     if (Math.Abs(x[br]) < 1.001) x[br] = 1.01;
                     if (kt[br] < 0.001) kt[br] = 1;
                     gy[br] = 0;
@@ -563,12 +567,14 @@ internal sealed class ConsoleApplicationEngine
             double s2_MVA = Math.Sqrt(p21 * p21 + q21 * q21);
             double iStartAmperes = v1_kV > 0.0 ? (s1_MVA * 1000.0) / (Math.Sqrt(3.0) * v1_kV) : 0.0;
             double iEndAmperes = v2_kV > 0.0 ? (s2_MVA * 1000.0) / (Math.Sqrt(3.0) * v2_kV) : 0.0;
+            // Наиболее опасный ток по ветви — максимум из токов на обоих концах.
             double iFactMax = Math.Max(iStartAmperes, iEndAmperes);
-            double loadingPercent = iMax[j] > 0.0 ? (iFactMax / iMax[j]) * 100.0 : 0.0;
+            // Загр,% = Iмакс.факт / Iдоп * 100. Если Iдоп не задан, показываем 0.
+            double loadingPercent = permissibleCurrentByBranch[j] > 0.0 ? (iFactMax / permissibleCurrentByBranch[j]) * 100.0 : 0.0;
 
             tokRows.Add(new TokRow { Start = i1, End = i2, Ia = RoundFromFlex(i1a, 4), Ir = RoundFromFlex(i1r, 4), R = RoundFromFlex(Math.Abs(r[j]), 3) });
 
-            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}{F2(iStartAmperes),10}{F2(iEndAmperes),10}{F2(iMax[j]),10}{F2(loadingPercent),10}");
+            net2.AppendLine($"{nn[i1],5}{nn[i2],5}{F2(-p12),10}{F2(-q12),10}{F2(p21),10}{F2(q21),10}{F2(dpl),10}{F2(iStartAmperes),10}{F2(iEndAmperes),10}{F2(permissibleCurrentByBranch[j]),10}{F2(loadingPercent),10}");
 
             int rk = nn[i1] / kkk; while (rk > 9) rk /= kk;
             int r2 = nn[i2] / kkk; while (r2 > 9) r2 /= kk;
