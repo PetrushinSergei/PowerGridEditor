@@ -15,6 +15,8 @@ namespace PowerGridEditor
         public double PermissibleCurrent { get; set; } = 600;
         public double CalculatedActiveCurrent { get; set; }
         public double CalculatedReactiveCurrent { get; set; }
+        public double CalculatedStartCurrent { get; set; }
+        public double CalculatedEndCurrent { get; set; }
         public double CalculatedCurrent { get; set; }
         public double LoadingPercent { get; set; }
         public int Zero1 { get; set; } = 0;
