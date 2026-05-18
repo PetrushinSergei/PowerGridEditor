@@ -595,7 +595,7 @@ namespace PowerGridEditor
 
             AddSectionRow("Ветви");
             foreach (var branch in graphicBranches.OrderBy(b => b.Data.StartNodeNumber).ThenBy(b => b.Data.EndNodeNumber))
-                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity), ("Imax", "Iдоп, А", branch.Data.PermissibleCurrent) });
+                AddRowsForNode("Ветвь", $"{branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}", branch.Data, branch, new[] { ("R", "R, Ом", branch.Data.ActiveResistance), ("X", "X, Ом", branch.Data.ReactiveResistance), ("B", "B, См", branch.Data.ReactiveConductivity), ("Ktr", "K трансф., о.е.", branch.Data.TransformationRatio), ("G", "G, См", branch.Data.ActiveConductivity), ("Imax", "Iдоп, А", branch.Data.PermissibleCurrentLimit) });
 
             AddSectionRow("Шунты");
             foreach (var shunt in graphicShunts.OrderBy(s => s.Data.StartNodeNumber))
@@ -930,7 +930,7 @@ namespace PowerGridEditor
             if (key == "B") return data.ReactiveConductivity;
             if (key == "Ktr") return data.TransformationRatio;
             if (key == "G") return data.ActiveConductivity;
-            if (key == "Imax") return data.PermissibleCurrent;
+            if (key == "Imax") return data.PermissibleCurrentLimit;
             return 0;
         }
 
@@ -967,7 +967,7 @@ namespace PowerGridEditor
             else if (key == "B") data.ReactiveConductivity = value;
             else if (key == "Ktr") data.TransformationRatio = value;
             else if (key == "G") data.ActiveConductivity = value;
-            else if (key == "Imax") data.PermissibleCurrent = value;
+            else if (key == "Imax") data.PermissibleCurrentLimit = value;
         }
 
         private void SetupCanvas()
@@ -1063,7 +1063,7 @@ namespace PowerGridEditor
             Point end = NodeGraphicsHelper.GetNodeCenter(branch.EndNode);
             Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
 
-            double id = branch.Data.PermissibleCurrent;
+            double id = branch.Data.PermissibleCurrentLimit;
             double ir = branch.Data.CalculatedCurrent;
             double loading = branch.Data.LoadingPercent;
 
@@ -1593,7 +1593,7 @@ namespace PowerGridEditor
                 graphicBranch.Data.ReactiveConductivity = form.MyBranch.ReactiveConductivity;
                 graphicBranch.Data.TransformationRatio = form.MyBranch.TransformationRatio;
                 graphicBranch.Data.ActiveConductivity = form.MyBranch.ActiveConductivity;
-                graphicBranch.Data.PermissibleCurrent = form.MyBranch.PermissibleCurrent;
+                graphicBranch.Data.PermissibleCurrentLimit = form.MyBranch.PermissibleCurrentLimit;
                 panel2.Invalidate();
             };
             form.Show(this);
@@ -2399,7 +2399,7 @@ namespace PowerGridEditor
                                     $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
                                     $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
                                     $"{FormatDouble(branch.Data.TransformationRatio),5} " +
-                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrent)}";
+                                    $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrentLimit)}";
                 writer.WriteLine(branchLine);
             }
         }
@@ -2523,7 +2523,7 @@ namespace PowerGridEditor
                              $"{branch.Data.ReactiveConductivity,8:F1}   " +
                              $"{branch.Data.TransformationRatio,4}   " +
                              $"{branch.Data.ActiveConductivity,4}   " +
-                             $"{branch.Data.PermissibleCurrent,6:F1}";
+                             $"{branch.Data.PermissibleCurrentLimit,6:F1}";
 
                 writer.WriteLine(line);
             }
@@ -3060,7 +3060,7 @@ namespace PowerGridEditor
                     ReactiveConductivity = b,
                     TransformationRatio = k,
                     ActiveConductivity = g,
-                    PermissibleCurrent = iMax
+                    PermissibleCurrentLimit = iMax
                 };
                 graphicBranches.Add(new GraphicBranch(branch, startObj, endObj));
             }
@@ -3583,7 +3583,7 @@ namespace PowerGridEditor
                 branch.Data.CalculatedActiveCurrent = c.Active;
                 branch.Data.CalculatedReactiveCurrent = c.Reactive;
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double limit = branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrentLimit;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
                 branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
@@ -3934,7 +3934,7 @@ namespace PowerGridEditor
                 branch.Data.CalculatedActiveCurrent = c.Active;
                 branch.Data.CalculatedReactiveCurrent = c.Reactive;
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double limit = branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrentLimit;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
                 branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
@@ -4141,7 +4141,7 @@ namespace PowerGridEditor
                 double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
                 double iaAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedActiveCurrent, uNomKv);
                 double irAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedReactiveCurrent, uNomKv);
-                double iMax = branch.Data.PermissibleCurrent;
+                double iMax = branch.Data.PermissibleCurrentLimit;
                 return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}\n" +
                        $"Iакт={iaAmp:F2} A\n" +
                        $"Iреакт={irAmp:F2} A\n" +
@@ -4267,8 +4267,8 @@ namespace PowerGridEditor
                           $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
                           $"{FormatDouble(branch.Data.TransformationRatio),5} " +
                           // Для расчетного движка 0301: ... Gакт 0 0 Iдоп
-                          // Iдоп берем из того же параметра ветви (Imax/PermissibleCurrent), как и в остальных местах приложения.
-                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrent)}");
+                          // Iдоп берем из того же параметра ветви (Imax/PermissibleCurrentLimit), как и в остальных местах приложения.
+                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrentLimit)}");
             }
 
             return lines;
@@ -4709,7 +4709,7 @@ namespace PowerGridEditor
         {
             foreach (var branch in graphicBranches)
             {
-                double limit = branch.Data.PermissibleCurrent;
+                double limit = branch.Data.PermissibleCurrentLimit;
                 if (branch.Data.CalculatedCurrent > 0)
                 {
                     branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;

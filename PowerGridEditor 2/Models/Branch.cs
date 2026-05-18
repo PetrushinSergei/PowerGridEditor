@@ -12,8 +12,15 @@ namespace PowerGridEditor
         public double ReactiveConductivity { get; set; }
         public double TransformationRatio { get; set; }
         public double ActiveConductivity { get; set; }
-        // Iдоп (А). По умолчанию 0, пока пользователь явно не задаст значение.
-        public double PermissibleCurrent { get; set; } = 0;
+        // Отдельная переменная для Iдоп (А), которая хранит введенное пользователем значение.
+        public double PermissibleCurrentLimit { get; set; } = 0;
+
+        // Совместимость со старым именем свойства.
+        public double PermissibleCurrent
+        {
+            get => PermissibleCurrentLimit;
+            set => PermissibleCurrentLimit = value;
+        }
         public double CalculatedActiveCurrent { get; set; }
         public double CalculatedReactiveCurrent { get; set; }
         public double CalculatedCurrent { get; set; }
@@ -50,7 +57,7 @@ namespace PowerGridEditor
 
         public string ToFileString()
         {
-            return $"{Code} {StartNodeNumber} {EndNodeNumber} {ActiveResistance:F1} {ReactiveResistance:F2} {ReactiveConductivity:F1} {TransformationRatio} {ActiveConductivity} {Zero1} {Zero2} {PermissibleCurrent:F1}";
+            return $"{Code} {StartNodeNumber} {EndNodeNumber} {ActiveResistance:F1} {ReactiveResistance:F2} {ReactiveConductivity:F1} {TransformationRatio} {ActiveConductivity} {Zero1} {Zero2} {PermissibleCurrentLimit:F1}";
         }
     }
 }
