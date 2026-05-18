@@ -3565,14 +3565,27 @@ namespace PowerGridEditor
                 return;
             }
 
+            var branchMetricsFromNetwork = ParseBranchMetricsFromNetworkRez(result.NetworkRez);
             var currents = ParseBranchCurrentsFromLosses(lossesText);
             foreach (var branch in graphicBranches)
             {
                 var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (branchMetricsFromNetwork.TryGetValue(key, out var metrics) || branchMetricsFromNetwork.TryGetValue((key.Item2, key.Item1), out metrics))
+                {
+                    branch.Data.CalculatedStartCurrent = metrics.IStart;
+                    branch.Data.CalculatedEndCurrent = metrics.IEnd;
+                    branch.Data.CalculatedCurrent = Math.Max(metrics.IStart, metrics.IEnd);
+                    branch.Data.LoadingPercent = metrics.Loading;
+                    branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+                    continue;
+                }
+
                 if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
                 {
                     branch.Data.CalculatedActiveCurrent = 0;
                     branch.Data.CalculatedReactiveCurrent = 0;
+                    branch.Data.CalculatedStartCurrent = 0;
+                    branch.Data.CalculatedEndCurrent = 0;
                     branch.Data.CalculatedCurrent = 0;
                     branch.Data.LoadingPercent = 0;
                     branch.LoadColor = Color.Black;
@@ -3923,10 +3936,21 @@ namespace PowerGridEditor
                 return;
             }
 
+            var branchMetricsFromNetwork = ParseBranchMetricsFromNetworkRez(result.NetworkRez);
             var currents = ParseBranchCurrentsFromLosses(result.LossesRez);
             foreach (var branch in graphicBranches)
             {
                 var key = (branch.Data.StartNodeNumber, branch.Data.EndNodeNumber);
+                if (branchMetricsFromNetwork.TryGetValue(key, out var metrics) || branchMetricsFromNetwork.TryGetValue((key.Item2, key.Item1), out metrics))
+                {
+                    branch.Data.CalculatedStartCurrent = metrics.IStart;
+                    branch.Data.CalculatedEndCurrent = metrics.IEnd;
+                    branch.Data.CalculatedCurrent = Math.Max(metrics.IStart, metrics.IEnd);
+                    branch.Data.LoadingPercent = metrics.Loading;
+                    branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
+                    continue;
+                }
+
                 if (!currents.TryGetValue(key, out var c) && !currents.TryGetValue((key.Item2, key.Item1), out c))
                 {
                     continue;
@@ -4141,13 +4165,10 @@ namespace PowerGridEditor
 
             if (element is GraphicBranch branch)
             {
-                double uNomKv = GetNodeNominalVoltageKv(branch.Data.StartNodeNumber);
-                double iaAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedActiveCurrent, uNomKv);
-                double irAmp = ConvertPuCurrentComponentToAmperes(branch.Data.CalculatedReactiveCurrent, uNomKv);
                 double iMax = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 return $"Ветвь {branch.Data.StartNodeNumber}-{branch.Data.EndNodeNumber}\n" +
-                       $"Iакт={iaAmp:F2} A\n" +
-                       $"Iреакт={irAmp:F2} A\n" +
+                       $"Iнач={branch.Data.CalculatedStartCurrent:F2} A\n" +
+                       $"Iкон={branch.Data.CalculatedEndCurrent:F2} A\n" +
                        $"Iдоп={iMax:F2} A\n" +
                        $"Загрузка={branch.Data.LoadingPercent:F2}%";
             }
@@ -4326,6 +4347,55 @@ namespace PowerGridEditor
                 }
 
                 result[(start, end)] = (active, reactive);
+            }
+
+            return result;
+        }
+
+        private Dictionary<(int Start, int End), (double IStart, double IEnd, double Loading)> ParseBranchMetricsFromNetworkRez(string networkRez)
+        {
+            var result = new Dictionary<(int Start, int End), (double IStart, double IEnd, double Loading)>();
+            if (string.IsNullOrWhiteSpace(networkRez))
+            {
+                return result;
+            }
+
+            var lines = networkRez.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var raw in lines)
+            {
+                var line = raw.Trim();
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("|"))
+                {
+                    continue;
+                }
+
+                var parts = line.Split('|').Select(x => x.Trim()).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
+                if (parts.Length < 16 || (parts[0] != "ЛЭП" && parts[0] != "Тр-р"))
+                {
+                    continue;
+                }
+
+                if (!int.TryParse(parts[1], out int start) || !int.TryParse(parts[2], out int end))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[12], NumberStyles.Any, CultureInfo.InvariantCulture, out double iStart))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[13], NumberStyles.Any, CultureInfo.InvariantCulture, out double iEnd))
+                {
+                    continue;
+                }
+
+                if (!double.TryParse(parts[15], NumberStyles.Any, CultureInfo.InvariantCulture, out double loading))
+                {
+                    continue;
+                }
+
+                result[(start, end)] = (iStart, iEnd, loading);
             }
 
             return result;
