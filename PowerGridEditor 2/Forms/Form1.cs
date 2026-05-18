@@ -4266,7 +4266,9 @@ namespace PowerGridEditor
                           $"{FormatDouble(branch.Data.ReactiveResistance),5}   " +
                           $"{FormatDouble(branch.Data.ReactiveConductivity, true),6}     " +
                           $"{FormatDouble(branch.Data.TransformationRatio),5} " +
-                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0");
+                          // Для расчетного движка 0301: ... Gакт 0 0 Iдоп
+                          // Iдоп берем из того же параметра ветви (Imax/PermissibleCurrent), как и в остальных местах приложения.
+                          $"{FormatInt(branch.Data.ActiveConductivity),1} 0 0 {FormatDouble(branch.Data.PermissibleCurrent)}");
             }
 
             return lines;
