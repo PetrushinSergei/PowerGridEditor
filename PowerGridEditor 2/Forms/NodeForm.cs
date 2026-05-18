@@ -422,7 +422,6 @@ namespace PowerGridEditor
                 }
                 MyNode.InitialVoltage = double.Parse(paramBoxes[1].Text.Replace(',', '.'), inv);
                 MyNode.ActualVoltage = double.Parse(paramBoxes[2].Text.Replace(',', '.'), inv);
-                MyNode.CalculatedVoltage = double.Parse(paramBoxes[3].Text.Replace(',', '.'), inv);
                 MyNode.NominalActivePower = double.Parse(paramBoxes[4].Text.Replace(',', '.'), inv);
                 MyNode.NominalReactivePower = double.Parse(paramBoxes[5].Text.Replace(',', '.'), inv);
                 MyNode.ActivePowerGeneration = double.Parse(paramBoxes[6].Text.Replace(',', '.'), inv);
