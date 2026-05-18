@@ -438,7 +438,7 @@ namespace PowerGridEditor
                                     $"{FormatDoubleValue(branch.Data.ReactiveResistance),5}   " +
                                     $"{FormatDoubleValue(branch.Data.ReactiveConductivity, true),6}     " +
                                     $"{FormatDoubleValue(branch.Data.TransformationRatio),5} " +
-                                    $"{FormatIntValue(branch.Data.ActiveConductivity),1} 0 0";
+                                    $"{FormatIntValue(branch.Data.ActiveConductivity),1} 0 0 {FormatDoubleValue(branch.Data.PermissibleCurrentLimit)}";
                 lines.Add(branchLine);
             }
 
