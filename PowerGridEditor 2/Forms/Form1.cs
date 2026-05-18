@@ -1064,10 +1064,11 @@ namespace PowerGridEditor
             Point middle = new Point((start.X + end.X) / 2, (start.Y + end.Y) / 2);
 
             double id = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
-            double ir = branch.Data.CalculatedCurrent;
+            double iStart = branch.Data.CalculatedStartCurrent;
+            double iEnd = branch.Data.CalculatedEndCurrent;
             double loading = branch.Data.LoadingPercent;
 
-            string info = $"Iд={id:F2}A  Iр={ir:F2}A  Загрузка={loading:F2}%";
+            string info = $"Iнач={iStart:F2}A  Iкон={iEnd:F2}A  Iдоп={id:F2}A  Загр={loading:F2}%";
             var size = g.MeasureString(info, Font);
             var rect = new RectangleF(middle.X - size.Width / 2f - 4f, middle.Y - 25f, size.Width + 8f, size.Height + 2f);
 
@@ -1091,7 +1092,7 @@ namespace PowerGridEditor
             int y = Math.Max(6, defaultY + branchLegendOffset.Y);
             int rowH = 24;
             int legendW = 350;
-            int legendH = 155;
+            int legendH = 110;
             branchLegendBounds = new Rectangle(x, y, legendW, legendH);
 
             using (var bg = new SolidBrush(Color.FromArgb(235, Color.White)))
@@ -1104,10 +1105,8 @@ namespace PowerGridEditor
 
                 var rows = new[]
                 {
-                    (Color.Blue, "0% - 50%", "Линия недогружена (холодная)"),
-                    (Color.Green, "50% - 80%", "Оптимальный режим"),
-                    (Color.Yellow, "80% - 95%", "Внимание! Близко к пределу"),
-                    (Color.Orange, "95% - 100%", "Предупреждение"),
+                    (Color.Green, "0% - 80%", "Оптимальный режим / недогружена"),
+                    (Color.Yellow, "80% - 100%", "Внимание / близко к пределу"),
                     (Color.Red, "> 100%", "ПЕРЕГРУЗКА! Риск повреждения")
                 };
 
@@ -3586,7 +3585,9 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
-                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
@@ -3937,7 +3938,9 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 bool overloaded;
                 branch.Data.CalculatedCurrent = ConvertTokToAmperes(c.Active, c.Reactive, uNomKv, limit, out overloaded);
-                branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                 branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
             }
 
@@ -4330,10 +4333,8 @@ namespace PowerGridEditor
 
         private Color GetBranchLoadColor(double loadingPercent)
         {
-            if (loadingPercent <= 50) return Color.Blue;
             if (loadingPercent <= 80) return Color.Green;
-            if (loadingPercent <= 95) return Color.Yellow;
-            if (loadingPercent <= 100) return Color.Orange;
+            if (loadingPercent <= 100) return Color.Yellow;
             return Color.Red;
         }
 
@@ -4710,7 +4711,9 @@ namespace PowerGridEditor
                 double limit = branch.Data.PermissibleCurrent <= 0 ? 600 : branch.Data.PermissibleCurrent;
                 if (branch.Data.CalculatedCurrent > 0)
                 {
-                    branch.Data.LoadingPercent = limit > 0 ? (branch.Data.CalculatedCurrent / limit) * 100.0 : 0;
+                    branch.Data.CalculatedStartCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.CalculatedEndCurrent = branch.Data.CalculatedCurrent;
+                branch.Data.LoadingPercent = limit > 0 ? (Math.Max(branch.Data.CalculatedStartCurrent, branch.Data.CalculatedEndCurrent) / limit) * 100.0 : 0;
                     branch.LoadColor = GetBranchLoadColor(branch.Data.LoadingPercent);
                 }
             }
